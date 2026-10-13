@@ -1,0 +1,102 @@
+{
+  "input_sha256": "1f5e15ebdc7db99ca17b980829ac2e3452207a3b3b1bec89e65c9e997261d51f",
+  "plan_segments": 2700,
+  "sources": 1849,
+  "input_quantity": 2150565,
+  "output_quantity": 2069018,
+  "switches": 1422,
+  "confirmation_batches": 690,
+  "weeks": [
+    {
+      "week": 1,
+      "demand": 109939,
+      "on_time": 109939,
+      "late": 0
+    },
+    {
+      "week": 2,
+      "demand": 140762,
+      "on_time": 140762,
+      "late": 0
+    },
+    {
+      "week": 3,
+      "demand": 142417,
+      "on_time": 142417,
+      "late": 0
+    },
+    {
+      "week": 4,
+      "demand": 134803,
+      "on_time": 134803,
+      "late": 0
+    },
+    {
+      "week": 5,
+      "demand": 140851,
+      "on_time": 140851,
+      "late": 0
+    },
+    {
+      "week": 6,
+      "demand": 136513,
+      "on_time": 136513,
+      "late": 0
+    },
+    {
+      "week": 7,
+      "demand": 139518,
+      "on_time": 139518,
+      "late": 0
+    },
+    {
+      "week": 8,
+      "demand": 137394,
+      "on_time": 137394,
+      "late": 0
+    },
+    {
+      "week": 9,
+      "demand": 138790,
+      "on_time": 138790,
+      "late": 0
+    },
+    {
+      "week": 10,
+      "demand": 132556,
+      "on_time": 132556,
+      "late": 0
+    },
+    {
+      "week": 11,
+      "demand": 133494,
+      "on_time": 133494,
+      "late": 0
+    },
+    {
+      "week": 12,
+      "demand": 138804,
+      "on_time": 138804,
+      "late": 0
+    },
+    {
+      "week": 13,
+      "demand": 143947,
+      "on_time": 143947,
+      "late": 0
+    },
+    {
+      "week": 14,
+      "demand": 134788,
+      "on_time": 134788,
+      "late": 0
+    },
+    {
+      "week": 15,
+      "demand": 164442,
+      "on_time": 136298,
+      "late": 28144
+    }
+  ],
+  "status": "synthetic_reference_pending_review_and_independent_validation"
+}
