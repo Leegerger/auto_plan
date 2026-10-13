@@ -1,0 +1,123 @@
+{
+  "switches": 1422,
+  "input_quantity": 2150565,
+  "output_quantity": 2069018,
+  "unallocated_output": 0,
+  "pending_material": 0,
+  "pending_shipping": 0,
+  "weeks": [
+    {
+      "week": 1,
+      "demand": 109939,
+      "on_time": 109939,
+      "late": 0,
+      "final_shortage": 0
+    },
+    {
+      "week": 2,
+      "demand": 140762,
+      "on_time": 140762,
+      "late": 0,
+      "final_shortage": 0
+    },
+    {
+      "week": 3,
+      "demand": 142417,
+      "on_time": 142417,
+      "late": 0,
+      "final_shortage": 0
+    },
+    {
+      "week": 4,
+      "demand": 134803,
+      "on_time": 134803,
+      "late": 0,
+      "final_shortage": 0
+    },
+    {
+      "week": 5,
+      "demand": 140851,
+      "on_time": 140851,
+      "late": 0,
+      "final_shortage": 0
+    },
+    {
+      "week": 6,
+      "demand": 136513,
+      "on_time": 136513,
+      "late": 0,
+      "final_shortage": 0
+    },
+    {
+      "week": 7,
+      "demand": 139518,
+      "on_time": 139518,
+      "late": 0,
+      "final_shortage": 0
+    },
+    {
+      "week": 8,
+      "demand": 137394,
+      "on_time": 137394,
+      "late": 0,
+      "final_shortage": 0
+    },
+    {
+      "week": 9,
+      "demand": 138790,
+      "on_time": 138790,
+      "late": 0,
+      "final_shortage": 0
+    },
+    {
+      "week": 10,
+      "demand": 132556,
+      "on_time": 132556,
+      "late": 0,
+      "final_shortage": 0
+    },
+    {
+      "week": 11,
+      "demand": 133494,
+      "on_time": 133494,
+      "late": 0,
+      "final_shortage": 0
+    },
+    {
+      "week": 12,
+      "demand": 138804,
+      "on_time": 138804,
+      "late": 0,
+      "final_shortage": 0
+    },
+    {
+      "week": 13,
+      "demand": 143947,
+      "on_time": 143947,
+      "late": 0,
+      "final_shortage": 0
+    },
+    {
+      "week": 14,
+      "demand": 134788,
+      "on_time": 134788,
+      "late": 0,
+      "final_shortage": 0
+    },
+    {
+      "week": 15,
+      "demand": 164442,
+      "on_time": 136298,
+      "late": 28144,
+      "final_shortage": 0
+    }
+  ],
+  "confirmation_used_by_type": {
+    "material": 397287,
+    "shipping": 28144
+  },
+  "coverage_scope": "normal reference only; no executed/WIP/locks/bans/cross-day switch/adjustment scope validation",
+  "input_sha256": "c8ed457a9fba80d18606e46199f0862416a44e70fd782ee38659d0929c24a45e",
+  "matches_generated_summary": true,
+  "load_validate_seconds": 0.1572057567536831
+}

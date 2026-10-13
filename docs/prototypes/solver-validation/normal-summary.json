@@ -1,11 +1,11 @@
 {
-  "input_sha256": "1f5e15ebdc7db99ca17b980829ac2e3452207a3b3b1bec89e65c9e997261d51f",
-  "plan_segments": 2700,
-  "sources": 1849,
-  "input_quantity": 2150565,
-  "output_quantity": 2069018,
-  "switches": 1422,
-  "confirmation_batches": 690,
+  "input_sha256": "5dad6a730ce6022b8eb23671bb789b2465bc76805342c5f5fe788d67dd81c237",
+  "plan_segments": 2658,
+  "sources": 1815,
+  "input_quantity": 2126029,
+  "output_quantity": 2045331,
+  "switches": 1407,
+  "confirmation_batches": 638,
   "weeks": [
     {
       "week": 1,
@@ -93,9 +93,9 @@
     },
     {
       "week": 15,
-      "demand": 164442,
-      "on_time": 136298,
-      "late": 28144
+      "demand": 140755,
+      "on_time": 140755,
+      "late": 0
     }
   ],
   "status": "synthetic_reference_pending_review_and_independent_validation"

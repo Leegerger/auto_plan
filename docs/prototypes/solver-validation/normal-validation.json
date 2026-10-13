@@ -1,7 +1,7 @@
 {
-  "switches": 1422,
-  "input_quantity": 2150565,
-  "output_quantity": 2069018,
+  "switches": 1407,
+  "input_quantity": 2126029,
+  "output_quantity": 2045331,
   "unallocated_output": 0,
   "pending_material": 0,
   "pending_shipping": 0,
@@ -106,18 +106,18 @@
     },
     {
       "week": 15,
-      "demand": 164442,
-      "on_time": 136298,
-      "late": 28144,
+      "demand": 140755,
+      "on_time": 140755,
+      "late": 0,
       "final_shortage": 0
     }
   ],
   "confirmation_used_by_type": {
     "material": 397287,
-    "shipping": 28144
+    "shipping": 0
   },
   "coverage_scope": "normal reference only; no executed/WIP/locks/bans/cross-day switch/adjustment scope validation",
-  "input_sha256": "1f5e15ebdc7db99ca17b980829ac2e3452207a3b3b1bec89e65c9e997261d51f",
+  "input_sha256": "5dad6a730ce6022b8eb23671bb789b2465bc76805342c5f5fe788d67dd81c237",
   "matches_generated_summary": true,
-  "load_validate_seconds": 0.15294082835316658
+  "load_validate_seconds": 0.13862785324454308
 }

@@ -10,6 +10,7 @@ from fractions import Fraction as F
 from pathlib import Path
 import hashlib
 import json
+import sys
 
 START = date(2026, 10, 12)
 DAYS = [START + timedelta(days=i) for i in range(105)]
@@ -58,6 +59,9 @@ def changeover(a, b):
 
 def main():
     root = Path(__file__).parent
+    prefix = sys.argv[1] if len(sys.argv) > 1 else 'normal'
+    if prefix not in ('normal', 'tail'):
+        raise ValueError('choose normal or tail')
     lines = list(range(18))
     models = list(range(40))
     allowed = {r: sorted({(r + offset) % 18 for offset in range(3 + r % 4)}) for r in range(20)}
@@ -84,6 +88,14 @@ def main():
             if count == 3:
                 other = can[(di + line + 1) % len(can)]
                 sequence.append(2 * other + (di % 2))
+            if prefix == 'normal':
+                # Keep only sources whose complete output falls in the
+                # window. The tail case retains the original construction.
+                sequence = [m for m in sequence if all(
+                    week(date.fromisoformat(slot['date'])) < 15
+                    for slot in outputs(day, 1, F(1), F(ct[str(m)])))]
+            if not sequence:
+                continue
             transitions = []
             state = previous[line]
             for m in sequence:
@@ -175,7 +187,7 @@ def main():
                     batches.append({'id': f'{kind}-{m:02}-{w:02}-{i}', 'type': kind, 'model': m,
                                     'demand_week': w, 'quantity': q, 'status': 'allowed',
                                     'date': START.isoformat() if kind == 'material' else max(o['date'] for o in ledger)})
-    snapshot = {'status': 'synthetic_reference_pending_review_and_independent_validation',
+    snapshot = {'status': 'synthetic_reference_pending_review_and_independent_validation', 'case': prefix,
                 'start_date': START.isoformat(), 'production_day_start': '08:00 Asia/Shanghai',
                 'days': 105, 'lines': lines, 'models': models,
                 'model_recipe': {str(m): recipe(m) for m in models}, 'allowed_lines': {str(r): ls for r, ls in allowed.items()},
@@ -189,9 +201,9 @@ def main():
                 'confirmation_batches': batches}
     canonical = json.dumps(snapshot, sort_keys=True, separators=(',', ':')).encode()
     digest = hashlib.sha256(canonical).hexdigest()
-    (root/'normal-snapshot.json').write_text(json.dumps(snapshot, indent=2) + '\n')
+    (root/f'{prefix}-snapshot.json').write_text(json.dumps(snapshot, indent=2) + '\n')
     expected = {'input_sha256': digest, 'output_ledger': ledger, 'input_attribution': allocations}
-    (root/'normal-expected.json').write_text(json.dumps(expected, indent=2) + '\n')
+    (root/f'{prefix}-expected.json').write_text(json.dumps(expected, indent=2) + '\n')
     weeks = []
     for w in range(15):
         required = sum(q for (m, wi), q in demand.items() if wi == w)
@@ -201,7 +213,7 @@ def main():
                'input_quantity': sum(r['quantity'] for r in plan), 'output_quantity': sum(o['quantity'] for o in ledger),
                'switches': sum(len(c['transitions']) for c in day_lines), 'confirmation_batches': len(batches),
                'weeks': weeks, 'status': snapshot['status']}
-    (root/'normal-summary.json').write_text(json.dumps(summary, indent=2)+'\n')
+    (root/f'{prefix}-summary.json').write_text(json.dumps(summary, indent=2)+'\n')
     print(json.dumps(summary))
 
 

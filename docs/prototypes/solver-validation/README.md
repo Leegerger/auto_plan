@@ -73,20 +73,32 @@ API依据：[OR-Tools CP-SAT 官方说明](https://developers.google.com/optimiz
 
 1至3段是样本分布，不是求解模型的段数上限。其他变体尚未生成，参考方案的质量门槛仍需用户评议。
 
-## 首份具体参考快照
+## 两份具体参考快照
 
-已生成2,700个生产段、1,849份跨线汇总投入来源，总投入2,150,565片，预计产出及对应需求2,069,018片，共1,422次切机、690个允许确认批次。Recipe可替代线体为3至6条。全厂周末为Holiday，部分工作日保养4小时；CT为0、0.5、1、1.5或2天，产能与双良率按月变化。暂未加入开工例外、锁定、执行事实或在制品。
+用户在Q8选择常态全部按时满足，把获批的窗口尾部迟交单列。提供 [单文件参考评议](reference-review.html)，直接打开后可切换案例、查看15周覆盖和逐日逐线的生产段、工时及切机。
 
-前14周需求全部按时，第15周164,442片需求中136,298片按时，28,144片在窗口外产出，出货额度覆盖全部迟交，最终缺口为零。所有物料确认均充足。该计划是用来评议参考下限的合成方案，尚未获用户批准为常态参考，也不是优化结果。参考计划同时作为数量稳定性基线，因此它自身的数量及顺序变动均为零。
+| 案例 | 生产段 | 总投入 | 总需求及产出 | 按时覆盖 | 有效迟交 | 最终缺口 | 切机 |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 常态 | 2658 | 2126029 | 2045331 | 2045331 | 0 | 0 | 1407 |
+| 获批窗口尾部迟交 | 2700 | 2150565 | 2069018 | 2040874 | 28144 | 0 | 1422 |
+
+数量单位均为片，切机单位为次。常态的第15周需求140755片全部按时；尾部案例的第15周需求164442片，其中136298片按时、28144片有效迟交。物料确认占用均为397287片投入，出货确认占用分别为0及28144片合格产出，不能将两类单位相加。
+
+Recipe可替代线体为3至6条。全厂周末为Holiday，部分工作日保养4小时；CT为0、0.5、1、1.5或2天，产能与双良率按月变化。暂未加入开工例外、锁定、执行事实或在制品。常态不安排预计产出超出窗口的来源；这是样本构造，不是新的生产禁止规则。两份参考都从计划反推需求，尚未经过求解优化。参考计划同时作为数量稳定性基线，因此它自身的数量及顺序变动均为零。
 
 [生成器](generate_snapshot.py)与[独立常态校验器](validate_reference.py)分别实现数量和日期核算，校验器不导入生成器或它的预计明细。独立检查日线Recipe状态、有向切机、日容量、Recipe汇总取整、投入日跨线产出汇总、月度良率、CT和Holiday、逐周FIFO归属、最大余数投入归属、允许物料/出货批次及窗口外产出。当前快照在这些已实现检查上通过，逐周需求覆盖、数量、切机及哈希与生成结果一致。没有把此检查称为全部业务约束通过。
 
 ```sh
-python3 docs/prototypes/solver-validation/generate_snapshot.py
-python3 docs/prototypes/solver-validation/validate_reference.py
+python3 docs/prototypes/solver-validation/generate_snapshot.py normal
+python3 docs/prototypes/solver-validation/validate_reference.py normal
+python3 docs/prototypes/solver-validation/generate_snapshot.py tail
+python3 docs/prototypes/solver-validation/validate_reference.py tail
 ```
 
-快照及完整逐笔预期保存在 [输入快照](normal-snapshot.json.gz) 与 [预期明细](normal-expected.json.gz)，[汇总](normal-summary.json) 和 [独立核算结果](normal-validation.json) 可直接阅读。快照SHA-256为 `1f5e15ebdc7db99ca17b980829ac2e3452207a3b3b1bec89e65c9e997261d51f`。
+常态快照及完整逐笔预期保存在 [输入快照](normal-snapshot.json.gz) 与 [预期明细](normal-expected.json.gz)，[汇总](normal-summary.json) 和 [独立核算结果](normal-validation.json) 可直接阅读。尾部案例有对应的 [快照](tail-snapshot.json.gz)、[预期](tail-expected.json.gz)、[汇总](tail-summary.json)、[独立核算](tail-validation.json)。
+
+- 常态快照SHA-256为 `5dad6a730ce6022b8eb23671bb789b2465bc76805342c5f5fe788d67dd81c237`。
+- 尾部快照SHA-256为 `c8ed457a9fba80d18606e46199f0862416a44e70fd782ee38659d0929c24a45e`。
 
 生成时最初用整数Recipe键计算哈希，JSON读回时变成字符串键，导致排序不同。已统一在快照内使用字符串键，修复前后的业务数量一致。该复现问题与求解器性能无关。
 

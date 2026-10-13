@@ -10,6 +10,7 @@ from pathlib import Path
 from time import perf_counter
 import hashlib
 import json
+import sys
 
 
 def check(snapshot):
@@ -181,15 +182,18 @@ def check(snapshot):
 
 if __name__ == '__main__':
     root = Path(__file__).parent
+    prefix = sys.argv[1] if len(sys.argv) > 1 else 'normal'
+    if prefix not in ('normal', 'tail'):
+        raise ValueError('choose normal or tail')
     start = perf_counter()
-    snapshot = json.loads((root/'normal-snapshot.json').read_text())
+    snapshot = json.loads((root/f'{prefix}-snapshot.json').read_text())
     result = check(snapshot)
     result['input_sha256'] = hashlib.sha256(json.dumps(snapshot, sort_keys=True, separators=(',', ':')).encode()).hexdigest()
-    expected = json.loads((root/'normal-summary.json').read_text())
+    expected = json.loads((root/f'{prefix}-summary.json').read_text())
     result['matches_generated_summary'] = all(result[k] == expected[k] for k in ('switches', 'input_quantity', 'output_quantity', 'input_sha256')) and all(
         all(actual[k] == proposed[k] for k in ('week','demand','on_time','late'))
         for actual, proposed in zip(result['weeks'], expected['weeks']))
     result['load_validate_seconds'] = perf_counter()-start
-    (root/'normal-validation.json').write_text(json.dumps(result,indent=2)+'\n')
+    (root/f'{prefix}-validation.json').write_text(json.dumps(result,indent=2)+'\n')
     print(json.dumps(result))
     raise SystemExit(int(not result['matches_generated_summary']))
