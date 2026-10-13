@@ -1,0 +1,56 @@
+{
+  "date_beijing": "2026-10-13",
+  "python": "3.14.2",
+  "platform": "Linux-6.8.0-90-generic-x86_64-with-glibc2.39",
+  "cpu_model": "Intel(R) Core(TM) i3-6100 CPU @ 3.70GHz",
+  "affinity": [
+    0,
+    1,
+    2,
+    3
+  ],
+  "memory_info": "MemTotal:       32727084 kB",
+  "packages": {
+    "absl-py": {
+      "version": "2.5.1",
+      "installed_record_sha256": "69fb18c2c16358b5c34259a46a891000fcd175ddde9938fc8202c86be2a3963f"
+    },
+    "highspy": {
+      "version": "1.15.1",
+      "installed_record_sha256": "d51247da44e4e1f028df53cb6e5d2904110da2b36b20015f21a2d2ccaaa1aa35"
+    },
+    "immutabledict": {
+      "version": "4.3.1",
+      "installed_record_sha256": "02bb61b5169b993887318727c492354839f4752372c1abbfcae662e46c2adebc"
+    },
+    "numpy": {
+      "version": "2.5.4",
+      "installed_record_sha256": "79bc98226d2dc41178768043b15ec51010d135ebac59ce31d8d839f22d443afd"
+    },
+    "ortools": {
+      "version": "9.15.6755",
+      "installed_record_sha256": "a6ab314dc4a1a4cc33f9bc0f4bc6478c58b7d833cb46b9947232fb64130198bd"
+    },
+    "pandas": {
+      "version": "3.0.6",
+      "installed_record_sha256": "7f4fe48a08bfbc789a561294ea134614e3c527aa0312b586889b18270b11fc5d"
+    },
+    "protobuf": {
+      "version": "6.33.6",
+      "installed_record_sha256": "eec74a7da0f936d6cc8b5a98671c627a9a75e0f2775f6318a7dcec6338347fd9"
+    },
+    "python-dateutil": {
+      "version": "2.9.0.post0",
+      "installed_record_sha256": "e15e868a50b9c4e71df17b31369843617780146ac5adb1bbfdcced0ebe501824"
+    },
+    "six": {
+      "version": "1.17.0",
+      "installed_record_sha256": "d16e50f347969b1e1919fb0c88bac4b9c644f5305bcfcfb00f72b646dbd4065d"
+    },
+    "typing_extensions": {
+      "version": "4.16.0",
+      "installed_record_sha256": "9e07fea845cac76293d927afa7157a14ecba39b318bc8af236b8de530b7656c1"
+    }
+  },
+  "note": "Installed RECORD hashes are not wheel hashes. No container or server resource reservation was made. One thread per sequential route; other host workloads were not measured."
+}

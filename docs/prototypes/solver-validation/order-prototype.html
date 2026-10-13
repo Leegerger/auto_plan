@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="zh-CN">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>日内顺序变动数 · 可抛弃原型</title>
+<style>
+body{font:16px/1.65 system-ui,sans-serif;color:#24313a;background:#f4f6f7;margin:0}main{max-width:960px;margin:36px auto;padding:0 20px}h1{font-size:28px}h2{font-size:20px}section{background:white;padding:22px;margin:18px 0;border:1px solid #dce3e7;border-radius:9px}button,input{font:inherit}button{cursor:pointer;padding:8px 14px;margin:4px;border:1px solid #a8bcc9;border-radius:5px;background:#fff;color:#174e6d}button[aria-selected=true]{background:#174e6d;color:#fff}input{box-sizing:border-box;width:100%;padding:9px;border:1px solid #a8bcc9;border-radius:4px}label{display:block;margin:12px 0}small,.muted{color:#596a74}table{border-collapse:collapse;width:100%}th,td{text-align:left;border-bottom:1px solid #e3e8eb;padding:9px}.score{font-size:36px;color:#174e6d}.sequence{display:flex;gap:8px;flex-wrap:wrap}.segment{padding:8px 14px;background:#eaf2f6;border-radius:4px}.bad{color:#a2371a}#error{color:#a2371a}footer{margin:24px 0;color:#596a74}
+</style>
+<main>
+<h1>日内顺序变动数</h1>
+<p>可抛弃的规则原型。验证拆段、删段及同 Recipe 机种换序如何影响最后一层比较。它不生成排程，不校验产能，也不代表求解性能通过。</p>
+<p>已确认口径：前 32 层目标相同时，才比较这里的数值。以最近采用版为基线，只比较同日同线双方都有投入的机种。每对机种出现原来没有的反向先后关系计一次，不按数量加权，各日各线直接相加。</p>
+<section aria-labelledby="current-title">
+<h2 id="current-title">当前比较 · L01 · 2026-10-13</h2>
+<p class="muted">所有示例均为尚未执行部分。A、B 属于同一 Recipe，C、D 分别属于其他 Recipe。本原型只计算顺序变动数，数量变化及切机由前置目标另算。</p>
+<p>最近采用版</p><div id="old-view" class="sequence"></div>
+<p>候选</p><div id="new-view" class="sequence"></div>
+<p>日内顺序变动数 <strong id="score" class="score" aria-live="polite">0</strong></p>
+<table><thead><tr><th>机种对</th><th>原先后关系</th><th>候选先后关系</th><th>新增计数</th></tr></thead><tbody id="pairs"></tbody></table>
+<p id="excluded" class="muted"></p>
+</section>
+<section>
+<h2>自由比较</h2>
+<label>最近采用版，每段用“机种:数量”，段间留空格<input id="old" value="A:100 B:100" autocomplete="off"></label>
+<label>候选<input id="new" value="A:40 B:100 A:60" autocomplete="off"></label>
+<button id="compare">比较</button><button id="reverse">反转候选顺序</button><button id="split">将候选首段拆成两段</button><button id="drop">删去候选中段</button><button id="reset">还原当前案例</button>
+<p id="error" role="alert"></p>
+</section>
+<section>
+<h2>按案例演练</h2>
+<div id="tabs" role="tablist" aria-label="规则案例"></div>
+<p id="description"></p><div id="steps"></div><p id="step-status" aria-live="polite"></p>
+</section>
+<footer>只在内存中操作，刷新即还原。新增机种没有原顺序，不参加比较；数量为零的段不参加比较。原本已双向交错的机种对，继续交错也计零，这是用户明确接受的粗粒度口径。</footer>
+</main>
+<script id="logic">
+// Pure functions. No DOM and no production scheduling behavior.
+const Order = (() => {
+  function parse(text) {
+    if (!text.trim()) return [];
+    return text.trim().split(/\s+/).map(token => {
+      const match = /^([^\s:]+):(\d+)$/.exec(token);
+      if (!match || !Number.isSafeInteger(Number(match[2]))) throw Error('请使用机种:非负整数片数，例如 A:100 B:50。');
+      return {model:match[1], quantity:Number(match[2])};
+    }).filter(s => s.quantity > 0);
+  }
+  function relations(segments, a, b) {
+    let bits = 0, seenA = false, seenB = false;
+    for (const s of segments) {
+      if (s.model === a) {if(seenB) bits |= 2; seenA = true;}
+      if (s.model === b) {if(seenA) bits |= 1; seenB = true;}
+    }
+    return bits;
+  }
+  function compare(oldSegments, newSegments) {
+    const oldModels = new Set(oldSegments.map(s => s.model));
+    const newModels = new Set(newSegments.map(s => s.model));
+    const common = [...oldModels].filter(m => newModels.has(m)).sort();
+    const pairs = [];
+    for(let i=0;i<common.length;i++) for(let j=i+1;j<common.length;j++) {
+      const a=common[i], b=common[j];
+      const before=relations(oldSegments,a,b), after=relations(newSegments,a,b);
+      pairs.push({a,b,before,after,change:Number((after & ~before) !== 0)});
+    }
+    return {pairs,score:pairs.reduce((n,p)=>n+p.change,0),added:[...newModels].filter(m=>!oldModels.has(m)),removed:[...oldModels].filter(m=>!newModels.has(m))};
+  }
+  const format = segments => segments.map(s=>`${s.model}:${s.quantity}`).join(' ');
+  return {parse,compare,format};
+})();
+</script>
+<script>
+const scenarios=[
+ {title:'拆段',old:'A:100 B:100',description:'相邻拆段不改变关系。跨到 B 后面的 A 无论 60 片还是 100 片，A/B 都只计一次。',steps:[['相邻拆段','A:40 A:60 B:100'],['部分移到 B 后','A:40 B:100 A:60'],['全部移到 B 后','B:100 A:100']]},
+ {title:'删段',old:'A:100 B:100 C:100',description:'删掉 B 不再比较涉及 B 的关系；保留下来的 A/C 仍比较。',steps:[['删掉 B','A:100 C:100'],['颠倒 A/C','C:100 A:100']]},
+ {title:'同 Recipe',old:'A:100 B:100',description:'A/B 同 Recipe，但交换后仍增加一次日内顺序变动。',steps:[['保持原顺序','A:100 B:100'],['交换机种','B:100 A:100']]},
+ {title:'重复交错',old:'A:50 B:100 A:50',description:'原计划已有 A在B前、B在A前，因此以下三种候选均不新增关系。第三步的 B 合计仍是 100。',steps:[['只保留前段 A','A:50 B:100'],['只保留后段 A','B:100 A:50'],['继续交错','B:50 A:100 B:50']]},
+ {title:'逐对计数',old:'A:100 B:100 C:100',description:'按机种对计数，而不是整个日线统一记一次。',steps:[['只换 A/B','B:100 A:100 C:100'],['全部倒序','C:100 B:100 A:100']]},
+ {title:'新增机种',old:'A:100 B:100',description:'D 没有原顺序，不额外增加计数。A/B 的原关系仍受比较。',steps:[['插入 D','A:100 D:100 B:100'],['插入并交换 A/B','B:100 D:100 A:100']]}
+];
+const $=id=>document.getElementById(id);let active=0;
+function showSequence(id,segments){const host=$(id);host.replaceChildren();for(const s of segments){const span=document.createElement('span');span.className='segment';span.textContent=`${s.model} · ${s.quantity}片`;host.append(span);}if(!segments.length)host.textContent='无投入';}
+function relationText(bits,a,b){return [bits&1?`${a}在${b}前`:'',bits&2?`${b}在${a}前`:''].filter(Boolean).join('；')||'无';}
+function render(){try{const old=Order.parse($('old').value),next=Order.parse($('new').value),r=Order.compare(old,next);showSequence('old-view',old);showSequence('new-view',next);$('score').textContent=r.score;$('pairs').replaceChildren();for(const p of r.pairs){const row=document.createElement('tr');for(const value of [`${p.a} / ${p.b}`,relationText(p.before,p.a,p.b),relationText(p.after,p.a,p.b),p.change]){const td=document.createElement('td');td.textContent=value;row.append(td);}$('pairs').append(row);}$('excluded').textContent=`不参加比较的新增机种：${r.added.join('、')||'无'}。已删机种：${r.removed.join('、')||'无'}。`;$('error').textContent='';}catch(e){$('error').textContent=e.message;$('score').textContent='未计算';$('pairs').replaceChildren();$('old-view').replaceChildren();$('new-view').replaceChildren();$('excluded').textContent='请先修正输入。';}}
+function choose(i){active=i;const s=scenarios[i];$('old').value=s.old;$('new').value=s.old;$('description').textContent=s.description;$('step-status').textContent='已还原案例起点。';$('steps').replaceChildren();s.steps.forEach(([label,value],n)=>{const button=document.createElement('button');button.textContent=`${n+1}. ${label}`;button.onclick=()=>{$('new').value=value;render();$('step-status').textContent=`当前步骤：${n+1}，${label}。`;};$('steps').append(button);});[...$('tabs').children].forEach((el,n)=>el.setAttribute('aria-selected',String(n===i)));render();}
+scenarios.forEach((s,i)=>{const button=document.createElement('button');button.textContent=s.title;button.setAttribute('role','tab');button.onclick=()=>choose(i);$('tabs').append(button);});
+function transform(fn){try{$('new').value=Order.format(fn(Order.parse($('new').value)));render();$('step-status').textContent='自由操作已更新候选。';}catch(e){$('error').textContent=e.message;}}
+$('compare').onclick=render;$('reset').onclick=()=>choose(active);$('reverse').onclick=()=>transform(s=>s.reverse());$('split').onclick=()=>transform(s=>{if(s.length&&s[0].quantity>1){const x=s.shift(),a=Math.floor(x.quantity/2);s.unshift({...x,quantity:a},{...x,quantity:x.quantity-a});}return s;});$('drop').onclick=()=>transform(s=>{if(s.length)s.splice(Math.floor(s.length/2),1);return s;});choose(0);
+</script>
+</html>
