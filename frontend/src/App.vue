@@ -24,6 +24,7 @@ onMounted(load)
     <router-link to="/" class="brand">Bonding 生产排程</router-link>
     <nav v-if="principal">
       <router-link to="/">工作台</router-link>
+      <router-link v-if="principal.roles.some(role => role === 'viewer' || role === 'editor')" to="/inputs">输入资料</router-link>
       <router-link v-if="principal.roles.includes('administrator')" to="/admin">账号授权</router-link>
       <span>{{ principal.user_id }}</span>
       <el-button @click="logout" :disabled="!online">退出登录</el-button>

@@ -1,1 +1,13 @@
 :root{font-family:"Microsoft YaHei",sans-serif;color:#243343;background:#f4f6f8;font-synthesis:none}body{margin:0}a{color:#236e8a;text-decoration:none}.topbar{display:flex;justify-content:space-between;align-items:center;padding:20px 36px;background:white;border-bottom:1px solid #dae1e7}.brand{font-weight:700;font-size:20px;color:#243343}nav{display:flex;gap:24px;align-items:center}main{max-width:1120px;margin:32px auto;padding:0 24px}h1{font-size:30px;margin:8px 0 16px}h2{font-size:20px}.eyebrow{color:#58717f;font-size:13px;letter-spacing:.1em}.login-card{max-width:400px;margin:72px auto;background:white;padding:36px;border:1px solid #dae1e7;border-radius:8px}.el-form{margin-top:24px}.el-alert{margin-bottom:18px}.work-card{margin-top:28px}p{line-height:1.6}@media(max-width:700px){.topbar{padding:16px;flex-wrap:wrap;gap:16px}nav{gap:12px}.login-card{margin:24px auto;padding:24px}}
+.input-toolbar { display: flex; gap: 1.5rem; align-items: center; flex-wrap: wrap; margin: 1.5rem 0; }
+.input-table-scroll { overflow-x: auto; margin: 1rem 0; }
+.input-table { width: 100%; border-collapse: collapse; background: white; }
+.input-table th, .input-table td { padding: .65rem; border: 1px solid #dce3eb; text-align: left; min-width: 100px; }
+.input-table th { background: #eef3f8; font-weight: 600; }
+.input-table .el-input { min-width: 140px; }
+.input-table select, label > select { padding: .5rem; border: 1px solid #c8d2df; border-radius: 4px; max-width: 260px; }
+.input-import, .input-preview { border-top: 1px solid #dce3eb; margin-top: 1.5rem; padding-top: 1.5rem; }
+.input-import code { display: block; margin-bottom: .75rem; }
+.input-import .el-textarea { margin-bottom: 1rem; }
+.excel-picker { display: inline-block; margin: 0 1rem; padding: .45rem .75rem; border: 1px solid #c8d2df; border-radius: 4px; background: white; cursor: pointer; }
+.excel-file-input { position: absolute; width: 1px; height: 1px; opacity: 0; }
