@@ -11,3 +11,9 @@
 .input-import .el-textarea { margin-bottom: 1rem; }
 .excel-picker { display: inline-block; margin: 0 1rem; padding: .45rem .75rem; border: 1px solid #c8d2df; border-radius: 4px; background: white; cursor: pointer; }
 .excel-file-input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+
+.switch-card { background: white; border: 1px solid #dce3eb; padding: 0 1rem; margin: 1rem 0; }
+.hour-summary { display: flex; gap: 2rem; flex-wrap: wrap; }
+details { margin-top: .35rem; font-size: .85rem; }
+summary { cursor: pointer; color: #236e8a; }
+.input-table input, .input-toolbar input { padding: .45rem; border: 1px solid #c8d2df; border-radius: 4px; font: inherit; max-width: 180px; }

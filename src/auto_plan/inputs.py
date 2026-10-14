@@ -136,36 +136,7 @@ def selection_options(current: InputSnapshot):
 
 
 def availability(current: InputSnapshot, month: str, model_code: str, line_code: str, production_date: str | None, from_recipe: str | None):
-    data = current.model_dump(mode='json')
-    model = next((m for m in data['masters']['models'] if m['code'] == model_code), None)
-    if not model or not any(line['code'] == line_code for line in data['masters']['lines']):
-        raise KeyError
-    recipe = model['recipe_code']
-    def find(kind, **identification):
-        return next((r for r in data[SECTIONS[kind]][kind] if all(r[k] == v for k, v in identification.items())), None)
-    capacity = find('capacities', month=month, recipe_code=recipe, line_code=line_code)
-    capability = find('capabilities', recipe_code=recipe, line_code=line_code)
-    state = 'forbidden' if capability and not capability['allowed'] else 'missing' if capacity is None else 'zero' if capacity['pieces'] == 0 else 'known'
-    def parameter(kind, value_field, **identification):
-        row = find(kind, **identification)
-        return {'state': 'known' if row else 'missing', value_field: row[value_field] if row else None}
-    if from_recipe is None:
-        switch = {'state': 'unknown_initial', 'hours': '0'}
-    elif not any(r['code'] == from_recipe for r in data['masters']['recipes']):
-        raise KeyError
-    elif from_recipe == recipe:
-        switch = {'state': 'same_recipe', 'hours': '0'}
-    else:
-        row = find('switch_durations', from_recipe=from_recipe, to_recipe=recipe)
-        switch = {'state': 'known' if row else 'default_missing', 'hours': row['hours'] if row else '12'}
-    holiday = find('holidays', date=production_date)
-    opening = find('opening_exceptions', date=production_date, line_code=line_code)
-    maintenance = find('maintenance', date=production_date, line_code=line_code)
-    experiment = find('experiments', date=production_date, line_code=line_code)
-    output_holiday = bool(holiday and holiday['holiday'])
-    hours = 0 if output_holiday and not (opening and opening['enabled']) else max(24 - (maintenance['hours'] if maintenance else 0) - (experiment['hours'] if experiment else 0), 0)
-    return {'capacity': {'state': state, 'pieces': capacity['pieces'] if capacity else 0},
-            'line_yield': parameter('line_yields', 'percent', month=month),
-            'model_yield': parameter('model_yields', 'percent', month=month, model_code=model_code),
-            'cycle_time': parameter('cycle_times', 'days', model_code=model_code), 'switch': switch,
-            'available_hours': hours, 'output_holiday': output_holiday}
+    from .input_lookup import InputIndex
+    from .input_models import date_value
+    return InputIndex(current).availability(month, model_code, line_code,
+        date_value(production_date) if production_date else None, from_recipe)
