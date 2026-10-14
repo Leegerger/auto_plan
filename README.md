@@ -42,3 +42,5 @@ AUTO_PLAN_TEST_ORACLE=1 uv run pytest tests/test_oracle_access.py
 ```
 
 Oracle 测试会使本应用测试会话失效，并保留授权审计。应在无人使用该测试应用时执行。测试认证仅可显式启用 `AUTO_PLAN_TEST_AUTH_ENABLED=true` 与独立的 `AUTO_PLAN_TEST_AUTH_PASSWORD`，且只允许 PLAN_TEST；PLAN_PROD 会拒绝启动。真实公司账号登录和容器部署另行验证。
+
+业务编辑者可在「日内详情」预览精确生产工时、Recipe 汇总容量与有向切机。十进制和分数工时无损保存于预览上下文，默认四位小数仅用于显示；标准数量和顺序可生成工时依据。参见[精确容量与切机预览](docs/plan-preview.md)。

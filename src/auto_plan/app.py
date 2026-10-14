@@ -169,6 +169,8 @@ def create_app(settings: Settings | None = None, *, store=None, input_store=None
     app.include_router(api)
     from .input_api import router as input_router
     app.include_router(input_router, prefix=f"{settings.base_path}/api")
+    from .plan_api import router as plan_router
+    app.include_router(plan_router, prefix=f"{settings.base_path}/api")
     for router in routers:
         app.include_router(router, prefix=f"{settings.base_path}/api")
 
