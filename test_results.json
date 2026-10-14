@@ -1,0 +1,169 @@
+{
+  "test_1": {
+    "wait_timeout": {
+      "elapsed": 2.01,
+      "err_code": 30006,
+      "err_msg": "ORA-30006: resource busy; acquire with WAIT timeout expired"
+    },
+    "concurrent_adoption": {
+      "USER_BOB": {
+        "status": "SUCCESS_ADOPTED",
+        "adopted_version": 2,
+        "elapsed": 0.57
+      },
+      "USER_ALICE": {
+        "status": "REJECTED_STALE_ADOPTION",
+        "seen_adoption_no": 2,
+        "elapsed": 0.57
+      }
+    }
+  },
+  "test_2": {
+    "first_call": {
+      "idempotent_replayed": false,
+      "status": "COMMITTED",
+      "result_revision": 2,
+      "payload": "{\"msg\": \"Saved successfully\", \"revision\": 2, \"author\": \"USER_CHARLIE\"}"
+    },
+    "duplicate_call": {
+      "idempotent_replayed": true,
+      "status": "COMMITTED",
+      "result_revision": 2,
+      "payload": "{\"msg\": \"Saved successfully\", \"revision\": 2, \"author\": \"USER_CHARLIE\"}"
+    }
+  },
+  "test_3": {
+    "verify_void": {
+      "action": "INSERTED_VOID",
+      "status": "ABORTED_VOID",
+      "result_revision": null
+    },
+    "stale_request": {
+      "status": "FAILED_UNIQUE_CONSTRAINT",
+      "err_code": 1,
+      "err_msg": "ORA-00001: unique constraint (PLAN_TEST.SYS_C0015974) violated"
+    },
+    "verify_recheck": {
+      "action": "FOUND_EXISTING",
+      "status": "ABORTED_VOID",
+      "result_revision": null
+    }
+  },
+  "test_4": {
+    "single_disjoint": {
+      "success": true,
+      "status_code": 200,
+      "new_revision": 4,
+      "base_rev": 2
+    },
+    "single_conflict": {
+      "success": false,
+      "status_code": 409,
+      "conflict_keys": [
+        "CAP:LINE_1:2026-10-15",
+        "CELL:2026-10-15:LINE_1:M1",
+        "REQ:M1:W202642"
+      ],
+      "base_rev": 2,
+      "latest_rev": 4
+    },
+    "batch_conflict": {
+      "success": false,
+      "status_code": 409,
+      "conflict_keys": [
+        "CAP:LINE_1:2026-10-15",
+        "CELL:2026-10-15:LINE_1:M1",
+        "REQ:M1:W202642",
+        "REQ:M2:W202642"
+      ],
+      "base_rev": 2,
+      "latest_rev": 4
+    },
+    "batch_success": {
+      "success": true,
+      "status_code": 200,
+      "new_revision": 5,
+      "base_rev": 4
+    }
+  },
+  "test_5": {
+    "triggers": {
+      "update_adoption": {
+        "code": 20001,
+        "msg": "ORA-20001: IMMUTABLE_ERROR: PROTO_PLAN_ADOPTION is append-only. UPDATE/DELETE prohibited.\nORA-06512: at \"PLAN_TEST.TRG_ADOPT_NO_MUTATION\", line 2\nORA-04088: error during execution of trigger 'PLAN_TEST.TRG_ADOPT_NO_MUTATION'"
+      },
+      "delete_adoption": {
+        "code": 20001,
+        "msg": "ORA-20001: IMMUTABLE_ERROR: PROTO_PLAN_ADOPTION is append-only. UPDATE/DELETE prohibited.\nORA-06512: at \"PLAN_TEST.TRG_ADOPT_NO_MUTATION\", line 2\nORA-04088: error during execution of trigger 'PLAN_TEST.TRG_ADOPT_NO_MUTATION'"
+      },
+      "update_audit": {
+        "code": 20003,
+        "msg": "ORA-20003: IMMUTABLE_ERROR: PROTO_PLAN_AUDIT is append-only. UPDATE/DELETE prohibited.\nORA-06512: at \"PLAN_TEST.TRG_AUDIT_NO_MUTATION\", line 2\nORA-04088: error during execution of trigger 'PLAN_TEST.TRG_AUDIT_NO_MUTATION'"
+      },
+      "delete_audit": {
+        "code": 20003,
+        "msg": "ORA-20003: IMMUTABLE_ERROR: PROTO_PLAN_AUDIT is append-only. UPDATE/DELETE prohibited.\nORA-06512: at \"PLAN_TEST.TRG_AUDIT_NO_MUTATION\", line 2\nORA-04088: error during execution of trigger 'PLAN_TEST.TRG_AUDIT_NO_MUTATION'"
+      }
+    },
+    "volume": {
+      "rows_count": 3780,
+      "avg_row_bytes": 30,
+      "clob_bytes": 294,
+      "single_adoption_kb": 111.03,
+      "yearly_100_adoptions_mb": 27.11
+    }
+  },
+  "test_6": {
+    "tablespace": {
+      "user": "PLAN_TEST",
+      "default_tablespace": "FSSCM_DATA",
+      "temp_tablespace": "TEMP",
+      "quotas": [
+        {
+          "tablespace": "FSSCM_DATA",
+          "used_bytes": 2031616,
+          "max_bytes": "UNLIMITED"
+        },
+        {
+          "tablespace": "USERS",
+          "used_bytes": 0,
+          "max_bytes": "UNLIMITED"
+        }
+      ],
+      "segments": [
+        {
+          "type": "INDEX",
+          "count": 7,
+          "bytes": 786432
+        },
+        {
+          "type": "LOBINDEX",
+          "count": 3,
+          "bytes": 196608
+        },
+        {
+          "type": "LOBSEGMENT",
+          "count": 3,
+          "bytes": 393216
+        },
+        {
+          "type": "TABLE",
+          "count": 7,
+          "bytes": 655360
+        }
+      ]
+    },
+    "performance": {
+      "total_requests": 100,
+      "total_time_s": 0.48,
+      "tps": 209.8,
+      "min_ms": 8.9,
+      "p50_ms": 14.57,
+      "p90_ms": 24.63,
+      "p95_ms": 133.42,
+      "p99_ms": 176.64,
+      "max_ms": 176.64,
+      "avg_ms": 22.26
+    }
+  }
+}
