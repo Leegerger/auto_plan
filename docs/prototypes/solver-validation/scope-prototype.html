@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>范围外切机演练</title>
+<style>
+body{font:16px/1.6 system-ui,sans-serif;color:#20332e;background:#f3f6f3;margin:0}main{max-width:900px;margin:40px auto;padding:24px}h1{font-size:28px}section{background:white;border:1px solid #d4dfd8;border-radius:12px;padding:24px;margin:20px 0}button{font:inherit;background:#fff;border:1px solid #91aaa0;border-radius:7px;padding:9px 14px;margin:5px;cursor:pointer}button:hover,button[aria-selected=true]{background:#e2f0e8}table{border-collapse:collapse;width:100%}td,th{text-align:left;padding:12px;border-bottom:1px solid #ddd}.note{color:#56685f}.status{font-size:20px;font-weight:600}#steps{margin-top:16px}
+</style>
+<main><h1>周三调整，切机能否提前到周二？</h1>
+<p>可抛弃的规则演练。只检查调整范围是否授权切机变动：周二结束时为 Recipe A，周三准备做 B，切机需要 4 小时。周二有 4 小时普通空闲。</p>
+<p class="note">此页不执行排程或保存计划，也不验证完整产能与生产衔接。以下按钮采用整段移动，只为展示范围规则；业务工时没有固定步长。</p>
+<section><div id="state"></div></section>
+<section><h2>自由操作</h2><button onclick="act('move')">将 4 小时切机移到周二</button><button onclick="act('expand')">把周二纳入调整范围</button><button onclick="act('restore')">恢复原切机</button><button onclick="start(0)">重置</button></section>
+<section><h2>引导演练</h2><nav id="tabs"></nav><p id="description"></p><div id="steps"></div></section>
+<p class="note">已确认口径：范围外投入数量和顺序未变，也不代表切机可以改动。原本已排好的范围外切机保持不变，并继续检查前后衔接。正式任务的停止与候选状态另见实验报告。</p></main>
+<script>
+const Rules=(()=>{
+ const initial=(existing=false)=>({authorized:['周三'],baseline:existing?{周二:4,周三:0}:{周二:0,周三:4},candidate:existing?{周二:4,周三:0}:{周二:0,周三:4}});
+ const reduce=(s,a)=>a==='expand'?{...s,authorized:['周二','周三']}:a==='move'?{...s,candidate:{周二:4,周三:0}}:a==='restore'?{...s,candidate:{...s.baseline}}:s;
+ const check=s=>['周二','周三'].filter(day=>!s.authorized.includes(day)&&s.baseline[day]!==s.candidate[day]);
+ return {initial,reduce,check};
+})();
+const scenarios=[
+ {name:'未授权的新增切机',existing:false,description:'只授权周三。尝试使用周二的普通空闲，再扩大范围。',steps:[['move','1. 把切机提前到周二'],['expand','2. 扩大范围后再检查']]},
+ {name:'保留已有切机',existing:true,description:'原切机已经安排在周二。保持原样，无须为了保留它而扩大范围。',steps:[['restore','1. 检查保留已有切机']]},
+ {name:'撤回越界修改',existing:false,description:'先移到周二，再恢复原安排。观察范围检查如何改变。',steps:[['move','1. 提前到周二'],['restore','2. 撤回切机修改']]}
+];
+let state,selected=0;
+function render(){const outside=Rules.check(state);document.getElementById('state').innerHTML=`<p class="status">${outside.length?'需要扩大范围：'+outside.join('、'):'通过本页的切机范围检查'}</p><p>当前授权：${state.authorized.join('、')}</p><table><thead><tr><th>生产日</th><th>原切机占用</th><th>候选切机占用</th><th>是否授权调整</th></tr></thead><tbody>${['周二','周三'].map(d=>`<tr><td>${d}</td><td>${state.baseline[d]} 小时</td><td>${state.candidate[d]} 小时</td><td>${state.authorized.includes(d)?'是':'否'}</td></tr>`).join('')}</tbody></table>`;}
+function act(action){state=Rules.reduce(state,action);render();}
+function start(i){selected=i;state=Rules.initial(scenarios[i].existing);document.getElementById('tabs').innerHTML=scenarios.map((s,n)=>`<button aria-selected="${n===i}" onclick="start(${n})">${s.name}</button>`).join('');document.getElementById('description').textContent=scenarios[i].description;document.getElementById('steps').innerHTML=scenarios[i].steps.map(([a,t])=>`<button onclick="act('${a}')">${t}</button>`).join('');render();}
+start(0);
+</script></html>

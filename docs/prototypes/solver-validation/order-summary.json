@@ -1,0 +1,67 @@
+{
+  "runs": 120,
+  "oracle_matches": 120,
+  "compute_target_misses": 0,
+  "routes": [
+    {
+      "scope": "full",
+      "route": "cp-sat",
+      "runs": 20,
+      "median_seconds": 1.4470421932637691,
+      "max_seconds": 1.8857041709125042,
+      "peak_rss_kib": 162008,
+      "first_run_median": 1.8288674633949995,
+      "later_run_median": 1.4360872264951468
+    },
+    {
+      "scope": "full",
+      "route": "highs",
+      "runs": 20,
+      "median_seconds": 3.4319846089929342,
+      "max_seconds": 5.5377164632081985,
+      "peak_rss_kib": 94120,
+      "first_run_median": 3.4807250760495663,
+      "later_run_median": 3.4319846089929342
+    },
+    {
+      "scope": "full",
+      "route": "cp-sat-hint",
+      "runs": 20,
+      "median_seconds": 1.3731440175324678,
+      "max_seconds": 1.7674790285527706,
+      "peak_rss_kib": 162024,
+      "first_run_median": 1.662335578352213,
+      "later_run_median": 1.3648005854338408
+    },
+    {
+      "scope": "local",
+      "route": "cp-sat",
+      "runs": 20,
+      "median_seconds": 0.48169028013944626,
+      "max_seconds": 0.9573739022016525,
+      "peak_rss_kib": 126376,
+      "first_run_median": 0.8712962623685598,
+      "later_run_median": 0.4734665844589472
+    },
+    {
+      "scope": "local",
+      "route": "highs",
+      "runs": 20,
+      "median_seconds": 0.6444471478462219,
+      "max_seconds": 0.7837923690676689,
+      "peak_rss_kib": 60640,
+      "first_run_median": 0.6929564736783504,
+      "later_run_median": 0.6342953909188509
+    },
+    {
+      "scope": "local",
+      "route": "cp-sat-hint",
+      "runs": 20,
+      "median_seconds": 0.5170322507619858,
+      "max_seconds": 0.926999419927597,
+      "peak_rss_kib": 126540,
+      "first_run_median": 0.8437136150896549,
+      "later_run_median": 0.47176810167729855
+    }
+  ]
+}

@@ -1,0 +1,66 @@
+{
+  "v2": [
+    {
+      "route": "cp-sat",
+      "termination": "interrupted_after_10s",
+      "returncode": -9,
+      "stop_response_seconds": 10.015782445669174,
+      "had_validated_candidate_before_stop": false,
+      "has_candidate_after_stop": false,
+      "candidate_bytes_unchanged": true,
+      "retained_candidate_passes_exact_subset_check": false,
+      "sha256": null,
+      "scope": "Throwaway worker interruption experiment. Files stand in for task storage.\n\nNo Oracle, authorization, queue or browser behavior is certified here.\n"
+    },
+    {
+      "route": "cp-sat-hint",
+      "termination": "interrupted_after_10s",
+      "returncode": -9,
+      "stop_response_seconds": 10.015748366713524,
+      "had_validated_candidate_before_stop": true,
+      "has_candidate_after_stop": true,
+      "candidate_bytes_unchanged": true,
+      "retained_candidate_passes_exact_subset_check": true,
+      "sha256": "dff6ee13e9ad7b124a6343f6ccfaa84384f11ca42ddbd682cdf203eafaf30d63",
+      "scope": "Throwaway worker interruption experiment. Files stand in for task storage.\n\nNo Oracle, authorization, queue or browser behavior is certified here.\n"
+    }
+  ],
+  "v3": [
+    {
+      "route": "cp-sat",
+      "termination": "cooperative",
+      "returncode": 0,
+      "stop_response_seconds": 0.16404972970485687,
+      "had_validated_candidate_before_stop": false,
+      "has_candidate_after_stop": false,
+      "candidate_bytes_unchanged": true,
+      "retained_candidate_passes_exact_subset_check": false,
+      "sha256": null,
+      "scope": "Throwaway worker interruption experiment. Files stand in for task storage.\n\nNo Oracle, authorization, queue or browser behavior is certified here.\n"
+    },
+    {
+      "route": "cp-sat-hint",
+      "termination": "cooperative",
+      "returncode": 0,
+      "stop_response_seconds": 1.3664148338139057,
+      "had_validated_candidate_before_stop": true,
+      "has_candidate_after_stop": true,
+      "candidate_bytes_unchanged": true,
+      "retained_candidate_passes_exact_subset_check": true,
+      "sha256": "45b350550fe562451e775dddcd582bbd0ae23fcfeff48c7c25edc2bd5595e61c",
+      "scope": "Throwaway worker interruption experiment. Files stand in for task storage.\n\nNo Oracle, authorization, queue or browser behavior is certified here.\n"
+    },
+    {
+      "route": "highs",
+      "termination": "cooperative",
+      "returncode": 0,
+      "stop_response_seconds": 2.4725383445620537,
+      "had_validated_candidate_before_stop": true,
+      "has_candidate_after_stop": true,
+      "candidate_bytes_unchanged": true,
+      "retained_candidate_passes_exact_subset_check": true,
+      "sha256": "6c249684c2525316050d08f598cce104939fe1dd20158e6f651cab19070b03ed",
+      "scope": "Throwaway worker interruption experiment. Files stand in for task storage.\n\nNo Oracle, authorization, queue or browser behavior is certified here.\n"
+    }
+  ]
+}

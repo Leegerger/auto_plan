@@ -1,0 +1,283 @@
+{
+  "scope": "Concrete accepted-rule examples and deliberately invalid certificates.",
+  "checks": [
+    {
+      "name": "largest_remainder_643_429",
+      "actual": [
+        643,
+        429
+      ],
+      "expected": [
+        643,
+        429
+      ],
+      "passed": true
+    },
+    {
+      "name": "partial_material_399_and_1",
+      "actual": [
+        399,
+        1
+      ],
+      "expected": [
+        399,
+        1
+      ],
+      "passed": true
+    },
+    {
+      "name": "additive_batches_300_plus_129",
+      "actual": 400,
+      "expected": 400,
+      "passed": true
+    },
+    {
+      "name": "batch_shrink_one_input_loses_one_output",
+      "actual": 399,
+      "expected": 399,
+      "passed": true
+    },
+    {
+      "name": "replacement_batch_rematches",
+      "actual": 400,
+      "expected": 400,
+      "passed": true
+    },
+    {
+      "name": "ownership_change_rechecks_quota",
+      "actual": [
+        536,
+        400,
+        100
+      ],
+      "expected": [
+        536,
+        400,
+        100
+      ],
+      "passed": true
+    },
+    {
+      "name": "necessary_rounding_tail_no_quota_discount",
+      "actual": [
+        1072,
+        1
+      ],
+      "expected": [
+        1072,
+        1
+      ],
+      "passed": true
+    },
+    {
+      "name": "zero_input_share_allowed",
+      "actual": [
+        0,
+        1
+      ],
+      "expected": [
+        0,
+        1
+      ],
+      "passed": true
+    },
+    {
+      "name": "zero_input_share_does_not_bypass_ban",
+      "actual": [
+        1,
+        true
+      ],
+      "expected": [
+        1,
+        true
+      ],
+      "passed": true
+    },
+    {
+      "name": "ban_overrides_allowance",
+      "actual": [
+        0,
+        400,
+        0
+      ],
+      "expected": [
+        0,
+        400,
+        0
+      ],
+      "passed": true
+    },
+    {
+      "name": "old_week_unconfirmed_not_skipped",
+      "actual": [
+        100,
+        50
+      ],
+      "expected": [
+        100,
+        50
+      ],
+      "passed": true
+    },
+    {
+      "name": "shipping_expiry_not_merged",
+      "actual": [
+        100,
+        20,
+        0
+      ],
+      "expected": [
+        100,
+        20,
+        0
+      ],
+      "passed": true
+    },
+    {
+      "name": "pending_material_does_not_reserve_shipping",
+      "actual": [
+        "Later"
+      ],
+      "expected": [
+        "Later"
+      ],
+      "passed": true
+    },
+    {
+      "name": "new_material_reassigns_shipping_chronologically",
+      "actual": [
+        "Early"
+      ],
+      "expected": [
+        "Early"
+      ],
+      "passed": true
+    },
+    {
+      "name": "shipping_ban_is_hard_violation",
+      "actual": [
+        150,
+        0
+      ],
+      "expected": [
+        150,
+        0
+      ],
+      "passed": true
+    },
+    {
+      "name": "same_day_wip_first",
+      "actual": [
+        "WIP"
+      ],
+      "expected": [
+        "WIP"
+      ],
+      "passed": true
+    },
+    {
+      "name": "reject_split_execution_and_plan_sources",
+      "passed": true,
+      "error": "input sources must be aggregated across lines and execution categories",
+      "expected_reason": "aggregated"
+    },
+    {
+      "name": "cross_day_exact_0425_0525",
+      "actual": [
+        1,
+        "19/20"
+      ],
+      "expected": [
+        1,
+        "19/20"
+      ],
+      "passed": true
+    },
+    {
+      "name": "scope_must_expand_for_previous_day_switch",
+      "passed": true,
+      "error": "outside switch work changed; expand authorized scope",
+      "expected_reason": "expand authorized"
+    },
+    {
+      "name": "existing_outside_switch_can_remain",
+      "actual": 1,
+      "expected": 1,
+      "passed": true
+    },
+    {
+      "name": "no_missing_fraction_of_switch",
+      "passed": true,
+      "error": "switch duration not conserved exactly",
+      "expected_reason": "conserved exactly"
+    },
+    {
+      "name": "no_time_before_previous_production",
+      "passed": true,
+      "error": "switch time outside its production anchors",
+      "expected_reason": "production anchors"
+    },
+    {
+      "name": "no_time_after_target_production",
+      "passed": true,
+      "error": "switch time outside its production anchors",
+      "expected_reason": "production anchors"
+    },
+    {
+      "name": "holiday_cannot_pay_switch_time",
+      "passed": true,
+      "error": "daily production and switches exceed available time",
+      "expected_reason": "exceed available"
+    },
+    {
+      "name": "ordinary_idle_not_reused_for_two_switches",
+      "passed": true,
+      "error": "daily production and switches exceed available time",
+      "expected_reason": "exceed available"
+    },
+    {
+      "name": "duplicate_switch_identity",
+      "passed": true,
+      "error": "duplicate switch event identity",
+      "expected_reason": "duplicate switch"
+    },
+    {
+      "name": "zero_hour_recipe_change_counts_once",
+      "actual": 1,
+      "expected": 1,
+      "passed": true
+    },
+    {
+      "name": "zero_hour_outside_switch_still_needs_scope",
+      "passed": true,
+      "error": "outside switch work changed; expand authorized scope",
+      "expected_reason": "expand authorized"
+    },
+    {
+      "name": "executed_plus_remaining_counted_once",
+      "actual": 100,
+      "expected": 100,
+      "passed": true
+    },
+    {
+      "name": "aggregate_lock_cannot_change",
+      "passed": true,
+      "error": "locked aggregate quantity changed",
+      "expected_reason": "locked aggregate"
+    },
+    {
+      "name": "zero_lock_cannot_receive_input",
+      "passed": true,
+      "error": "locked aggregate quantity changed",
+      "expected_reason": "locked aggregate"
+    },
+    {
+      "name": "outside_quantity_cannot_change",
+      "passed": true,
+      "error": "quantity changed outside authorization",
+      "expected_reason": "outside authorization"
+    }
+  ],
+  "passed": 32,
+  "total": 32
+}

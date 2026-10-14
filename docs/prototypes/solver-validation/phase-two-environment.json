@@ -1,0 +1,14 @@
+{
+  "observed_date": "2026-10-14",
+  "environment": "host session, not product Docker container",
+  "cpu_max": "max 100000",
+  "memory_max": "max",
+  "effective_cpus": "0-3",
+  "docker_daemon_cpus": 4,
+  "docker_daemon_memory_bytes": 33512534016,
+  "solver_threads": 1,
+  "random_seed": 0,
+  "resource_exclusive": false,
+  "background_load_measured": false,
+  "end_to_end_acceptance": false
+}
