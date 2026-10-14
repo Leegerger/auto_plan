@@ -35,7 +35,7 @@ def output_amounts(snapshot,source_totals):
     return slots
 
 
-def make_case(local):
+def make_case(local,variant='uniform5'):
     snapshot = json.loads(gzip.decompress((ROOT/'normal-snapshot.json.gz').read_bytes()))
     baseline = deepcopy(snapshot['plan'])
     snapshot['baseline_plan'] = baseline
@@ -45,7 +45,9 @@ def make_case(local):
         42 <= (date.fromisoformat(row['date'])-start).days < 49 and row['line']<3)}
     for i,row in enumerate(target['plan']):
         if i in mutable:
-            row['quantity'] = ceil(F(105,100)*row['quantity'])
+            week=(date.fromisoformat(row['date'])-start).days//7
+            percent={'uniform5':105,'uniform7':107,'uneven':102+(row['model']*7+week*3)%8}[variant]
+            row['quantity'] = ceil(F(percent,100)*row['quantity'])
     totals = defaultdict(int)
     for row in target['plan']:
         totals[(row['date'],row['model'])] += row['quantity']

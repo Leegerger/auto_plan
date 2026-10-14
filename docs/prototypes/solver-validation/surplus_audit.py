@@ -40,7 +40,9 @@ def trim(snapshot,candidate,mutable):
             slack[key[1]][w] += current[w]
     if any(value<0 for values in slack.values() for value in values):
         raise ValueError('deletion audit requires full on-time coverage')
-    baseline = {(r['date'],r['line'],r['model'],r['position']):r['quantity'] for r in snapshot['baseline_plan']}
+    baseline = defaultdict(int)
+    for row in snapshot['baseline_plan']:
+        baseline[(row['date'],row['line'],row['model'])]+=row['quantity']
     removed = []
     zero_segment_review = []
     for key,indices in sorted(sources.items()):
@@ -64,7 +66,7 @@ def trim(snapshot,candidate,mutable):
         for preserve_baseline in (True,False):
             for i in reversed(eligible):
                 row=plan[i]
-                old=baseline[(row['date'],row['line'],row['model'],row['position'])]
+                old=baseline[(row['date'],row['line'],row['model'])]
                 floor=max(1,old) if preserve_baseline else 1
                 amount=min(left,max(0,row['quantity']-floor))
                 row['quantity']-=amount
