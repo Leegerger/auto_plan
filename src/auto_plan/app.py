@@ -59,7 +59,7 @@ class Authorization(BaseModel):
     active: bool = True
 
 
-def create_app(settings: Settings | None = None, *, store=None, authenticator=None, clock=None, routers=()):
+def create_app(settings: Settings | None = None, *, store=None, input_store=None, authenticator=None, clock=None, routers=()):
     settings = settings or Settings()
     owns_store = store is None
     owns_auth = authenticator is None
@@ -83,6 +83,7 @@ def create_app(settings: Settings | None = None, *, store=None, authenticator=No
     app = FastAPI(title="Bonding 生产排程", lifespan=lifespan, docs_url=None, redoc_url=None, openapi_url=f"{settings.base_path}/api/openapi.json")
     app.state.settings = settings
     app.state.access_store = store
+    app.state.input_store = input_store
     app.state.authenticator = authenticator
     app.state.clock = clock or (lambda: datetime.now(timezone.utc))
 
@@ -166,6 +167,8 @@ def create_app(settings: Settings | None = None, *, store=None, authenticator=No
         return app.state.access_store.audit(principal.user_id)
 
     app.include_router(api)
+    from .input_api import router as input_router
+    app.include_router(input_router, prefix=f"{settings.base_path}/api")
     for router in routers:
         app.include_router(router, prefix=f"{settings.base_path}/api")
 
