@@ -32,14 +32,24 @@ def test_moving_one_thousand_of_ten_thousand_counts_both_dates_and_keeps_locked_
 def test_confirmed_six_thousand_is_removed_once_even_after_production_date_has_passed(inputs_client):
     old=[segment('a',0,'M',10000,'4','2026-10-13')]
     data=comparable(old,[old[0]|{'quantity':9000}],as_of='2026-10-14T10:00:00+00:00')
-    data['execution']={'facts':[{'date':'2026-10-13','line_code':'L','model_code':'M','quantity':6000}]}
+    data['execution']={'facts':[{'date':'2026-10-13','line_code':'L','model_code':'M','quantity':6000}],'cutoff':'2026-10-14T08:00:00+08:00'}
     week=preview(inputs_client,data)['stability']['weeks'][0]
     assert (week['old_remaining'],week['new_remaining'],week['absolute_change'],week['rate'])==(4000,3000,1000,'1/4')
-    data['execution']={'coverage':[{'start_date':'2026-10-13','end_date':'2026-10-13','line_codes':['L'],'model_codes':['M'],'blanks_are_zero':True}]}
+    data['execution']={'coverage':[{'start_date':'2026-10-13','end_date':'2026-10-13','line_codes':['L'],'model_codes':['M'],'blanks_are_zero':True}],'cutoff':'2026-10-14T08:00:00+08:00'}
     assert preview(inputs_client,data)['stability']['weeks'][0]['old_remaining']==10000
     data['execution']={}
     week=preview(inputs_client,data)['stability']['weeks'][0]
     assert (week['state'],week['rate'],week['unknown_execution_cells'])==('unknown_execution',None,1)
+
+
+def test_stability_cannot_treat_fact_or_blank_zero_as_confirmed_without_cutoff(inputs_client):
+    old=[segment('a',0,'M',10000,'4','2026-10-13')]
+    data=comparable(old,[old[0]|{'quantity':9000}],as_of='2026-10-14T10:00:00+00:00')
+    for execution in ({'facts':[{'date':'2026-10-13','line_code':'L','model_code':'M','quantity':6000}]},
+        {'coverage':[{'start_date':'2026-10-13','end_date':'2026-10-13','line_codes':['L'],'model_codes':['M'],'blanks_are_zero':True}]}):
+        data['execution']=execution
+        week=preview(inputs_client,data)['stability']['weeks'][0]
+        assert (week['state'],week['rate'],week['unknown_execution_cells'])==('unknown_execution',None,1)
 
 
 def test_new_plan_zero_baseline_and_partial_coverage_remain_distinct(inputs_client):

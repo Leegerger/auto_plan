@@ -82,6 +82,40 @@ def initialize(client):
     return response.json()
 
 
+@pytest.mark.parametrize('original_quantity,actual,added,expected',[(600,900,300,1200),(0,900,300,1200)])
+def test_imported_surplus_and_plan_free_actual_do_not_execute_new_ids(import_client,original_quantity,actual,added,expected):
+    from tests.test_plan_transactions import command,post,row
+    payload=initial_payload()
+    payload['segments']=[payload['segments'][0]|{'date':'2026-10-14','quantity':original_quantity}] if original_quantity else []
+    payload['execution']['facts']=[{'date':'2026-10-14','line_code':'L','model_code':'M','quantity':actual}]
+    saved=import_client.post('/auto_plan/api/initialization/apply',json=payload|{'operation_id':str(uuid4())})
+    assert saved.status_code==200,saved.text
+    original=import_client.get('/auto_plan/api/plans/revisions/1').json()
+    head=import_client.get('/auto_plan/api/plans/current').json()
+    operation={'kind':'patch_plan','segments':[row('new',day='2026-10-14',quantity=added)|{'order':9,'hours':'4'}]}
+    changed=post(import_client,'save',command(operation,base=head['revision'],version=head['input_version']))
+    assert changed.status_code==200,changed.text
+    current=import_client.get('/auto_plan/api/plans/current').json()
+    assert next(r for r in current['execution_segments'] if r['segment_id']=='new')=={'segment_id':'new','executed':0,'remaining':300}
+    assert current['evaluation']['output_totals']['expected']==expected
+    assert import_client.get('/auto_plan/api/plans/revisions/1').json()==original
+
+
+@pytest.mark.parametrize('managed_field,value',[
+    ('audit',[{'action_id':'fabricated','actor':'OTHER','recorded_at':'2026-10-14T08:00:00+08:00','changes':[]}]),
+    ('associations',[{'segment_id':'imported','quantity':0}]),
+    ('association_cells',[{'date':'2026-10-15','line_code':'L','model_code':'M','quantity':0}]),
+    ('day_capacities',[{'date':'2026-10-14','line_code':'L','remaining_hours':'24','current_recipe':'R','confirmed_at':'2026-10-14T08:00:00+08:00','basis_digest':'fabricated'}]),
+])
+def test_initial_import_rejects_client_managed_execution_metadata(import_client,managed_field,value):
+    payload=initial_payload()
+    payload['execution'][managed_field]=value
+    checked=import_client.post('/auto_plan/api/initialization/preview',json=payload).json()
+    assert checked['valid'] is False
+    assert any(row['sheet']=='execution' and row['field']==managed_field for row in checked['errors']),checked
+    assert import_client.get('/auto_plan/api/plans/current').json()['revision']==0
+
+
 def test_same_date_replacement_preserves_identical_rows_and_history_without_double_counting(import_client):
     client=import_client; initialize(client)
     rows=[{'model_code':'M','week':'2026-10-12','delta':200}]*2

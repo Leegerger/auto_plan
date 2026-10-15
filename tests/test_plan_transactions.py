@@ -155,7 +155,7 @@ def test_duplicate_patch_ids_are_rejected_and_reordering_cannot_reassign_execute
     reordered=command({'kind':'patch_plan','segments':[row(quantity=500)|{'order':1,'hours':'12'},row('b',quantity=500)|{'order':0,'hours':'12'}]},base=1)
     response=post(client,'save',reordered)
     assert response.status_code==409
-    assert response.json()['conflicts'][0]['code']=='executed_association'
+    assert response.json()['conflicts'][0]['code']=='executed_order'
 
 
 def test_boundary_recipe_scope_stops_after_state_converges(shared_client):

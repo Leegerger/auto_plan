@@ -158,6 +158,13 @@ def evaluate(snapshot: EvaluationSnapshot) -> EvaluationResult:
         result_days.append(DayEvaluation(date=day, line_code=line, **availability, production_hours=hours(total_hours),
             switch_hours=hours(switch_hours), ordinary_idle_hours=hours(reserved_idle), used_idle_hours=hours(used_idle),
             occupied_hours=hours(total_hours + switch_hours), recipes=recipes, ending_recipe=endings.get((day, line))))
+    for proof in snapshot.plan.current_day_witnesses:
+        if proof.date!=production_date(snapshot.time.as_of) or confirmed_day_capacity(snapshot,proof.line_code) is None: continue
+        for switch in proof.prior_switches:
+            duration=index.switch(switch.from_recipe,switch.to_recipe)
+            allocated=sum((Fraction(a.hours) for a in switch.allocations),Fraction(0))
+            switch_results.append(SwitchEvaluation(id=switch.id,line_code=switch.line_code,from_recipe=switch.from_recipe,to_recipe=switch.to_recipe,
+                duration_state=duration['state'],total_hours=hours(duration['hours']),allocated_hours=hours(allocated),idle_hours=hours(0),extra_hours=hours(allocated)))
     initial = [InitialStateEvaluation(line_code=line, recipe_code=initial_states.get(line), state='known' if initial_states.get(line) else 'unknown_initial')
                for line in sorted(all_lines)]
     valid = not any(i.severity == 'error' for i in issues)
