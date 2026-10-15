@@ -71,6 +71,22 @@ class OraclePlanUnit:
 
     def get_adoption(self,identity): return self._record('AP_PLAN_ADOPTION','ADOPTION_NO',identity)
 
+    def list_history(self,cutoff,before,limit):
+        # Metadata only. Snapshot BLOBs are loaded only after a user selects one.
+        self.cursor.execute(f'''SELECT R.REVISION_NO,A.ADOPTION_NO,R.ACTOR_ID,R.OPERATION_KIND,
+            R.PENDING,R.RECORDED_AT,U.OPERATION_ID FROM AP_PLAN_REVISION R
+            LEFT JOIN AP_PLAN_ADOPTION A ON A.REVISION_NO=R.REVISION_NO
+            JOIN AP_PLAN_AUDIT U ON U.REVISION_NO=R.REVISION_NO
+            WHERE R.REVISION_NO<=:head AND (:before IS NULL OR R.REVISION_NO<:before)
+            AND (A.ADOPTION_NO IS NOT NULL OR R.RECORDED_AT>=:cutoff)
+            ORDER BY R.REVISION_NO DESC FETCH FIRST {limit+1} ROWS ONLY''',
+            head=self.revision,before=before,cutoff=cutoff)
+        rows=list(self.cursor)
+        items=[{'revision':int(r[0]),'adoption':int(r[1]) if r[1] is not None else None,
+                'actor':r[2],'kind':r[3],'pending':bool(r[4]),'recorded_at':r[5].isoformat(),
+                'operation_id':r[6],'recoverable':True} for r in rows[:limit]]
+        return {'items':items,'next_before':items[-1]['revision'] if len(rows)>limit else None}
+
     def effects_since(self,revision):
         self.cursor.execute('SELECT EFFECT_JSON FROM AP_PLAN_EFFECT WHERE REVISION_NO>:revision',revision=revision)
         return {tuple(json.loads(row[0])) for row in self.cursor}
