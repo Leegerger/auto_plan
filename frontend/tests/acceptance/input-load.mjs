@@ -3,6 +3,9 @@ import assert from 'node:assert/strict'
 import { createHash } from 'node:crypto'
 
 const compiled = new WeakMap()
+// Unlike contracts.canonical, this preserves exact decoded scalar strings.
+// Arrays retain their order; object keys sort; input_version alone is omitted.
+export const INPUT_CONTENT_DIGEST_ALGORITHM = 'decoded-input-json-v1'
 
 function ordered(value) {
   if (Array.isArray(value)) return value.map(ordered)
@@ -20,9 +23,14 @@ export function inputContentDigest(inputs) {
   return createHash('sha256').update(JSON.stringify(content(inputs))).digest('hex')
 }
 
+function jsonDigest(value) {
+  return createHash('sha256').update(JSON.stringify(ordered(value))).digest('hex')
+}
+
 function compile(declaration, initialInputs) {
   assert.equal(declaration.schema_version, 1, 'Unknown input companion schema.')
   assert.equal(declaration.kind, 'maintained_input_names', 'Unknown input companion kind.')
+  assert.equal(declaration.digest_algorithm, INPUT_CONTENT_DIGEST_ALGORITHM, 'Unknown input companion digest algorithm.')
   assert.equal(declaration.source_inputs_sha256, inputContentDigest(initialInputs), 'Companion predecessor inputs differ.')
   assert.equal(declaration.targets.length, 4, 'Four existing name-edit targets are required.')
   assert.deepEqual(declaration.targets.map(target => target.editor).sort(), [1, 2, 3, 4], 'Editor assignments must be distinct.')
@@ -54,7 +62,7 @@ function compile(declaration, initialInputs) {
   return { initialInputs, byDigest }
 }
 
-export function resolveInputCompanion(declaration, initialInputs, actualInputs) {
+export function resolveInputCompanion(declaration, initialInputs, actualInputs, options = {}) {
   let value = compiled.get(declaration)
   if (!value || value.initialInputs !== initialInputs) {
     value = compile(declaration, initialInputs)
@@ -64,5 +72,56 @@ export function resolveInputCompanion(declaration, initialInputs, actualInputs) 
   const state = value.byDigest.get(inputContentDigest(actualInputs))
   assert.ok(state, 'Actual complete inputs are outside the frozen companion states.')
   if (actualInputs.input_version === initialInputs.input_version) assert.equal(state.id, '0', 'An immutable input version changed contents.')
+  if (options.history) {
+    assert.ok(Array.isArray(options.history), 'Input history must contain complete transitions.')
+    let previous = initialInputs
+    const proofs = []
+    for (const event of options.history) {
+      assert.deepEqual(ordered(event.before), ordered(previous), 'Input history omitted or reordered a complete immutable snapshot.')
+      const accepted = resolveInputCompanion(declaration, initialInputs, event.after, { transition: event })
+      proofs.push(accepted.transition)
+      previous = event.after
+    }
+    assert.deepEqual(ordered(previous), ordered(actualInputs), 'Input history does not reach the accepted immutable snapshot.')
+    return { ...state, history: proofs }
+  }
+  if (options.transition) return { ...state, transition: changedInput(declaration, initialInputs, actualInputs, state, options.transition) }
   return state
+}
+
+function changedInput(declaration, initialInputs, actualInputs, state, attempt) {
+  assert.equal(attempt.response_status, 200, 'A failed input request cannot be a committed edit.')
+  const before = resolveInputCompanion(declaration, initialInputs, attempt.before)
+  const target = declaration.targets.find(row => row.editor === attempt.editor)
+  assert.ok(target, 'The input editor has no declared master assignment.')
+  assert.deepEqual(Object.keys(attempt.command).sort(), ['base_version', 'changes'], 'Input edits use their own public version contract.')
+  assert.equal(attempt.command.base_version, attempt.before.input_version, 'Submitted input base differs from its complete snapshot.')
+  assert.equal(actualInputs.input_version, attempt.before.input_version + 1, 'A genuine input commit must advance exactly one version.')
+  assert.notEqual(before.inputs_sha256, state.inputs_sha256, 'An unchanged input is not a modified editor commit.')
+  assert.deepEqual(Object.keys(attempt.command.changes), [target.kind], 'The input request changed another category.')
+
+  const original = attempt.before.masters[target.kind].find(row => row.code === target.code)
+  const changed = actualInputs.masters[target.kind].find(row => row.code === target.code)
+  assert.notEqual(original.name, changed.name, 'The assigned existing master name did not change.')
+  const expected = structuredClone(attempt.before)
+  expected.masters[target.kind].find(row => row.code === target.code).name = changed.name
+  expected.input_version = actualInputs.input_version
+  assert.deepEqual(ordered(actualInputs), ordered(expected), 'A committed input edit changed fields outside its actor-owned name.')
+
+  const rows = attempt.command.changes[target.kind]
+  assert.ok(Array.isArray(rows) && rows.length, 'The name-edit request has no rows.')
+  assert.equal(new Set(rows.map(row => row.code)).size, rows.length, 'Submitted master rows repeat.')
+  assert.ok(rows.some(row => row.code === target.code), 'The assigned changed master was not submitted.')
+  for (const row of rows) {
+    const wanted = expected.masters[target.kind].find(item => item.code === row.code)
+    assert.ok(wanted, 'A name-edit request added a master.')
+    assert.deepEqual(ordered(row), ordered(wanted), 'Submitted master contents differ from the complete accepted state.')
+  }
+  return { kind: 'modified_input_name', editor: attempt.editor,
+    before_version: attempt.before.input_version, input_version: actualInputs.input_version,
+    before_state_id: before.id, state_id: state.id,
+    digest_algorithm: INPUT_CONTENT_DIGEST_ALGORITHM,
+    before_inputs_sha256: before.inputs_sha256, inputs_sha256: state.inputs_sha256,
+    command_decoded_json_sha256: jsonDigest(attempt.command),
+    response_decoded_json_sha256: jsonDigest(actualInputs) }
 }

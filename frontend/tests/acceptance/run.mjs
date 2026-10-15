@@ -10,6 +10,8 @@ import { spawnSync } from 'node:child_process'
 import { performance } from 'node:perf_hooks'
 import { prepareWeekNavigation, navigateWeek, prepareDayNavigation, navigateDay, assertSelected, unselectSegment } from './navigation.mjs'
 import { canonical, assertPlan, assertState, manualRows, scopeFor, assertManualRequest, assertManualPlan, assertManualEvaluation, failEntry, terminal } from './contracts.mjs'
+import { inputEditorLoop } from './input-editors.mjs'
+import { inputContentDigest, resolveInputCompanion } from './input-load.mjs'
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../../..')
 const flags = Object.fromEntries(process.argv.slice(2).map((arg, i, all) => arg.startsWith('--') ? [arg.slice(2), all[i + 1]] : null).filter(Boolean))
@@ -36,10 +38,25 @@ function asset(pointer) {
 }
 const source = asset(scenario.source), action = asset(scenario.action), output = resolve(flags.output)
 mkdirSync(output, { recursive: false })
-const helperFiles = ['frontend/tests/acceptance/navigation.mjs', 'frontend/tests/acceptance/contracts.mjs', 'frontend/tests/acceptance/input-load.mjs', 'scripts/acceptance/check_result.py', 'scripts/acceptance/assertions.py', 'scripts/acceptance/compare.py', 'scripts/acceptance/workbook.py']
+const editingProbe = flags['editing-contract-probe'] === 'true'
+assert.ok(!editingProbe || mode !== 'solo' && config.target.kind === 'adapter', 'The editing-contract probe requires five disposable adapter accounts.')
+let inputCompanion
+if (mode !== 'solo') {
+  assert.ok(config.input_companion?.path && config.input_companion.sha256, 'New five-editor runs require their frozen maintained-input companion.')
+  const bytes = readFileSync(resolve(config.input_companion.path))
+  assert.equal(sha(bytes), config.input_companion.sha256, 'Input companion bytes differ from their run configuration.')
+  inputCompanion = JSON.parse(bytes)
+  assert.equal(inputCompanion.scenario, scenario.id, 'The input companion names another scenario.')
+  assert.equal(inputCompanion.source_manifest_sha256, sha(manifestBytes), 'The input companion names another manifest.')
+  assert.equal(inputCompanion.source_fixture_sha256, scenario.source.sha256, 'The input companion names another frozen source.')
+  resolveInputCompanion(inputCompanion, source.inputs, source.inputs)
+  writeFileSync(resolve(output, 'input-companion.json'), bytes)
+  mkdirSync(resolve(output, 'input-bodies'))
+}
+const helperFiles = ['frontend/tests/acceptance/navigation.mjs', 'frontend/tests/acceptance/contracts.mjs', 'frontend/tests/acceptance/input-load.mjs', 'frontend/tests/acceptance/input-editors.mjs', 'scripts/acceptance/check_result.py', 'scripts/acceptance/assertions.py', 'scripts/acceptance/compare.py', 'scripts/acceptance/workbook.py']
 const requiredEnvironment = ['image_digest', 'source_commit', 'migration_versions', 'python', 'native_libraries', 'server_hardware', 'client_hardware', 'cgroup_cpu_max', 'cgroup_memory_max', 'solver_threads', 'worker_count', 'oracle_pool_maximum', 'oracle_pool_observed_usage', 'network_proxy_path', 'peak_cpu_memory']
 const missingEnvironment = requiredEnvironment.filter(key => config.environment?.[key] === null || config.environment?.[key] === undefined || config.environment[key] === '')
-const evidence = { schema_version: 2, kind: config.target.kind === 'adapter' ? 'external browser with explicit test adapters' : 'external browser to operator-attested disposable PLAN_TEST',
+const evidence = { schema_version: inputCompanion ? 3 : 2, kind: editingProbe ? 'public browser input-editing correctness probe; no timed acceptance' : config.target.kind === 'adapter' ? 'external browser with explicit test adapters' : 'external browser to operator-attested disposable PLAN_TEST',
   runner_sha256: sha(readFileSync(fileURLToPath(import.meta.url))), helper_sha256: Object.fromEntries(helperFiles.map(path => [path, sha(readFileSync(resolve(root, path)))])),
   run_config_sha256: sha(configBytes), manifest_sha256: sha(manifestBytes), fixture_sha256: scenario.source.sha256, reference_sha256: scenario.reference.sha256, action_sha256: scenario.action.sha256,
   mode, scenario: scenario.id, reference_confirmation: manifest.reference_confirmation, environment: config.environment, target: config.target, origin: config.origin, base_path: config.base_path,
@@ -48,6 +65,12 @@ const evidence = { schema_version: 2, kind: config.target.kind === 'adapter' ? '
   editor_schedule: 'Four background contexts preview99 then100 locally, await both undos, then acknowledge a complete zero-net public patch of their original line/date witnesses. Every commit is UUID-bound and the full input/context/baseline/plan is checked. The primary is editor five and owns one computation. Save admission is held only while pinning/submitting that computation, then resumed before result measurement completes. Known complete primary99 snapshots are permitted only during the measured modified-save/restoration interval; each next repeat requires the exact original source.',
   repeats: [], editor_actions: [], request_spans: [], operations: [], submissions: [], jobs: [], acceptance: 'not_run',
   real_user_acceptance: { status: 'not_run', reason: 'Synthetic contexts do not establish five humans, twenty real accounts, company authentication or user-confirmed reference quality.' } }
+if (inputCompanion) {
+  evidence.input_companion = { path: 'input-companion.json', sha256: config.input_companion.sha256 }
+  evidence.editor_schedule = 'Four actual Inputs browsers alternate their assigned existing names through preview/apply. First previews synchronize to exercise actual optimistic conflicts. Each actor waits after its first commit until all four have committed; this is premeasurement warmup. Later iterations continue independently with public reload/retry. Every genuine changed immutable version and raw request/reply is retained. Names are restored after stopping. Primary-operation load qualification remains pending.'
+  evidence.input_history = []
+  evidence.input_editing_contract = { status: 'not_run', continuing_activity: 'not_qualified', probe_only: editingProbe }
+}
 function persist() { writeFileSync(resolve(output, 'report.json'), JSON.stringify(evidence, null, 2) + '\n') }
 function privateAccounts() {
   try { return JSON.parse(readFileSync(0, 'utf8')).accounts }
@@ -59,6 +82,7 @@ assert.ok(accounts.every(row => typeof row?.username === 'string' && row.usernam
 assert.equal(new Set(accounts.map(row => row.username.trim().toUpperCase())).size, count, 'Editor identities must be distinct.')
 const headers = { Origin: config.origin, 'X-Auto-Plan-Request': '1', 'Cache-Control': 'no-cache' }, api = path => config.origin + config.base_path + '/api' + path
 let browser, stopped = false, blocked = null, initialState, primaryPlans = [], loadPromises = [], saveAdmissionHeld = false, inFlightSaves = 0
+let inputEditors
 const pages = [], createdJobs = new Map()
 const importCaptureSessions = new WeakMap()
 function responseFor(page, predicate, options) { const pending = page.waitForResponse(predicate, options); pending.catch(() => {}); return pending }
@@ -91,7 +115,7 @@ async function readState(page, browserRead = false) {
     baseline: adopted ? { version: head.latest_adoption, plan: adopted.snapshot.plan, coverage: adopted.coverage } : null } }
 }
 function allowedPlans() { return [initialState.snapshot.plan, ...primaryPlans] }
-function assertAllowed(state, plans = allowedPlans()) { assertState(state, initialState, plans) }
+function assertAllowed(state, plans = allowedPlans()) { assertState(state, initialState, plans, { inputCompanion }) }
 const tokens = head => ({ base_revision: head.revision, input_version: head.input_version, latest_adoption: head.latest_adoption })
 const queue = page => page.getByRole('region', { name: '本机完整动作队列', exact: true }).getByRole('checkbox')
 async function idle(page) { await expect(page.getByRole('button', { name: '预览本机修改', exact: true })).toBeEnabled({ timeout: 180000 }) }
@@ -330,33 +354,87 @@ async function compute(page, operation, entry, stem) {
   entry.verification_finished_ms = performance.now()
   } finally { if (saveAdmissionHeld) release() }
 }
-async function editorLoop(page, row, editor) {
-  while (!stopped) {
-    const entry = { editor, started_ms: performance.now(), phases: [], status: 'fail' }
-    const phase = name => { entry.phase = name; entry.phases.push({ name, started_ms: performance.now() }) }
-    try {
-      phase('shared_source_and_empty_queue'); await shared(page); const before = await readState(page); assertAllowed(before)
-      phase('selected_identity'); await selectRow(page, row); await assertSelected(page, row)
-      phase('local_preview_99'); const first = await previewChange(page, row, 99, {}); assertManualRequest(first.command, [row], 'change_quantity', 99)
-      phase('local_preview_100'); const second = await previewChange(page, row, 100, {})
-      assert.equal(second.command.operations.length, 2, 'The restoration preview must retain the complete two-action pair.')
-      assert.deepEqual(canonical(second.command.operations[0]), canonical(first.command.operations[0]), 'The first load action changed.')
-      assertManualRequest({ ...second.command, operations: [second.command.operations[1]] }, [row], 'change_quantity', 100)
-      entry.preview_commands = [first.command, second.command]
-      phase('settled_undo_pair'); entry.reset = await resetQueue(page, 2)
-      const plans = allowedPlans(); assertAllowed(await readState(page), plans)
-      phase('complete_original_block_zero_net_save')
-      const segments = source.plan.segments.filter(item => item.date === row.date && item.line_code === row.line_code)
-      const switches = source.plan.switches.filter(item => item.line_code === row.line_code && item.allocations.every(part => part.date === row.date))
-      entry.commit = await apiSave(page, { kind: 'patch_plan', segments, switches }, 'background_exact_original_block_zero_net')
-      phase('full_preservation_and_empty_queue'); assertAllowed(await readState(page)); await expect(queue(page)).toHaveCount(0)
-      entry.status = 'pass'
-    } catch (error) { failEntry(entry, error); stopped = true; blocked ??= 'A background editor preservation/action check failed.' }
-    entry.finished_ms = performance.now(); evidence.editor_actions.push(entry); persist()
-  }
-}
 
+function captureInputBody(bytes) {
+  const digest = sha(bytes), path = 'input-bodies/' + digest + '.json'
+  writeFileSync(resolve(output, path), bytes)
+  return { path, sha256: digest }
+}
+function deferred() {
+  let resolve, reject
+  const promise = new Promise((yes, no) => { resolve = yes; reject = no })
+  promise.catch(() => {})
+  return { promise, resolve, reject }
+}
+function startInputEditors() {
+  const first = deferred(), ready = deferred(), previews = new Set(), committed = new Set()
+  evidence.input_editor_sessions = []
+  loadPromises = inputCompanion.targets.map(target => {
+    const session = { editor: target.editor, started_ms: performance.now(), finished_ms: null }
+    evidence.input_editor_sessions.push(session)
+    return inputEditorLoop({ page: pages[target.editor], editor: target.editor, declaration: inputCompanion,
+      initialInputs: initialState.snapshot.inputs, origin: config.origin, basePath: config.base_path,
+      stopped: () => stopped, captureBody: captureInputBody,
+      firstPreview: () => { previews.add(target.editor); if (previews.size === 4) first.resolve(); return first.promise },
+      firstCommit: () => ready.promise,
+      onAttempt: entry => {
+        const { response, before, after, ...record } = entry
+        evidence.editor_actions.push(record)
+        if (entry.status === 'unknown') evidence.input_editing_contract.unknown_request = true
+        persist()
+      },
+      onCommit: entry => {
+        evidence.input_history.push({ editor: entry.editor, before: entry.before, after: entry.after,
+          command: entry.command, response_status: entry.response_status,
+          request_artifact: entry.request_artifact, response_artifact: entry.response_artifact })
+        committed.add(entry.editor)
+        if (committed.size === 4) ready.resolve()
+        persist()
+      } }).catch(error => {
+        const entry = { editor: target.editor, phase: 'real_input_editor', status: 'fail', finished_ms: performance.now() }
+        failEntry(entry, error); evidence.editor_actions.push(entry)
+        stopped = true; blocked ??= 'A real input editor failed; primary load qualification is incomplete.'
+        first.reject(error); ready.reject(error); persist()
+      }).finally(() => { session.finished_ms = performance.now(); persist() })
+  })
+  return { ready: ready.promise, finished: false }
+}
+async function finishInputEditors() {
+  if (!inputEditors || inputEditors.finished) return
+  stopped = true; await Promise.all(loadPromises)
+  const contract = evidence.input_editing_contract
+  contract.status = 'fail'
+  // Unknown write replies require their own reconciliation slice. They cannot
+  // earn credit or trigger a blind resubmission/restoration here.
+  assert.ok(!contract.unknown_request, 'An original input request is unresolved; no blind input write was attempted.')
+  const current = await json(pages[0], '/inputs')
+  contract.last_modified_inputs = current
+  evidence.input_history.sort((a, b) => a.after.input_version - b.after.input_version)
+  let historyError
+  try {
+    resolveInputCompanion(inputCompanion, initialState.snapshot.inputs, current, { history: evidence.input_history })
+    assert.deepEqual([...new Set(evidence.input_history.map(row => row.editor))].sort(), [1, 2, 3, 4], 'Four actors did not commit genuine current-run name changes.')
+  } catch (error) { historyError = error }
+  const restored = structuredClone(current), changes = {}
+  for (const target of inputCompanion.targets) {
+    restored.masters[target.kind].find(row => row.code === target.code).name = target.names[0]
+    changes[target.kind] = restored.masters[target.kind]
+  }
+  const preview = await json(pages[0], '/inputs/preview', { base_version: current.input_version, changes })
+  assert.ok(preview.valid, 'Original input-name restoration preview failed.')
+  const command = { base_version: preview.base_version, changes: preview.changes }
+  const result = await json(pages[0], '/inputs/apply', command)
+  contract.restoration = { command, result, credited_as_editor: false }
+  contract.restored_inputs = await json(pages[0], '/inputs?version=' + result.input_version)
+  assert.equal(inputContentDigest(contract.restored_inputs), inputContentDigest(initialState.snapshot.inputs), 'Original complete input contents were not restored.')
+  assertAllowed(await readState(pages[0], true))
+  contract.cleanup = 'complete'; inputEditors.finished = true
+  if (historyError) throw historyError
+  assert.ok(!blocked, blocked)
+  contract.status = 'pass'; persist()
+}
 try {
+  assert.ok(!inputCompanion || editingProbe, 'Primary load timing/pin/retry qualification is pending; only the explicit adapter editing probe is enabled.')
   assert.ok(!importOnly || mode === 'solo', 'Concurrent initial import is not_run: an empty target has no shared editor state.')
   if (operations.some(value => ['single_cell', 'batch_preview', 'shared_save', 'import_validation'].includes(value))) assert.equal(scenario.kind, 'loose', 'No matching independent manual/workbook result exists for this family.')
   const primary = source.plan.segments.find(row => row.id === config.primary_segment); assert.ok(primary, 'Primary segment is absent from the frozen source.')
@@ -393,14 +471,21 @@ try {
     assert.deepEqual(evidence.initial_tokens, config.bindings, 'Prepared source tokens differ from the run configuration.')
     check('source', head.evaluation, head.plan, 'source-preflight', null, initialState.snapshot)
   }
-  const loads = mode === 'solo' ? [] : (config.load_segments ?? []).map(id => source.plan.segments.find(row => row.id === id))
-  assert.ok(mode === 'solo' || loads.length === 4 && loads.every(Boolean), 'Four frozen load segments are required.')
-  assert.equal(new Set([primary, ...loads].map(row => row.model_code)).size, count, 'Load edits need disjoint models.')
-  assert.equal(new Set([primary, ...loads].map(row => row.line_code)).size, count, 'Load edits need disjoint lines.')
+  const loads = mode === 'solo' || inputCompanion ? [] : (config.load_segments ?? []).map(id => source.plan.segments.find(row => row.id === id))
+  assert.ok(mode === 'solo' || inputCompanion || loads.length === 4 && loads.every(Boolean), 'Four frozen load segments are required.')
+  if (!inputCompanion) {
+    assert.equal(new Set([primary, ...loads].map(row => row.model_code)).size, count, 'Load edits need disjoint models.')
+    assert.equal(new Set([primary, ...loads].map(row => row.line_code)).size, count, 'Load edits need disjoint lines.')
+  }
   if (loads.length) manualRows(source, loads.map(row => row.id))
   assert.equal((await activeJobs(pages[0])).length, 0, 'An unreported active/queued job predates the run.')
-  loadPromises = loads.map((row, i) => editorLoop(pages[i + 1], row, i + 1))
-  for (const operation of operations) {
+  if (inputCompanion) {
+    evidence.phase = 'real_input_editor_warmup'; persist()
+    inputEditors = startInputEditors()
+    await inputEditors.ready
+    if (editingProbe) await finishInputEditors()
+  }
+  for (const operation of editingProbe ? [] : operations) {
     assert.ok(operation in manifest.gates_seconds, 'Unknown measured operation.')
     for (let repeat = 1; repeat <= 5; repeat++) {
       const page = pages[0], stem = `${operation}-${repeat}`, entry = { operation, repeat, first: repeat === 1, gate_seconds: manifest.gates_seconds[operation], status: 'fail', phase: 'setup', setup_started_ms: performance.now(), setup_seconds: null, measurement_started: false, seconds: null, expected_queue_count: 0 }
@@ -518,13 +603,17 @@ try {
     }).length + 1
     if (entry.active_editor_contexts !== 5) failEntry(entry, null, 'Five automated editor action intervals did not cover the complete measured result.')
   }
-  evidence.automated_observation = evidence.repeats.length === operations.length * 5 && evidence.repeats.every(row => row.status === 'pass') && evidence.editor_actions.every(row => row.status === 'pass') ? 'pass' : 'fail'
+  evidence.automated_observation = editingProbe ? 'not_run' : evidence.repeats.length === operations.length * 5 && evidence.repeats.every(row => row.status === 'pass') && evidence.editor_actions.every(row => row.status === 'pass') ? 'pass' : 'fail'
 } catch (error) { evidence.preflight = { status: 'fail', phase: evidence.phase, reason: evidence.phase?.startsWith('login') ? error.name : String(error.message).split('\n')[0].slice(0, 300) }; process.exitCode = 1 }
 finally {
   stopped = true; await Promise.allSettled(loadPromises)
+  if (inputEditors && !inputEditors.finished) {
+    try { await finishInputEditors() }
+    catch (error) { evidence.input_editing_contract.status = 'fail'; evidence.input_editing_contract.cleanup = 'failed'; evidence.input_editing_contract.reason = String(error.message).split('\n')[0].slice(0, 300) }
+  }
   if (pages[0]) for (const [id, record] of createdJobs) if (record.cleanup !== 'terminal') {
     try { await finishJob(pages[0], id) } catch (error) { record.cleanup = 'failed'; record.reason = String(error.message).split('\n')[0].slice(0, 300); evidence.automated_observation = 'fail' }
   }
   if (browser) await browser.close(); evidence.client_wrapper_peak_rss_kib = process.resourceUsage().maxRSS; persist()
 }
-if (evidence.automated_observation !== 'pass') process.exitCode = 1
+if (editingProbe ? evidence.input_editing_contract?.status !== 'pass' : evidence.automated_observation !== 'pass') process.exitCode = 1
