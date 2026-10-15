@@ -90,7 +90,16 @@ export function resolveInputCompanion(declaration, initialInputs, actualInputs, 
 }
 
 function changedInput(declaration, initialInputs, actualInputs, state, attempt) {
-  assert.equal(attempt.response_status, 200, 'A failed input request cannot be a committed edit.')
+  if (attempt.resolution) {
+    const resolution = attempt.resolution
+    assert.ok([null, 200].includes(attempt.response_status), 'A known rejection cannot become a reconciled input commit.')
+    assert.equal(resolution.kind, 'immutable_input_version', 'Unknown input resolution proof.')
+    assert.equal(resolution.result, 'committed', 'An unresolved or obsolete input request cannot be a committed edit.')
+    assert.equal(resolution.head_status, 200, 'Reconciliation needs an actual successful public head read.')
+    assert.equal(resolution.version_status, 200, 'Reconciliation needs an actual successful immutable input read.')
+    assert.ok(resolution.head_input_version > attempt.command.base_version, 'The original optimistic input base is still current.')
+    for (const key of ['head_artifact', 'version_artifact']) assert.ok(resolution[key]?.path && resolution[key]?.sha256, 'Reconciliation needs complete retained public read bodies.')
+  } else assert.equal(attempt.response_status, 200, 'A failed input request cannot be a committed edit.')
   const before = resolveInputCompanion(declaration, initialInputs, attempt.before)
   const target = declaration.targets.find(row => row.editor === attempt.editor)
   assert.ok(target, 'The input editor has no declared master assignment.')
@@ -118,6 +127,7 @@ function changedInput(declaration, initialInputs, actualInputs, state, attempt) 
     assert.deepEqual(ordered(row), ordered(wanted), 'Submitted master contents differ from the complete accepted state.')
   }
   return { kind: 'modified_input_name', editor: attempt.editor,
+    acknowledgment: attempt.resolution ? 'reconciled_public_immutable_version' : 'original_http_200',
     before_version: attempt.before.input_version, input_version: actualInputs.input_version,
     before_state_id: before.id, state_id: state.id,
     digest_algorithm: INPUT_CONTENT_DIGEST_ALGORITHM,
