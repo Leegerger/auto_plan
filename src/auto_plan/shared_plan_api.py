@@ -44,7 +44,9 @@ def adoption(adoption:int,request:Request,principal=Depends(require_viewer)):
 
 @router.post('/plans/preview')
 def preview(payload:PlanCommand,request:Request,principal=Depends(require_editor)):
-    return invoke(lambda:service(request).preview(payload,principal.user_id,request.app.state.clock()))
+    # PlanService already serializes its complete typed result in JSON mode.
+    # Render it once rather than recursively converting the same large ledger.
+    return invoke(lambda:JSONResponse(service(request).preview(payload,principal.user_id,request.app.state.clock())))
 
 
 @router.post('/plans/save')

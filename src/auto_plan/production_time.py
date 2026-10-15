@@ -21,4 +21,4 @@ def production_cutoff(day: date) -> datetime:
 
 def week_label(day: date) -> str:
     year, week, _ = day.isocalendar()
-    return f'W{year}{week:02d}'
+    return f'W{year:04d}{week:02d}'

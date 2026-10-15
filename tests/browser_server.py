@@ -14,7 +14,8 @@ if __name__ == '__main__':
         cert = Path(directory) / 'cert.pem'
         key = Path(directory) / 'key.pem'
         subprocess.run(['openssl', 'req', '-x509', '-newkey', 'rsa:2048', '-nodes', '-keyout', str(key), '-out', str(cert), '-days', '1', '-subj', '/CN=localhost'], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        settings = Settings(initial_admin_id='ADMIN', public_origin='https://localhost:8774', base_path='/planning', frontend_dist=Path('frontend/dist'))
+        port=int(os.getenv('AUTO_PLAN_BROWSER_PORT','8774'))
+        settings = Settings(initial_admin_id='ADMIN', public_origin=f'https://localhost:{port}', base_path='/planning', frontend_dist=Path('frontend/dist'))
         access = MemoryAccessStore()
         inputs = MemoryInputStore()
         options = {}
@@ -47,5 +48,14 @@ if __name__ == '__main__':
             options['plan_store'] = plans
             options['clock'] = lambda: now
             access.users['SHARED_EDITOR']={'user_id':'SHARED_EDITOR','roles':['editor'],'active':True}
+        if os.getenv('AUTO_PLAN_BROWSER_INITIALIZATION_FIXTURE') == '1':
+            from datetime import datetime, timezone
+            from tests.plan_support import MemoryPlanStore
+            from tests.demand_support import MemoryDemandStore
+            plans=MemoryPlanStore(inputs)
+            options['plan_store']=plans
+            options['demand_store']=MemoryDemandStore(plans)
+            options['clock']=lambda: datetime(2026,10,14,tzinfo=timezone.utc)
+            access.users['IMPORT_EDITOR']={'user_id':'IMPORT_EDITOR','roles':['editor'],'active':True}
         app = create_app(settings, store=access, input_store=inputs, authenticator=CompanyAuthentication(), **options)
-        uvicorn.run(app, host='127.0.0.1', port=8774, ssl_keyfile=str(key), ssl_certfile=str(cert), access_log=False)
+        uvicorn.run(app, host='127.0.0.1', port=port, ssl_keyfile=str(key), ssl_certfile=str(cert), access_log=False)

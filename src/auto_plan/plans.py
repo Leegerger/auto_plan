@@ -11,6 +11,8 @@ from .plan_operations import replay_result, OperationContext
 from .rules import evaluate
 from .exact import hours
 from .production_time import week_label
+from .input_lookup import InputIndex
+from .recipe_states import analyze_recipe_states
 
 
 def plan_hour_display(plan):
@@ -126,17 +128,18 @@ def effect_keys(before, after, context):
     from datetime import timedelta
     # Propagate only while the before/after Recipe state differs. Quantity or
     # hour-only edits with identical state leave later independent days free.
-    before_result=evaluate(context.model_copy(update={'plan':before}))
-    after_result=evaluate(context.model_copy(update={'plan':after}))
-    def states(plan,result,line):
+    index=InputIndex(context.inputs)
+    before_states=analyze_recipe_states(before,index)
+    after_states=analyze_recipe_states(after,index)
+    def states(plan,analysis,line):
         initial=next((r.recipe_code for r in plan.initial_states if r.line_code==line),None)
-        events={r.date.isoformat():r.ending_recipe for r in result.days if r.line_code==line}
+        events={day.isoformat():recipe for (day,event_line),recipe in analysis.endings.items() if event_line==line}
         return initial,events
     for line, dates in changed_lines.items():
         for day in dates: keys.add(('CAP',line,day))
         first=min(dates)
-        old_state,old_events=states(before,before_result,line)
-        new_state,new_events=states(after,after_result,line)
+        old_state,old_events=states(before,before_states,line)
+        new_state,new_events=states(after,after_states,line)
         day=context.time.window_start
         while day<=context.time.window_end:
             iso=day.isoformat()

@@ -8,6 +8,7 @@ from pydantic import Field, model_validator
 from .input_models import InputRow, Code, Pieces
 from .plan_models import Plan, SourceSegment, InitialRecipeState
 from .input_lookup import InputIndex
+from .recipe_states import analyze_recipe_states
 from .certificate import construct_hour_certificate, CertificateError
 from .plan_operations import register_operation, ReplayResult
 
@@ -47,17 +48,10 @@ def derived_id(context,suffix):
 
 
 def _state_before(plan,index,line,day):
-    state=next((r.recipe_code for r in plan.initial_states if r.line_code==line),None)
-    events=[]
-    for row in plan.segments:
-        if row.line_code==line and row.date<day and row.quantity:
-            events.append((row.date,row.order,index.models[row.model_code].recipe_code))
-    for switch in plan.switches:
-        if switch.line_code!=line: continue
-        allocation=max(switch.allocations,key=lambda a:(a.date,a.order))
-        if allocation.date<day: events.append((allocation.date,allocation.order,switch.to_recipe))
-    for _,_,recipe in sorted(events): state=recipe
-    return state
+    states=analyze_recipe_states(plan,index)
+    endings=[(production_day,state) for (production_day,production_line),state in states.endings.items()
+             if production_line==line and production_day<day]
+    return max(endings,key=lambda value:value[0])[1] if endings else states.initial_states.get(line)
 
 
 class CapacityWitnessError(ValueError):
