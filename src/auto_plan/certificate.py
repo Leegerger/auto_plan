@@ -50,8 +50,10 @@ def construct_hour_certificate(inputs: InputSnapshot, segments: list[SourceSegme
     if (max(row.date for row in segments) - first_date).days >= 105:
         raise CertificateError([RuleIssue(code='certificate_range', reason='工时依据仅构造冻结的十五周排程窗口')])
     lower, quantities = {}, {}
+    group_keys = defaultdict(list)
     for key, rows in groups.items():
         day, line, recipe = key
+        group_keys[day, line].append(key)
         quantity = sum(row.quantity for row in rows)
         quantities[key] = quantity
         capacity = index.capacity(day.strftime('%Y-%m'), recipe, line)
@@ -81,7 +83,7 @@ def construct_hour_certificate(inputs: InputSnapshot, segments: list[SourceSegme
         bounds = []
         productive = []
         for day in dates:
-            keys = [key for key in groups if key[0] == day and key[1] == line]
+            keys = group_keys[day, line]
             bounds.append(Fraction((day_limits or {}).get((day,line),index.day(day, line)['available_hours'])) - sum((lower[key] for key in keys), Fraction(0)))
             productive.append(any(quantities[key] for key in keys))
         jobs = []
@@ -147,7 +149,7 @@ def construct_hour_certificate(inputs: InputSnapshot, segments: list[SourceSegme
         reserve = (margin / 2) if margin is not None else Fraction(0)
         remaining = [bound - (reserve if positive else 0) for bound, positive in zip(bounds, productive)]
         for day in dates:
-            keys = [key for key in groups if key[0] == day and key[1] == line and quantities[key]]
+            keys = [key for key in group_keys[day, line] if quantities[key]]
             for key in keys:
                 group_hours[key] = lower[key] + reserve / len(keys)
         for job in jobs:
