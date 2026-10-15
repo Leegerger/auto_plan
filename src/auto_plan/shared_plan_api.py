@@ -1,6 +1,6 @@
 from uuid import UUID
 from fastapi import APIRouter, Depends, Request, HTTPException, Query
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
 from .app import require_editor, require_viewer
 from .input_models import InputRow
 from .plans import PlanService, PlanCommand, SubmitPlan, PlanProblem, PlanBusy, PlanUnknown
@@ -42,9 +42,30 @@ def revision(revision:int,request:Request,principal=Depends(require_viewer)):
     return invoke(lambda:service(request).revision(revision,principal.user_id))
 
 
+@router.get('/plans/history')
+def history(request:Request,before:int|None=Query(default=None,ge=1),limit:int=Query(default=50,ge=1,le=100),principal=Depends(require_viewer)):
+    return invoke(lambda:service(request).history(principal.user_id,request.app.state.clock(),before,limit))
+
+
 @router.get('/plans/adoptions/{adoption}')
 def adoption(adoption:int,request:Request,principal=Depends(require_viewer)):
     return invoke(lambda:service(request).adoption(adoption,principal.user_id))
+
+
+def export_record(record, kind, identity):
+    from .history_export import workbook_bytes
+    return Response(workbook_bytes(record), media_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                    headers={'Content-Disposition':f'attachment; filename="auto-plan-{kind}-{identity}.xlsx"'})
+
+
+@router.get('/plans/revisions/{revision}/export.xlsx')
+def export_revision(revision:int,request:Request,principal=Depends(require_viewer)):
+    return invoke(lambda:export_record(service(request).revision(revision,principal.user_id),'revision',revision))
+
+
+@router.get('/plans/adoptions/{adoption}/export.xlsx')
+def export_adoption(adoption:int,request:Request,principal=Depends(require_viewer)):
+    return invoke(lambda:export_record(service(request).adoption(adoption,principal.user_id),'adoption',adoption))
 
 
 @router.post('/plans/preview')
