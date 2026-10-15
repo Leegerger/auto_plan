@@ -37,6 +37,9 @@ class MemoryPlanStore:
             result=action(self)
             self.keys[key]={'actor':actor,'kind':kind,'digest':digest,'result':deepcopy(result)}
             return result
+    def write_context(self,context,actor,now):
+        self.input_store.update(actor,now,lambda current:current.model_copy(update={'input_version':current.input_version+1}))
+        self.context=context
     def append(self,prepared,operations,actor,now,kind,pending):
         self.revision+=1
         prepared=deepcopy(prepared)|{'revision':self.revision,'operations':deepcopy(operations),'actor':actor,'recorded_at':now.isoformat(),'pending':pending,'kind':kind}

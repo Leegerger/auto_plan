@@ -66,6 +66,10 @@ class OraclePlanUnit:
         self.cursor.execute('SELECT EFFECT_JSON FROM AP_PLAN_EFFECT WHERE REVISION_NO>:revision',revision=revision)
         return {tuple(json.loads(row[0])) for row in self.cursor}
 
+    def write_context(self,context,actor,now):
+        self.inputs=self.store.write_context_in_transaction(self.cursor,actor,now,context)
+        self.context=context
+
     def append(self,prepared,operations,actor,now,kind,pending):
         revision=self.revision+1; adoption=self.adoption+(kind=='adopt')
         record=prepared|{'revision':revision,'latest_adoption':adoption,'operations':operations,'actor':actor,'recorded_at':now.isoformat(),'kind':kind,'pending':pending}

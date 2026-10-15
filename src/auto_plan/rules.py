@@ -39,6 +39,20 @@ def evaluate(snapshot: EvaluationSnapshot) -> EvaluationResult:
                 if hasattr(row, field) and getattr(row, field) not in known:
                     problem('unknown_master', f'输入快照{kind}引用不存在的编码')
 
+    planned=defaultdict(int)
+    for row in snapshot.plan.segments:
+        planned[row.date,row.line_code,row.model_code]+=row.quantity
+    locked=set()
+    for lock in snapshot.locks:
+        key=lock.date,lock.line_code,lock.model_code
+        if key in locked:
+            issues.append(RuleIssue(code='duplicate_lock',reason='数量锁存在重复日期、线体、机种组合',date=lock.date,line_code=lock.line_code,model_code=lock.model_code))
+        locked.add(key)
+        if lock.line_code not in index.lines or lock.model_code not in index.models:
+            issues.append(RuleIssue(code='unknown_master',reason='数量锁引用不存在的线体或机种',date=lock.date,line_code=lock.line_code,model_code=lock.model_code))
+        if snapshot.time.window_start<=lock.date<=snapshot.time.window_end and planned[key]!=lock.quantity:
+            issues.append(RuleIssue(code='locked_cell',reason=f'锁定汇总数量{lock.quantity}片，当前安排{planned[key]}片，须先显式解锁',date=lock.date,line_code=lock.line_code,model_code=lock.model_code))
+
     groups = defaultdict(lambda: defaultdict(list))
     daily_switch = defaultdict(Fraction)
     daily_idle_use = defaultdict(Fraction)
@@ -144,7 +158,14 @@ def evaluate(snapshot: EvaluationSnapshot) -> EvaluationResult:
     from .output_rules import output_evaluation
     output = output_evaluation(snapshot, index)
     issues.extend(output.pop('issues'))
+    from .stability import compare_stability
+    stability=compare_stability(snapshot)
+    for week in stability.weeks:
+        if week.exceeds_tolerance:
+            issues.append(RuleIssue(code='stability_tolerance',reason=f'第{week.number}周变化率{week.rate_display}超过容忍度{week.tolerance_percent}%，可核对后明确采用',severity='warning',demand_week=week.week))
+        elif week.state=='zero_baseline':
+            issues.append(RuleIssue(code='stability_zero_addition',reason=f'原计划为零，新增 {week.added} 片，请核对',severity='warning',demand_week=week.week))
     complete = not any(i.severity == 'incomplete' for i in issues)
     return EvaluationResult(time=snapshot.time, capacity_valid=valid, computation_complete=complete, executable=not any(i.severity == 'error' for i in issues) and complete,
         issues=issues, days=result_days, switches=switch_results, initial_states=initial,
-        switch_count=sum(s.from_recipe != s.to_recipe for s in snapshot.plan.switches), **output)
+        switch_count=sum(s.from_recipe != s.to_recipe for s in snapshot.plan.switches), stability=stability, **output)

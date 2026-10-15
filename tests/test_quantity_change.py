@@ -264,3 +264,49 @@ def test_inactive_masters_remain_visible_but_cannot_gain_new_quantity_or_positio
     data['masters']['models'][1]['active'] = False
     inputs.versions[1] = InputSnapshot.model_validate(data)
     assert preview(client, change(1000), base=1).status_code == 422
+
+
+def test_explicit_unlock_must_precede_quantity_change_in_the_same_complete_queue(shared_client):
+    client, _, inputs = shared_client
+    capacity(inputs)
+    initial = [row(quantity=600) | {'hours': '12'}, row('b', 'N', quantity=600) | {'order': 1, 'hours': '12'}]
+    assert post(client, 'save', command({'kind': 'patch_plan', 'segments': initial})).status_code == 200
+    cell = {'date': '2026-10-15', 'line_code': 'L', 'model_code': 'M'}
+    lock = {'kind': 'lock_cells', 'cells': [cell | {'quantity': 600}]}
+    assert post(client, 'save', command(lock, base=1)).status_code == 200
+    unlock = {'kind': 'unlock_cells', 'cells': [cell]}
+    late = post(client, 'preview', {k: v for k, v in command(change(1000), unlock, base=2, version=2).items() if k not in ('operation_id', 'pending')})
+    assert late.status_code == 409
+    payload = command(unlock, change(1000), base=2, version=2)
+    result = post(client, 'preview', {k: v for k, v in payload.items() if k not in ('operation_id', 'pending')})
+    assert result.status_code == 200, result.text
+    assert arranged(result.json()) == [('2026-10-15', 'M', 1000), ('2026-10-15', 'N', 200), ('2026-10-16', 'N', 400)]
+    assert result.json()['context']['locks'] == []
+    assert client.get('/auto_plan/api/plans/current').json()['context']['locks'] == lock['cells']
+    saved = post(client, 'save', payload)
+    assert saved.status_code == 200, saved.text
+    assert saved.json()['input_version'] == 3
+    current = client.get('/auto_plan/api/plans/current').json()
+    assert current['context']['locks'] == []
+    assert current['plan'] == result.json()['plan']
+
+
+def test_locking_before_cascade_protects_that_aggregate_in_the_same_queue(shared_client):
+    client, _, inputs = shared_client
+    capacity(inputs)
+    initial = [row(quantity=600) | {'hours': '12'}, row('b', 'N', quantity=600) | {'order': 1, 'hours': '12'}]
+    assert post(client, 'save', command({'kind': 'patch_plan', 'segments': initial})).status_code == 200
+    cell = {'date': '2026-10-15', 'line_code': 'L', 'model_code': 'N', 'quantity': 600}
+    lock = {'kind': 'lock_cells', 'cells': [cell]}
+    payload = command(lock, change(1000, '2026-10-16'), base=1)
+    result = post(client, 'preview', {k: v for k, v in payload.items() if k not in ('operation_id', 'pending')})
+    assert result.status_code == 200, result.text
+    assert arranged(result.json()) == [('2026-10-15', 'M', 600), ('2026-10-15', 'N', 600), ('2026-10-16', 'M', 400)]
+    assert result.json()['context']['locks'] == [cell]
+    assert result.json()['unallocated'] == []
+    saved = post(client, 'save', payload)
+    assert saved.status_code == 200, saved.text
+    assert saved.json()['input_version'] == 2
+    current = client.get('/auto_plan/api/plans/current').json()
+    assert current['context']['locks'] == [cell]
+    assert current['plan'] == result.json()['plan']

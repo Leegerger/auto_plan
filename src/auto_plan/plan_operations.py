@@ -91,6 +91,7 @@ class ReplayResult:
     resolve_issues: list[str] = field(default_factory=list)
     replace_unallocated: bool = False
     replace_issues: bool = False
+    context_updates: dict = field(default_factory=dict)
 
 
 def replay_result(plan, operations, context):
@@ -102,12 +103,19 @@ def replay_result(plan, operations, context):
         content=json.dumps(raw,ensure_ascii=False,sort_keys=True,separators=(',',':'))
         if 'action_id' in raw: TypeAdapter(Code).validate_python(raw['action_id'])
         action=raw.get('action_id') or hashlib.sha256(f'{inherited.source_revision}:{ordinal}:{content}'.encode()).hexdigest()[:32]
-        operation_context=OperationContext(inherited.snapshot.model_copy(update={'plan':result.plan}),
+        operation_context=OperationContext(inherited.snapshot.model_copy(update={'plan':result.plan,**result.context_updates}),
             inherited.source_revision,deepcopy(result.unallocated),deepcopy(result.issues),deepcopy(result.lineage),action)
         model, apply = OPERATIONS[raw['kind']]
         value = apply(result.plan, model.model_validate({key:value for key,value in raw.items() if key!='action_id'}), operation_context)
+        candidate=Plan.model_validate(value.plan if isinstance(value,ReplayResult) else value)
+        if candidate!=result.plan:
+            from .plans import protect
+            protect(result.plan,candidate,operation_context.snapshot)
         if isinstance(value, ReplayResult):
-            result.plan=Plan.model_validate(value.plan)
+            if set(value.context_updates)-{'locks','preferences'}:
+                raise ValueError('未知计划上下文变更')
+            result.context_updates.update(value.context_updates)
+            result.plan=candidate
             for attribute,resolved,replace in [('unallocated',value.resolve_unallocated,value.replace_unallocated),('issues',value.resolve_issues,value.replace_issues)]:
                 old=getattr(result,attribute)
                 if set(resolved)-{entry['id'] for entry in old}:
@@ -134,3 +142,4 @@ def replay(plan, operations, context):
 # Load typed business commands after the replay primitives are defined.
 from . import manual_operations  # noqa: E402,F401
 from . import quantity_operations  # noqa: E402,F401
+from . import lock_operations  # noqa: E402,F401

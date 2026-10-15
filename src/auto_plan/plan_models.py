@@ -1,7 +1,7 @@
 """Typed planning snapshots, independent of persistence and solver models."""
 from datetime import datetime, timedelta
 from typing import Literal
-from pydantic import Field, field_validator
+from pydantic import Field, field_validator, model_validator
 from .input_models import InputRow, InputSnapshot, Code, Pieces, ProductionDate, WeeklyDemand
 from .exact import Exact, Hours
 
@@ -114,8 +114,44 @@ class AdoptedBaseline(InputRow):
 
 
 class EvaluationPreferences(InputRow):
+    near_weeks: int = Field(default=4, strict=True, ge=1, le=15)
+    near_tolerance_percent: Exact = '10'
+    far_tolerance_percent: Exact = '30'
     near_week_weight: Exact = '3'
     far_week_weight: Exact = '1'
+
+    @model_validator(mode='after')
+    def near_cost_is_higher(self):
+        from fractions import Fraction
+        if Fraction(self.near_week_weight) <= Fraction(self.far_week_weight):
+            raise ValueError('近期变动权重必须大于远期变动权重')
+        return self
+
+
+class StabilityWeek(InputRow):
+    week: ProductionDate
+    number: Pieces
+    band: Literal['near', 'far']
+    state: Literal['new_plan', 'compared', 'zero_baseline', 'partial', 'unknown_execution']
+    old_remaining: Pieces
+    new_remaining: Pieces
+    absolute_change: Pieces
+    added: Pieces
+    rate: str | None
+    rate_display: str
+    tolerance_percent: Exact
+    exceeds_tolerance: bool
+    baseline_complete: bool
+    unknown_baseline_cells: Pieces
+    unknown_execution_cells: Pieces
+
+
+class StabilityResult(InputRow):
+    baseline_version: Pieces | None
+    weeks: list[StabilityWeek]
+    weighted_cost: Exact
+    order_change_count: Pieces
+    comparison_complete: bool
 
 
 class EvaluationTime(InputRow):
@@ -343,6 +379,7 @@ class EvaluationResult(InputRow):
     reconciled_cells: list['ReconciledCell'] = Field(default_factory=list)
     output_totals: 'OutputTotals | None' = None
     excluded_demands: list[WeeklyDemand] = Field(default_factory=list)
+    stability: StabilityResult | None = None
 
 
 class SourcePlan(InputRow):
