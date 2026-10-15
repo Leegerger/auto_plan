@@ -274,12 +274,23 @@ class OraclePlanStore:
                 try:
                     with connection.cursor() as cursor:
                         head=self.head(cursor)
+                        connection.call_timeout=15000
+                        cursor.execute('SELECT INPUT_VERSION,CONTEXT_BLOB,SHA256 FROM AP_PLAN_CONTEXT')
+                        contexts=[(version,PlanningContext.model_validate(decode(blob,sha))) for version,blob,sha in cursor]
+                        for version,context in contexts:
+                            self.input_store._read(cursor,int(version))
+                            self._check_lineage(cursor,context.lineage)
+                        cursor.execute('SELECT COUNT(*) FROM AP_PLAN_REVISION R LEFT JOIN AP_PLAN_SNAPSHOT S ON S.SHA256=R.SNAPSHOT_SHA LEFT JOIN AP_INPUT_REVISION I ON I.INPUT_VERSION=R.INPUT_VERSION WHERE S.SHA256 IS NULL OR I.INPUT_VERSION IS NULL')
+                        if cursor.fetchone()[0]: raise StoreUnavailable
                         for table,column,expected in [('AP_PLAN_REVISION','REVISION_NO',head[0]),('AP_PLAN_ADOPTION','ADOPTION_NO',head[1])]:
-                            cursor.execute(f'SELECT NVL(MAX({column}),0) FROM {table}')
-                            if int(cursor.fetchone()[0])!=expected: raise StoreUnavailable
+                            cursor.execute(f'SELECT NVL(MAX({column}),0),COUNT(*) FROM {table}')
+                            maximum,count=cursor.fetchone()
+                            if int(maximum)!=expected or int(count)!=expected: raise StoreUnavailable
                         cursor.execute('SELECT R.REVISION_NO,R.INPUT_VERSION,S.SNAPSHOT_BLOB,S.SHA256 FROM AP_PLAN_REVISION R JOIN AP_PLAN_SNAPSHOT S ON S.SHA256=R.SNAPSHOT_SHA')
                         for revision,version,blob,sha in cursor:
                             record=decode(blob,sha)
+                            with connection.cursor() as refs: self._check_lineage(refs,record.get('lineage',{}))
+                            if record.get('parent_revision',revision-1)!=revision-1: raise StoreUnavailable
                             if record.get('revision')!=revision or record.get('input_version')!=version or record['snapshot']['inputs']['input_version']!=version:
                                 raise StoreUnavailable
                         cursor.execute('SELECT A.ADOPTION_NO,S.SNAPSHOT_BLOB,S.SHA256 FROM AP_PLAN_ADOPTION A JOIN AP_PLAN_SNAPSHOT S ON S.SHA256=A.SNAPSHOT_SHA')
@@ -304,3 +315,23 @@ class OraclePlanStore:
                     return True
                 finally: connection.rollback()
         except oracledb.Error: raise StoreUnavailable from None
+
+
+    @staticmethod
+    def _check_lineage(cursor,lineage):
+        references={'source_adoption':('AP_PLAN_ADOPTION','ADOPTION_NO'),
+                    'comparison_adoption':('AP_PLAN_ADOPTION','ADOPTION_NO'),
+                    'effective_adoption':('AP_PLAN_ADOPTION','ADOPTION_NO'),
+                    'effective_revision':('AP_PLAN_REVISION','REVISION_NO')}
+        def visit(value):
+            if isinstance(value,dict):
+                for name,item in value.items():
+                    if name in references and item is not None and item!=0:
+                        if type(item) is not int or item<0: raise StoreUnavailable
+                        table,column=references[name]
+                        cursor.execute(f'SELECT COUNT(*) FROM {table} WHERE {column}=:identity',identity=item)
+                        if cursor.fetchone()[0]!=1: raise StoreUnavailable
+                    visit(item)
+            elif isinstance(value,list):
+                for item in value: visit(item)
+        visit(lineage)

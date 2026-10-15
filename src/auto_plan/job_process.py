@@ -143,6 +143,8 @@ class JobController:
         self.lock=Lock()
         self.closing=Event()
         self.thread=None
+        self.shutdown_deadline=None
+        self.shutdown_started=None
         # Allow reaping owned native grandchildren after a group kill on Linux.
         if sys.platform=='linux':
             try: ctypes.CDLL(None).prctl(36,1,0,0,0)
@@ -303,20 +305,28 @@ class JobController:
             run.finished.set()
             with self.lock: self.runs.pop(identity,None)
 
-    def shutdown(self,timeout=30):
-        start=time.monotonic();deadline=start+min(timeout,30)
-        self.close_admission();self.closing.set()
+    def begin_shutdown(self,deadline):
+        self.close_admission()
+        if self.shutdown_deadline is not None:
+            self.shutdown_deadline=min(self.shutdown_deadline,deadline)
+            return
+        self.shutdown_started=time.monotonic()
+        self.shutdown_deadline=deadline
+        self.closing.set()
         with self.lock: runs=list(self.runs.values())
         for run in runs:
             self.signal_stop(run.claim['job_id'])
             Thread(target=self._record_shutdown,args=(run,),daemon=True).start()
-        # Every stop begins together; no worker receives a new ten-second budget.
+
+    def shutdown(self,timeout=30):
+        self.begin_shutdown(time.monotonic()+min(max(0,timeout),30))
+        start=self.shutdown_started;deadline=self.shutdown_deadline
+        with self.lock: runs=list(self.runs.values())
         for run in runs:
             run.finished.wait(max(0,min(start+11,deadline)-time.monotonic()))
         with self.lock: remaining=list(self.runs.values())
         for run in remaining:
             run.fenced=True;run.interrupted=True;run.process.signal_kill()
-        # Broadcast all kills before waiting on any process or descendant.
         for run in remaining:
             run.process.reap(deadline)
         if self.thread: self.thread.join(timeout=max(0,min(1,deadline-time.monotonic())))

@@ -92,3 +92,20 @@ class OracleInputStore:
     def update(self, actor, now, transform):
         with self.transaction() as cursor:
             return self.update_in_transaction(cursor, actor, now, transform)
+
+
+    def check_consistency(self):
+        """Read-only full input history/digest and head check before admission."""
+        try:
+            with self.pool.acquire() as connection:
+                connection.call_timeout=15000
+                try:
+                    with connection.cursor() as cursor:
+                        head=self._head(cursor)
+                        cursor.execute('SELECT INPUT_VERSION FROM AP_INPUT_REVISION ORDER BY INPUT_VERSION')
+                        versions=[int(row[0]) for row in cursor]
+                        if versions!=list(range(1,head+1)): raise StoreUnavailable
+                        for version in versions: self._read(cursor,version)
+                    return True
+                finally: connection.rollback()
+        except oracledb.Error: raise StoreUnavailable from None

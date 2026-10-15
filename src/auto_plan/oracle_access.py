@@ -134,3 +134,18 @@ class OracleAccessStore:
             self._admin(cursor, actor_id)
             cursor.execute("SELECT ID, ACTOR_ID, USER_ID, ACTION, ROLES_JSON, ACTIVE, RECORDED_AT FROM AP_AUTH_AUDIT ORDER BY ID DESC FETCH FIRST 200 ROWS ONLY")
             return [{"id": row[0], "actor_id": row[1], "user_id": row[2], "action": row[3], "roles": json.loads(row[4]), "active": bool(row[5]), "recorded_at": row[6].isoformat()} for row in cursor.fetchall()]
+
+    def storage_report(self, warning_bytes):
+        """Allocated app objects and adopted blobs, without deleting immutable history."""
+        with self.transaction() as cursor:
+            cursor.execute('SELECT COUNT(*) FROM AP_PLAN_ADOPTION')
+            adoptions=int(cursor.fetchone()[0])
+            cursor.execute('SELECT NVL(SUM(DBMS_LOB.GETLENGTH(S.SNAPSHOT_BLOB)),0) FROM AP_PLAN_SNAPSHOT S WHERE EXISTS (SELECT 1 FROM AP_PLAN_ADOPTION A WHERE A.SNAPSHOT_SHA=S.SHA256)')
+            adopted_bytes=int(cursor.fetchone()[0])
+            cursor.execute("SELECT NVL(SUM(BYTES),0) FROM USER_SEGMENTS WHERE SEGMENT_NAME IN (SELECT TABLE_NAME FROM USER_TABLES WHERE TABLE_NAME LIKE 'AP\\_%' ESCAPE '\\' UNION SELECT SEGMENT_NAME FROM USER_LOBS WHERE TABLE_NAME LIKE 'AP\\_%' ESCAPE '\\' UNION SELECT INDEX_NAME FROM USER_INDEXES WHERE TABLE_NAME LIKE 'AP\\_%' ESCAPE '\\')")
+            allocated=int(cursor.fetchone()[0])
+            cursor.execute('SELECT TABLESPACE_NAME,BYTES,MAX_BYTES FROM USER_TS_QUOTAS')
+            quotas=[dict(tablespace=row[0],used_bytes=int(row[1]),limit_bytes=None if int(row[2])==-1 else int(row[2])) for row in cursor]
+        return dict(adoptions=adoptions,adopted_snapshot_bytes=adopted_bytes,app_allocated_bytes=allocated,
+            schema_tablespace_quotas=quotas,warning_threshold_bytes=warning_bytes,warning=adopted_bytes>=warning_bytes,
+            retention='Adopted history is permanent. Physical immutable revision blobs are retained.')

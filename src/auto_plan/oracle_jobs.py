@@ -392,6 +392,8 @@ class OracleJobStore:
                 frozen=FrozenSolveInput.model_validate(decode(blob,sha))
                 if (frozen.source_revision,frozen.input_version,frozen.latest_adoption)!=(revision,version,adoption): raise StoreUnavailable
                 jobs[identity]=frozen
+            cursor.execute('SELECT COUNT(*) FROM AP_JOB J LEFT JOIN AP_PLAN_REVISION R ON R.REVISION_NO=J.SOURCE_REVISION LEFT JOIN AP_INPUT_REVISION I ON I.INPUT_VERSION=J.INPUT_VERSION LEFT JOIN AP_PLAN_ADOPTION A ON A.ADOPTION_NO=J.LATEST_ADOPTION WHERE (J.SOURCE_REVISION<>0 AND R.REVISION_NO IS NULL) OR (J.INPUT_VERSION<>0 AND I.INPUT_VERSION IS NULL) OR (J.LATEST_ADOPTION<>0 AND A.ADOPTION_NO IS NULL)')
+            if cursor.fetchone()[0]: raise StoreUnavailable
             cursor.execute('SELECT NEXT_FIFO,(SELECT NVL(MAX(FIFO_NO),0) FROM AP_JOB) FROM AP_JOB_HEAD WHERE ID=1')
             head=cursor.fetchone()
             if head is None or int(head[0])<=int(head[1]): raise StoreUnavailable
