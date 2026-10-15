@@ -65,7 +65,7 @@ async function preview(construct = false) {
       if (response.plan && response.evaluation) { plan.value = response.plan; result.value = response.evaluation; message.value = '已生成精确工时依据，尚未保存' }
       else { error.value = response.issues.map(issue => [issue.date, issue.line_code, issue.reason].filter(Boolean).join(' ')).join('；') }
     } else {
-      result.value = await api<Evaluation>('/plans/preview', { method: 'POST', body: JSON.stringify({ snapshot: { inputs: inputs.value, plan: plan.value } }) })
+      result.value = await api<Evaluation>('/plans/evaluate', { method: 'POST', body: JSON.stringify({ snapshot: { inputs: inputs.value, plan: plan.value } }) })
     }
   } catch (e) { error.value = e instanceof Error ? e.message : '预览失败' }
   finally { busy.value = false }

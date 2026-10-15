@@ -29,5 +29,23 @@ if __name__ == '__main__':
             inputs.versions[0] = InputSnapshot.model_validate(data['inputs'])
             access.users['OUTPUT_EDITOR'] = {'user_id': 'OUTPUT_EDITOR', 'roles': ['editor'], 'active': True}
             options['clock'] = lambda: datetime(2026, 10, 14, tzinfo=timezone.utc)
+        if os.getenv('AUTO_PLAN_BROWSER_TRANSACTIONS_FIXTURE') == '1':
+            from datetime import datetime, timezone
+            from auto_plan.input_models import InputSnapshot
+            from auto_plan.plans import PlanService, SubmitPlan
+            from tests.plan_support import MemoryPlanStore
+            from tests.test_plan_preview import snapshot
+            from uuid import uuid4
+            inputs.versions[1] = InputSnapshot.model_validate(snapshot()['inputs'] | {'input_version':1})
+            inputs.version = 1
+            plans = MemoryPlanStore(inputs)
+            plan = snapshot()['plan']
+            for row in plan['segments']: row['date']='2026-10-15'
+            now = datetime(2026,10,14,tzinfo=timezone.utc)
+            PlanService(plans).submit(SubmitPlan(base_revision=0,input_version=1,latest_adoption=0,
+                operations=[{'kind':'replace_plan','plan':plan}],operation_id=uuid4(),pending=True),'SHARED_EDITOR',now)
+            options['plan_store'] = plans
+            options['clock'] = lambda: now
+            access.users['SHARED_EDITOR']={'user_id':'SHARED_EDITOR','roles':['editor'],'active':True}
         app = create_app(settings, store=access, input_store=inputs, authenticator=CompanyAuthentication(), **options)
         uvicorn.run(app, host='127.0.0.1', port=8774, ssl_keyfile=str(key), ssl_certfile=str(cert), access_log=False)
