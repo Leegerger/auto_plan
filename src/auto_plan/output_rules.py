@@ -3,6 +3,7 @@ from collections import defaultdict, Counter
 from datetime import date, timedelta
 from fractions import Fraction
 from decimal import Decimal, localcontext, ROUND_HALF_UP
+from bisect import bisect_right
 from .input_lookup import InputIndex
 from .production_time import production_date, production_cutoff
 from .plan_models import (RuleIssue, ReconciledCell, OutputSource, OutputPortion,
@@ -27,8 +28,8 @@ def rate_display(covered, demand):
         return str(value.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)) + '%'
 
 
-def output_evaluation(snapshot):
-    index = InputIndex(snapshot.inputs)
+def output_evaluation(snapshot, index=None):
+    index = index if index is not None else InputIndex(snapshot.inputs)
     issues = []
     cells = []
     plan = defaultdict(int)
@@ -97,7 +98,7 @@ def output_evaluation(snapshot):
         while True:
             if target > date.max.toordinal():
                 raise OverflowError
-            skipped = sum(origin < holiday <= target for holiday in holiday_ordinals)
+            skipped = bisect_right(holiday_ordinals, target) - bisect_right(holiday_ordinals, origin)
             corrected = origin + n + skipped
             if corrected == target:
                 return date.fromordinal(target)
@@ -159,12 +160,23 @@ def output_evaluation(snapshot):
     demands = {(row.model_code, row.week): row.quantity for row in snapshot.inputs.business.demands
                if snapshot.time.window_start <= row.week <= snapshot.time.window_end}
     needs = dict(demands)
+    demand_weeks = defaultdict(list)
+    for model, week in demands:
+        demand_weeks[model].append(week)
+    for weeks in demand_weeks.values():
+        weeks.sort()
+    next_week = defaultdict(int)
     events = sorted([(portion.date, source.input_date, source.id, i, source, portion)
                      for source in sources for i, portion in enumerate(source.portions)], key=lambda e: (e[0], e[4].kind != 'wip', e[1], e[2], e[3]))
     for day, input_day, source_id, part_index, source, portion in events:
         available = portion.quantity
-        for model, week in sorted(needs, key=lambda key: key[1]):
-            if model != source.model_code or not needs[(model, week)] or not available:
+        model = source.model_code
+        weeks = demand_weeks[model]
+        cursor = next_week[model]
+        while available and cursor < len(weeks):
+            week = weeks[cursor]
+            if not needs[(model, week)]:
+                cursor += 1
                 continue
             take = min(available, needs[(model, week)])
             on_time = take if day < week + timedelta(days=7) else 0
@@ -173,6 +185,7 @@ def output_evaluation(snapshot):
                 material_satisfied=take, on_time=on_time, late=take-on_time))
             available -= take
             needs[(model, week)] -= take
+        next_week[model] = cursor
         source.portions[part_index] = portion.model_copy(update={'unallocated': available})
     allocated_by_source = Counter()
     for row in attributions:
@@ -211,14 +224,21 @@ def output_evaluation(snapshot):
     batch_keys = [(b.model_code, b.week, b.kind, b.batch_id) for b in batches]
     used = {key: 0 for key in batch_keys}
     bans = {(b.model_code, b.week, b.kind) for b in batches if b.status == 'forbidden'}
+    allowed_batches = defaultdict(list)
+    related_batches = defaultdict(set)
+    for batch in batches:
+        related_batches[(batch.model_code, batch.week)].add(batch.batch_id)
+        if batch.status == 'allowed':
+            allowed_batches[(batch.model_code, batch.week, batch.kind)].append(batch)
+    for queue in allowed_batches.values():
+        queue.sort(key=lambda batch: (batch.date, batch.batch_id))
 
     def consume(model, week, kind, day, quantity):
         matched = []
-        eligible = sorted([b for b in batches if b.model_code == model and b.week == week
-            and b.kind == kind and b.status == 'allowed'
-            and (b.date <= day if kind == 'material' else b.date >= day)], key=lambda b: (b.date, b.batch_id))
         remaining = quantity
-        for batch in eligible:
+        for batch in allowed_batches[(model, week, kind)]:
+            if not (batch.date <= day if kind == 'material' else batch.date >= day):
+                continue
             key = (model, week, kind, batch.batch_id)
             take = min(remaining, max(batch.quantity-used[key], 0))
             if take:
@@ -270,21 +290,30 @@ def output_evaluation(snapshot):
                 reason='跨周安排存在整周禁令' if row.forbidden_material or forbidden else '跨周安排有必要确认未满足',
                 date=row.date, input_date=row.input_date, model_code=row.model_code, demand_week=row.demand_week, source_id=row.source_id,
                 line_codes=[cell.line_code for cell in by_source[row.source_id].lines],
-                related_batch_ids=sorted({b.batch_id for b in batches if b.model_code == row.model_code and b.week == row.demand_week})))
+                related_batch_ids=sorted(related_batches[(row.model_code, row.demand_week)])))
     usages = [ConfirmationUsage(model_code=b.model_code, week=b.week, kind=b.kind,
                 batch_id=b.batch_id, status=b.status, date=b.date, quota=b.quantity,
                 used=used[(b.model_code, b.week, b.kind, b.batch_id)],
                 remaining=max(b.quantity-used[(b.model_code, b.week, b.kind, b.batch_id)], 0) if b.status == 'allowed' else 0,
                 banned=(b.model_code, b.week, b.kind) in bans) for b in batches]
     weekly = []
+    weekly_totals = defaultdict(Counter)
+    for row in attributions:
+        totals = weekly_totals[(row.model_code, row.demand_week)]
+        totals['attributed'] += row.quantity
+        totals['on_time'] += row.on_time
+        totals['late'] += row.late
+        totals['pending_material'] += row.pending_material
+        totals['pending_shipping'] += row.pending_shipping
+    incomplete_models = {issue.model_code for issue in issues if issue.severity == 'incomplete'}
     for (model, week), demand in sorted(demands.items(), key=lambda item: (item[0][1], item[0][0])):
-        rows = [a for a in attributions if a.model_code == model and a.demand_week == week]
-        on_time, late = sum(a.on_time for a in rows), sum(a.late for a in rows)
-        week_complete = not any(i.severity == 'incomplete' and (i.model_code is None or i.model_code == model) for i in issues)
+        totals = weekly_totals[(model, week)]
+        on_time, late = totals['on_time'], totals['late']
+        week_complete = None not in incomplete_models and model not in incomplete_models
         weekly.append(WeeklyResult(computation_complete=week_complete, model_code=model, week=week, demand=demand,
-            attributed=sum(a.quantity for a in rows), on_time=on_time, late=late,
-            pending_material=sum(a.pending_material for a in rows), pending_shipping=sum(a.pending_shipping for a in rows),
-            pending=sum(a.pending_material+a.pending_shipping for a in rows), gap=demand-on_time-late,
+            attributed=totals['attributed'], on_time=on_time, late=late,
+            pending_material=totals['pending_material'], pending_shipping=totals['pending_shipping'],
+            pending=totals['pending_material']+totals['pending_shipping'], gap=demand-on_time-late,
             on_time_rate=rational(Fraction(on_time, demand)) if demand and week_complete else None,
             on_time_rate_display=rate_display(on_time, demand) if week_complete else '计算未完成'))
     demand_total = sum(demands.values())
