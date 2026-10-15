@@ -32,11 +32,13 @@ def public_client(snapshot, empty=False):
         from auto_plan.settings import Settings
         from tests.input_support import MemoryInputStore
         from tests.plan_support import MemoryPlanStore
+        from tests.demand_support import MemoryDemandStore
         from tests.support import MemoryAccessStore, CompanyAuthentication
         inputs, access = MemoryInputStore(), MemoryAccessStore()
         access.users['SCALEEDITOR'] = {'user_id': 'SCALEEDITOR', 'roles': ['editor'], 'active': True}
+        plans = MemoryPlanStore(inputs)
         app = create_app(Settings(public_origin='https://testserver'), store=access, input_store=inputs,
-                         plan_store=MemoryPlanStore(inputs), authenticator=CompanyAuthentication(),
+                         plan_store=plans, demand_store=MemoryDemandStore(plans), authenticator=CompanyAuthentication(),
                          clock=lambda: datetime.fromisoformat(snapshot['time']['as_of']))
     else:
         app = seeded_app(snapshot)
