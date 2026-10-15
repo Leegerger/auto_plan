@@ -1,0 +1,3750 @@
+{
+  "status": "prepared",
+  "acceptance": "not_run",
+  "manifest_sha256": "33e765b2cc22a28116d0416f04cc05cd628f5239183160be32a143035d29b0f4",
+  "source_commit": "d8de1d368bcf21498965f682ece2339ed0511540",
+  "environment": {
+    "python": "3.14.2",
+    "platform": "Linux-6.8.0-90-generic-x86_64-with-glibc2.39",
+    "packages": {
+      "fastapi": "0.143.1",
+      "pydantic": "2.14.1",
+      "httpx": "0.28.1",
+      "oracledb": "4.0.2"
+    },
+    "resources": "Shared host; no exclusive CPU/memory budget and no deployed SLA claim."
+  },
+  "reference_checks": [
+    {
+      "scenario": "r10-loose",
+      "reference_sha256": "0be3295c67bc3897fea7a085369c46f91fa4a4393d13f2d5b14a0b4f9963eb05",
+      "observed_objective": [
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "418",
+        "0",
+        "0"
+      ],
+      "observed_totals": {
+        "computation_complete": true,
+        "expected": 420000,
+        "outside_window": 0,
+        "unallocated": 0,
+        "on_time": 420000,
+        "late": 0,
+        "pending": 0,
+        "gap": 0,
+        "on_time_rate": "1",
+        "on_time_rate_display": "100.00%"
+      },
+      "import_validation": {
+        "status": "pass",
+        "errors": [],
+        "http_status": 200
+      },
+      "status": "pass",
+      "preparation_seconds": 10.018924489617348,
+      "evidence_directory": "acceptance-adapter-v1",
+      "observed_manifest_sha256": "4702a4eaea739d1a798a4644091042b43d5c04af0b141008d11e2cae7db74878"
+    },
+    {
+      "scenario": "r10-all-replan",
+      "reference_sha256": "0be3295c67bc3897fea7a085369c46f91fa4a4393d13f2d5b14a0b4f9963eb05",
+      "observed_objective": [
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "418",
+        "0",
+        "0"
+      ],
+      "observed_totals": {
+        "computation_complete": true,
+        "expected": 420000,
+        "outside_window": 0,
+        "unallocated": 0,
+        "on_time": 420000,
+        "late": 0,
+        "pending": 0,
+        "gap": 0,
+        "on_time_rate": "1",
+        "on_time_rate_display": "100.00%"
+      },
+      "import_validation": {
+        "status": "pass",
+        "errors": [],
+        "http_status": 200
+      },
+      "status": "pass",
+      "preparation_seconds": 10.228570632636547,
+      "evidence_directory": "acceptance-adapter-v1",
+      "observed_manifest_sha256": "4702a4eaea739d1a798a4644091042b43d5c04af0b141008d11e2cae7db74878"
+    },
+    {
+      "scenario": "r10-key1",
+      "reference_sha256": "99da6d6d4905eabb4f616e4c0730ea9f21d1a8d14ebde0914ba71c80db40647c",
+      "observed_objective": [
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "209",
+        "0",
+        "0"
+      ],
+      "observed_totals": {
+        "computation_complete": true,
+        "expected": 420000,
+        "outside_window": 0,
+        "unallocated": 0,
+        "on_time": 420000,
+        "late": 0,
+        "pending": 0,
+        "gap": 0,
+        "on_time_rate": "1",
+        "on_time_rate_display": "100.00%"
+      },
+      "import_validation": {
+        "status": "pass",
+        "errors": [],
+        "http_status": 200
+      },
+      "status": "pass",
+      "preparation_seconds": 9.819477964192629,
+      "evidence_directory": "acceptance-adapter-v1",
+      "observed_manifest_sha256": "4702a4eaea739d1a798a4644091042b43d5c04af0b141008d11e2cae7db74878"
+    },
+    {
+      "scenario": "r10-key2",
+      "reference_sha256": "6c956592b4c6af0dfb4fa890d77769be4dd2898c0222976463efc5abf73c8afb",
+      "observed_objective": [
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "418",
+        "0",
+        "0"
+      ],
+      "observed_totals": {
+        "computation_complete": true,
+        "expected": 420000,
+        "outside_window": 0,
+        "unallocated": 0,
+        "on_time": 420000,
+        "late": 0,
+        "pending": 0,
+        "gap": 0,
+        "on_time_rate": "1",
+        "on_time_rate_display": "100.00%"
+      },
+      "import_validation": {
+        "status": "pass",
+        "errors": [],
+        "http_status": 200
+      },
+      "status": "pass",
+      "preparation_seconds": 9.001882262527943,
+      "evidence_directory": "acceptance-adapter-v1",
+      "observed_manifest_sha256": "4702a4eaea739d1a798a4644091042b43d5c04af0b141008d11e2cae7db74878"
+    },
+    {
+      "scenario": "r10-boundary",
+      "reference_sha256": "a99c77349d3a7103f28aa00c0aaf92e10e6ed2150c80965caae7b94075a093d3",
+      "observed_objective": [
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "418",
+        "0",
+        "0"
+      ],
+      "observed_totals": {
+        "computation_complete": true,
+        "expected": 420210,
+        "outside_window": 0,
+        "unallocated": 0,
+        "on_time": 420210,
+        "late": 0,
+        "pending": 0,
+        "gap": 0,
+        "on_time_rate": "1",
+        "on_time_rate_display": "100.00%"
+      },
+      "import_validation": {
+        "status": "pass",
+        "errors": [],
+        "http_status": 200
+      },
+      "status": "pass",
+      "preparation_seconds": 9.394232481718063,
+      "evidence_directory": "acceptance-adapter-v1",
+      "observed_manifest_sha256": "4702a4eaea739d1a798a4644091042b43d5c04af0b141008d11e2cae7db74878"
+    },
+    {
+      "scenario": "r10-cross-day",
+      "reference_sha256": "09e64e6ef49eb998fedc7947de86e443b6dc6db06d42e8d74f9e0596f01641e8",
+      "observed_objective": [
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "418",
+        "0",
+        "0"
+      ],
+      "observed_totals": {
+        "computation_complete": true,
+        "expected": 420000,
+        "outside_window": 0,
+        "unallocated": 0,
+        "on_time": 420000,
+        "late": 0,
+        "pending": 0,
+        "gap": 0,
+        "on_time_rate": "1",
+        "on_time_rate_display": "100.00%"
+      },
+      "import_validation": {
+        "status": "pass",
+        "errors": [],
+        "http_status": 200
+      },
+      "status": "pass",
+      "preparation_seconds": 8.828333519399166,
+      "evidence_directory": "acceptance-adapter-v1",
+      "observed_manifest_sha256": "4702a4eaea739d1a798a4644091042b43d5c04af0b141008d11e2cae7db74878"
+    },
+    {
+      "scenario": "r10-near-increase",
+      "reference_sha256": "f2e746a5a6e070fcb8788aec2790021f5e06fc9c4b3918eab72695d7c4738350",
+      "observed_objective": [
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "418",
+        "120",
+        "0"
+      ],
+      "observed_totals": {
+        "computation_complete": true,
+        "expected": 420040,
+        "outside_window": 0,
+        "unallocated": 0,
+        "on_time": 420040,
+        "late": 0,
+        "pending": 0,
+        "gap": 0,
+        "on_time_rate": "1",
+        "on_time_rate_display": "100.00%"
+      },
+      "import_validation": {
+        "status": "pass",
+        "errors": [],
+        "http_status": 200
+      },
+      "status": "pass",
+      "preparation_seconds": 8.768241100013256,
+      "evidence_directory": "acceptance-adapter-v1",
+      "observed_manifest_sha256": "4702a4eaea739d1a798a4644091042b43d5c04af0b141008d11e2cae7db74878"
+    },
+    {
+      "scenario": "r10-near-decrease",
+      "reference_sha256": "a08fd260be7ec487cdabeeb25ee738bc7eb314649c7a288ece348d04c15269a1",
+      "observed_objective": [
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "418",
+        "120",
+        "0"
+      ],
+      "observed_totals": {
+        "computation_complete": true,
+        "expected": 419960,
+        "outside_window": 0,
+        "unallocated": 0,
+        "on_time": 419960,
+        "late": 0,
+        "pending": 0,
+        "gap": 0,
+        "on_time_rate": "1",
+        "on_time_rate_display": "100.00%"
+      },
+      "import_validation": {
+        "status": "pass",
+        "errors": [],
+        "http_status": 200
+      },
+      "status": "pass",
+      "preparation_seconds": 8.643447518348694,
+      "evidence_directory": "acceptance-adapter-v1",
+      "observed_manifest_sha256": "4702a4eaea739d1a798a4644091042b43d5c04af0b141008d11e2cae7db74878"
+    },
+    {
+      "scenario": "r10-far-increase",
+      "reference_sha256": "30e7dc2d088b12686ae01a9256d11739c00ec0821c7e8f113b1ff77d30324410",
+      "observed_objective": [
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "418",
+        "40",
+        "0"
+      ],
+      "observed_totals": {
+        "computation_complete": true,
+        "expected": 420040,
+        "outside_window": 0,
+        "unallocated": 0,
+        "on_time": 420040,
+        "late": 0,
+        "pending": 0,
+        "gap": 0,
+        "on_time_rate": "1",
+        "on_time_rate_display": "100.00%"
+      },
+      "import_validation": {
+        "status": "pass",
+        "errors": [],
+        "http_status": 200
+      },
+      "status": "pass",
+      "preparation_seconds": 8.889043428003788,
+      "evidence_directory": "acceptance-adapter-v1",
+      "observed_manifest_sha256": "4702a4eaea739d1a798a4644091042b43d5c04af0b141008d11e2cae7db74878"
+    },
+    {
+      "scenario": "r10-far-decrease",
+      "reference_sha256": "dac6e018428441ef2475f52fc0006b441bdb0cd0389f545e52d47fe6f8c93270",
+      "observed_objective": [
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "418",
+        "40",
+        "0"
+      ],
+      "observed_totals": {
+        "computation_complete": true,
+        "expected": 419960,
+        "outside_window": 0,
+        "unallocated": 0,
+        "on_time": 419960,
+        "late": 0,
+        "pending": 0,
+        "gap": 0,
+        "on_time_rate": "1",
+        "on_time_rate_display": "100.00%"
+      },
+      "import_validation": {
+        "status": "pass",
+        "errors": [],
+        "http_status": 200
+      },
+      "status": "pass",
+      "preparation_seconds": 8.524567056447268,
+      "evidence_directory": "acceptance-adapter-v1",
+      "observed_manifest_sha256": "4702a4eaea739d1a798a4644091042b43d5c04af0b141008d11e2cae7db74878"
+    },
+    {
+      "scenario": "r10-rolling",
+      "reference_sha256": "ff4b50fc67825cdfa29e063b51d5be97704adbab88083279d0f1abcd7137e56d",
+      "observed_objective": [
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "420",
+        "0",
+        "0"
+      ],
+      "observed_totals": {
+        "computation_complete": true,
+        "expected": 420000,
+        "outside_window": 0,
+        "unallocated": 0,
+        "on_time": 420000,
+        "late": 0,
+        "pending": 0,
+        "gap": 0,
+        "on_time_rate": "1",
+        "on_time_rate_display": "100.00%"
+      },
+      "import_validation": {
+        "status": "not_run",
+        "reason": "A true rolling state retains old demand history and an existing adopted plan; it cannot be a fresh first import."
+      },
+      "status": "pass",
+      "preparation_seconds": 3.0100692249834538,
+      "evidence_directory": "acceptance-adapter-v1",
+      "observed_manifest_sha256": "4702a4eaea739d1a798a4644091042b43d5c04af0b141008d11e2cae7db74878"
+    },
+    {
+      "scenario": "r20-loose",
+      "reference_sha256": "d019627a21ca1507f9145aac1575c55fa03c8be52838d0f47c85088a8703d909",
+      "observed_objective": [
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "418",
+        "0",
+        "0"
+      ],
+      "observed_totals": {
+        "computation_complete": true,
+        "expected": 420000,
+        "outside_window": 0,
+        "unallocated": 0,
+        "on_time": 420000,
+        "late": 0,
+        "pending": 0,
+        "gap": 0,
+        "on_time_rate": "1",
+        "on_time_rate_display": "100.00%"
+      },
+      "import_validation": {
+        "status": "pass",
+        "errors": [],
+        "http_status": 200
+      },
+      "status": "pass",
+      "preparation_seconds": 9.205969940871,
+      "evidence_directory": "acceptance-adapter-v1",
+      "observed_manifest_sha256": "4702a4eaea739d1a798a4644091042b43d5c04af0b141008d11e2cae7db74878"
+    },
+    {
+      "scenario": "r20-all-replan",
+      "reference_sha256": "d019627a21ca1507f9145aac1575c55fa03c8be52838d0f47c85088a8703d909",
+      "observed_objective": [
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "418",
+        "0",
+        "0"
+      ],
+      "observed_totals": {
+        "computation_complete": true,
+        "expected": 420000,
+        "outside_window": 0,
+        "unallocated": 0,
+        "on_time": 420000,
+        "late": 0,
+        "pending": 0,
+        "gap": 0,
+        "on_time_rate": "1",
+        "on_time_rate_display": "100.00%"
+      },
+      "import_validation": {
+        "status": "pass",
+        "errors": [],
+        "http_status": 200
+      },
+      "status": "pass",
+      "preparation_seconds": 9.29425960034132,
+      "evidence_directory": "acceptance-adapter-v1",
+      "observed_manifest_sha256": "4702a4eaea739d1a798a4644091042b43d5c04af0b141008d11e2cae7db74878"
+    },
+    {
+      "scenario": "r20-key1",
+      "reference_sha256": "5fa27c67b048559ebcf608471cbaf023079e0122bc3b2a07545a65f12bfad44f",
+      "observed_objective": [
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "418",
+        "0",
+        "0"
+      ],
+      "observed_totals": {
+        "computation_complete": true,
+        "expected": 420000,
+        "outside_window": 0,
+        "unallocated": 0,
+        "on_time": 420000,
+        "late": 0,
+        "pending": 0,
+        "gap": 0,
+        "on_time_rate": "1",
+        "on_time_rate_display": "100.00%"
+      },
+      "import_validation": {
+        "status": "pass",
+        "errors": [],
+        "http_status": 200
+      },
+      "status": "pass",
+      "preparation_seconds": 9.469486873596907,
+      "evidence_directory": "acceptance-adapter-v1",
+      "observed_manifest_sha256": "4702a4eaea739d1a798a4644091042b43d5c04af0b141008d11e2cae7db74878"
+    },
+    {
+      "scenario": "r20-key2",
+      "reference_sha256": "d9bd0878c0377865a24181ee8f2ff40945e256aec23d53fe7b3b4ee0f28936aa",
+      "observed_objective": [
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "418",
+        "0",
+        "0"
+      ],
+      "observed_totals": {
+        "computation_complete": true,
+        "expected": 420000,
+        "outside_window": 0,
+        "unallocated": 0,
+        "on_time": 420000,
+        "late": 0,
+        "pending": 0,
+        "gap": 0,
+        "on_time_rate": "1",
+        "on_time_rate_display": "100.00%"
+      },
+      "import_validation": {
+        "status": "pass",
+        "errors": [],
+        "http_status": 200
+      },
+      "status": "pass",
+      "preparation_seconds": 9.55545361340046,
+      "evidence_directory": "acceptance-adapter-v1",
+      "observed_manifest_sha256": "4702a4eaea739d1a798a4644091042b43d5c04af0b141008d11e2cae7db74878"
+    },
+    {
+      "scenario": "r20-boundary",
+      "reference_sha256": "cec2b0cf2dbaf53ba090abdaa9ab2418b9b226614283c5393f92bb049634a905",
+      "observed_objective": [
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "418",
+        "0",
+        "0"
+      ],
+      "observed_totals": {
+        "computation_complete": true,
+        "expected": 420210,
+        "outside_window": 0,
+        "unallocated": 0,
+        "on_time": 420210,
+        "late": 0,
+        "pending": 0,
+        "gap": 0,
+        "on_time_rate": "1",
+        "on_time_rate_display": "100.00%"
+      },
+      "import_validation": {
+        "status": "pass",
+        "errors": [],
+        "http_status": 200
+      },
+      "status": "pass",
+      "preparation_seconds": 10.079167742282152,
+      "evidence_directory": "acceptance-adapter-v1",
+      "observed_manifest_sha256": "4702a4eaea739d1a798a4644091042b43d5c04af0b141008d11e2cae7db74878"
+    },
+    {
+      "scenario": "r20-cross-day",
+      "reference_sha256": "5ad0cf7ef76895879f9f60b7af30859ab3e0f3fc41eb1a271b3a4dafec20971d",
+      "observed_objective": [
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "418",
+        "0",
+        "0"
+      ],
+      "observed_totals": {
+        "computation_complete": true,
+        "expected": 420000,
+        "outside_window": 0,
+        "unallocated": 0,
+        "on_time": 420000,
+        "late": 0,
+        "pending": 0,
+        "gap": 0,
+        "on_time_rate": "1",
+        "on_time_rate_display": "100.00%"
+      },
+      "import_validation": {
+        "status": "pass",
+        "errors": [],
+        "http_status": 200
+      },
+      "status": "pass",
+      "preparation_seconds": 8.911607887595892,
+      "evidence_directory": "acceptance-adapter-v1",
+      "observed_manifest_sha256": "4702a4eaea739d1a798a4644091042b43d5c04af0b141008d11e2cae7db74878"
+    },
+    {
+      "scenario": "r20-near-increase",
+      "reference_sha256": "cc2fca1a6c75349a47d096e49b56d29f1e05932c7843fde3a59f0aeffd4af22d",
+      "observed_objective": [
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "418",
+        "120",
+        "0"
+      ],
+      "observed_totals": {
+        "computation_complete": true,
+        "expected": 420040,
+        "outside_window": 0,
+        "unallocated": 0,
+        "on_time": 420040,
+        "late": 0,
+        "pending": 0,
+        "gap": 0,
+        "on_time_rate": "1",
+        "on_time_rate_display": "100.00%"
+      },
+      "import_validation": {
+        "status": "pass",
+        "errors": [],
+        "http_status": 200
+      },
+      "status": "pass",
+      "preparation_seconds": 9.388864550739527,
+      "evidence_directory": "acceptance-adapter-v1",
+      "observed_manifest_sha256": "4702a4eaea739d1a798a4644091042b43d5c04af0b141008d11e2cae7db74878"
+    },
+    {
+      "scenario": "r20-near-decrease",
+      "reference_sha256": "7b0c006151ffec2731b01d5e6c2412c73715d06f65d9f031dbf775bfff61d56c",
+      "observed_objective": [
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "418",
+        "120",
+        "0"
+      ],
+      "observed_totals": {
+        "computation_complete": true,
+        "expected": 419960,
+        "outside_window": 0,
+        "unallocated": 0,
+        "on_time": 419960,
+        "late": 0,
+        "pending": 0,
+        "gap": 0,
+        "on_time_rate": "1",
+        "on_time_rate_display": "100.00%"
+      },
+      "import_validation": {
+        "status": "pass",
+        "errors": [],
+        "http_status": 200
+      },
+      "status": "pass",
+      "preparation_seconds": 9.266195639967918,
+      "evidence_directory": "acceptance-adapter-v1",
+      "observed_manifest_sha256": "4702a4eaea739d1a798a4644091042b43d5c04af0b141008d11e2cae7db74878"
+    },
+    {
+      "scenario": "r20-far-increase",
+      "reference_sha256": "bab9b1260d85bf94b099b3ad15a2a42a6495e89db88efc617f0665595ae5afb9",
+      "observed_objective": [
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "418",
+        "40",
+        "0"
+      ],
+      "observed_totals": {
+        "computation_complete": true,
+        "expected": 420040,
+        "outside_window": 0,
+        "unallocated": 0,
+        "on_time": 420040,
+        "late": 0,
+        "pending": 0,
+        "gap": 0,
+        "on_time_rate": "1",
+        "on_time_rate_display": "100.00%"
+      },
+      "import_validation": {
+        "status": "pass",
+        "errors": [],
+        "http_status": 200
+      },
+      "status": "pass",
+      "preparation_seconds": 9.205985058099031,
+      "evidence_directory": "acceptance-adapter-v1",
+      "observed_manifest_sha256": "4702a4eaea739d1a798a4644091042b43d5c04af0b141008d11e2cae7db74878"
+    },
+    {
+      "scenario": "r20-far-decrease",
+      "reference_sha256": "19cf4af9738fea4e16e25258b045a0bd221f607c0875b17ce5c176c386ac7808",
+      "observed_objective": [
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "418",
+        "40",
+        "0"
+      ],
+      "observed_totals": {
+        "computation_complete": true,
+        "expected": 419960,
+        "outside_window": 0,
+        "unallocated": 0,
+        "on_time": 419960,
+        "late": 0,
+        "pending": 0,
+        "gap": 0,
+        "on_time_rate": "1",
+        "on_time_rate_display": "100.00%"
+      },
+      "import_validation": {
+        "status": "pass",
+        "errors": [],
+        "http_status": 200
+      },
+      "status": "pass",
+      "preparation_seconds": 9.352442882955074,
+      "evidence_directory": "acceptance-adapter-v1",
+      "observed_manifest_sha256": "4702a4eaea739d1a798a4644091042b43d5c04af0b141008d11e2cae7db74878"
+    },
+    {
+      "scenario": "r20-rolling",
+      "reference_sha256": "f886bc2d088095010df69d0d6c45ef932327b7fcc15a54244ffc43a1f5d21761",
+      "observed_objective": [
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "420",
+        "0",
+        "0"
+      ],
+      "observed_totals": {
+        "computation_complete": true,
+        "expected": 420000,
+        "outside_window": 0,
+        "unallocated": 0,
+        "on_time": 420000,
+        "late": 0,
+        "pending": 0,
+        "gap": 0,
+        "on_time_rate": "1",
+        "on_time_rate_display": "100.00%"
+      },
+      "import_validation": {
+        "status": "not_run",
+        "reason": "A true rolling state retains old demand history and an existing adopted plan; it cannot be a fresh first import."
+      },
+      "status": "pass",
+      "preparation_seconds": 3.145677164196968,
+      "evidence_directory": "acceptance-adapter-v1",
+      "observed_manifest_sha256": "4702a4eaea739d1a798a4644091042b43d5c04af0b141008d11e2cae7db74878"
+    },
+    {
+      "scenario": "r40-loose",
+      "reference_sha256": "1b498f165ece8a6a84838049593db6d0ea2e113816bdb15f532c7f95b719617c",
+      "observed_objective": [
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "4182",
+        "0",
+        "0"
+      ],
+      "observed_totals": {
+        "computation_complete": true,
+        "expected": 420000,
+        "outside_window": 0,
+        "unallocated": 0,
+        "on_time": 420000,
+        "late": 0,
+        "pending": 0,
+        "gap": 0,
+        "on_time_rate": "1",
+        "on_time_rate_display": "100.00%"
+      },
+      "import_validation": {
+        "status": "pass",
+        "errors": [],
+        "http_status": 200
+      },
+      "status": "pass",
+      "preparation_seconds": 14.6575015373528,
+      "evidence_directory": "acceptance-adapter-v1",
+      "observed_manifest_sha256": "4702a4eaea739d1a798a4644091042b43d5c04af0b141008d11e2cae7db74878"
+    },
+    {
+      "scenario": "r40-all-replan",
+      "reference_sha256": "1b498f165ece8a6a84838049593db6d0ea2e113816bdb15f532c7f95b719617c",
+      "observed_objective": [
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "4182",
+        "0",
+        "0"
+      ],
+      "observed_totals": {
+        "computation_complete": true,
+        "expected": 420000,
+        "outside_window": 0,
+        "unallocated": 0,
+        "on_time": 420000,
+        "late": 0,
+        "pending": 0,
+        "gap": 0,
+        "on_time_rate": "1",
+        "on_time_rate_display": "100.00%"
+      },
+      "import_validation": {
+        "status": "pass",
+        "errors": [],
+        "http_status": 200
+      },
+      "status": "pass",
+      "preparation_seconds": 14.573967844247818,
+      "evidence_directory": "acceptance-adapter-v1",
+      "observed_manifest_sha256": "4702a4eaea739d1a798a4644091042b43d5c04af0b141008d11e2cae7db74878"
+    },
+    {
+      "scenario": "r40-key1",
+      "reference_sha256": "e05c0fc79c804a74e325f2b4cd91fd3df1c06fc55fc78024ae0e3ad3f34187bb",
+      "observed_objective": [
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "4182",
+        "0",
+        "0"
+      ],
+      "observed_totals": {
+        "computation_complete": true,
+        "expected": 420000,
+        "outside_window": 0,
+        "unallocated": 0,
+        "on_time": 420000,
+        "late": 0,
+        "pending": 0,
+        "gap": 0,
+        "on_time_rate": "1",
+        "on_time_rate_display": "100.00%"
+      },
+      "import_validation": {
+        "status": "pass",
+        "errors": [],
+        "http_status": 200
+      },
+      "status": "pass",
+      "preparation_seconds": 14.294019628316164,
+      "evidence_directory": "acceptance-adapter-v1",
+      "observed_manifest_sha256": "4702a4eaea739d1a798a4644091042b43d5c04af0b141008d11e2cae7db74878"
+    },
+    {
+      "scenario": "r40-key2",
+      "reference_sha256": "d12bad60e638d7b3fac64f8917c64b09d97fc9d2bab7a9198372cc6723c2aa08",
+      "observed_objective": [
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "4182",
+        "0",
+        "0"
+      ],
+      "observed_totals": {
+        "computation_complete": true,
+        "expected": 420000,
+        "outside_window": 0,
+        "unallocated": 0,
+        "on_time": 420000,
+        "late": 0,
+        "pending": 0,
+        "gap": 0,
+        "on_time_rate": "1",
+        "on_time_rate_display": "100.00%"
+      },
+      "import_validation": {
+        "status": "pass",
+        "errors": [],
+        "http_status": 200
+      },
+      "status": "pass",
+      "preparation_seconds": 14.477295909076929,
+      "evidence_directory": "acceptance-adapter-v1",
+      "observed_manifest_sha256": "4702a4eaea739d1a798a4644091042b43d5c04af0b141008d11e2cae7db74878"
+    },
+    {
+      "scenario": "r40-boundary",
+      "reference_sha256": "62c0c1ab90904a2fef1f3e225381e9a058906f959870aa767ca263da80d28192",
+      "observed_objective": [
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "4182",
+        "0",
+        "0"
+      ],
+      "observed_totals": {
+        "computation_complete": true,
+        "expected": 422310,
+        "outside_window": 0,
+        "unallocated": 0,
+        "on_time": 422310,
+        "late": 0,
+        "pending": 0,
+        "gap": 0,
+        "on_time_rate": "1",
+        "on_time_rate_display": "100.00%"
+      },
+      "import_validation": {
+        "status": "pass",
+        "errors": [],
+        "http_status": 200
+      },
+      "status": "pass",
+      "preparation_seconds": 15.388031635433435,
+      "evidence_directory": "acceptance-adapter-v1",
+      "observed_manifest_sha256": "4702a4eaea739d1a798a4644091042b43d5c04af0b141008d11e2cae7db74878"
+    },
+    {
+      "scenario": "r40-cross-day",
+      "reference_sha256": "6dc5831759390bac50a66a03d4f1878dbfc104f8cd635ac7f08cb5c624dccfaa",
+      "observed_objective": [
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "4182",
+        "0",
+        "0"
+      ],
+      "observed_totals": {
+        "computation_complete": true,
+        "expected": 420000,
+        "outside_window": 0,
+        "unallocated": 0,
+        "on_time": 420000,
+        "late": 0,
+        "pending": 0,
+        "gap": 0,
+        "on_time_rate": "1",
+        "on_time_rate_display": "100.00%"
+      },
+      "import_validation": {
+        "status": "pass",
+        "errors": [],
+        "http_status": 200
+      },
+      "status": "pass",
+      "preparation_seconds": 14.583077497780323,
+      "evidence_directory": "acceptance-adapter-v1",
+      "observed_manifest_sha256": "4702a4eaea739d1a798a4644091042b43d5c04af0b141008d11e2cae7db74878"
+    },
+    {
+      "scenario": "r40-near-increase",
+      "reference_sha256": "858f6de20ce29c507525543bca6eae0132c8883822c71f4d05a1670f52cea641",
+      "observed_objective": [
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "4182",
+        "120",
+        "0"
+      ],
+      "observed_totals": {
+        "computation_complete": true,
+        "expected": 420040,
+        "outside_window": 0,
+        "unallocated": 0,
+        "on_time": 420040,
+        "late": 0,
+        "pending": 0,
+        "gap": 0,
+        "on_time_rate": "1",
+        "on_time_rate_display": "100.00%"
+      },
+      "import_validation": {
+        "status": "pass",
+        "errors": [],
+        "http_status": 200
+      },
+      "status": "pass",
+      "preparation_seconds": 15.316601630300283,
+      "evidence_directory": "acceptance-adapter-v1",
+      "observed_manifest_sha256": "4702a4eaea739d1a798a4644091042b43d5c04af0b141008d11e2cae7db74878"
+    },
+    {
+      "scenario": "r40-near-decrease",
+      "reference_sha256": "43117a95089cfe3c2096992873e08dc0a9c58ea35e959fad1342f87460684be6",
+      "observed_objective": [
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "4182",
+        "120",
+        "0"
+      ],
+      "observed_totals": {
+        "computation_complete": true,
+        "expected": 419960,
+        "outside_window": 0,
+        "unallocated": 0,
+        "on_time": 419960,
+        "late": 0,
+        "pending": 0,
+        "gap": 0,
+        "on_time_rate": "1",
+        "on_time_rate_display": "100.00%"
+      },
+      "import_validation": {
+        "status": "pass",
+        "errors": [],
+        "http_status": 200
+      },
+      "status": "pass",
+      "preparation_seconds": 14.481783591210842,
+      "evidence_directory": "acceptance-adapter-v1",
+      "observed_manifest_sha256": "4702a4eaea739d1a798a4644091042b43d5c04af0b141008d11e2cae7db74878"
+    },
+    {
+      "scenario": "r40-far-increase",
+      "reference_sha256": "54d25300733e0c8c72ac02ce63927edfb760750dcfe38b04500c14ec5d1450b0",
+      "observed_objective": [
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "4182",
+        "40",
+        "0"
+      ],
+      "observed_totals": {
+        "computation_complete": true,
+        "expected": 420040,
+        "outside_window": 0,
+        "unallocated": 0,
+        "on_time": 420040,
+        "late": 0,
+        "pending": 0,
+        "gap": 0,
+        "on_time_rate": "1",
+        "on_time_rate_display": "100.00%"
+      },
+      "import_validation": {
+        "status": "pass",
+        "errors": [],
+        "http_status": 200
+      },
+      "status": "pass",
+      "preparation_seconds": 14.574508033692837,
+      "evidence_directory": "acceptance-adapter-v1",
+      "observed_manifest_sha256": "4702a4eaea739d1a798a4644091042b43d5c04af0b141008d11e2cae7db74878"
+    },
+    {
+      "scenario": "r40-far-decrease",
+      "reference_sha256": "a1599c9d4d431eae3c7dbe329f8536e810549b2ac26bfdc5963d3157db27582e",
+      "observed_objective": [
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "4182",
+        "40",
+        "0"
+      ],
+      "observed_totals": {
+        "computation_complete": true,
+        "expected": 419960,
+        "outside_window": 0,
+        "unallocated": 0,
+        "on_time": 419960,
+        "late": 0,
+        "pending": 0,
+        "gap": 0,
+        "on_time_rate": "1",
+        "on_time_rate_display": "100.00%"
+      },
+      "import_validation": {
+        "status": "pass",
+        "errors": [],
+        "http_status": 200
+      },
+      "status": "pass",
+      "preparation_seconds": 14.379687078297138,
+      "evidence_directory": "acceptance-adapter-v1",
+      "observed_manifest_sha256": "4702a4eaea739d1a798a4644091042b43d5c04af0b141008d11e2cae7db74878"
+    },
+    {
+      "scenario": "r40-rolling",
+      "reference_sha256": "7e87821c0f50d1c0e334328900c142f50c4cf345756092fe152a2d1b1acc86ad",
+      "observed_objective": [
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "4200",
+        "0",
+        "0"
+      ],
+      "observed_totals": {
+        "computation_complete": true,
+        "expected": 420000,
+        "outside_window": 0,
+        "unallocated": 0,
+        "on_time": 420000,
+        "late": 0,
+        "pending": 0,
+        "gap": 0,
+        "on_time_rate": "1",
+        "on_time_rate_display": "100.00%"
+      },
+      "import_validation": {
+        "status": "not_run",
+        "reason": "A true rolling state retains old demand history and an existing adopted plan; it cannot be a fresh first import."
+      },
+      "status": "pass",
+      "preparation_seconds": 5.5780113860964775,
+      "evidence_directory": "acceptance-adapter-v1",
+      "observed_manifest_sha256": "4702a4eaea739d1a798a4644091042b43d5c04af0b141008d11e2cae7db74878"
+    },
+    {
+      "scenario": "r20-partial-gap",
+      "reference_sha256": "b43f52cef9a6c8b379a80b73013d3a0663ae7848cc5a719c5feaeb16ac827f9f",
+      "observed_objective": [
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "40",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "40",
+        "418",
+        "0",
+        "0"
+      ],
+      "observed_totals": {
+        "computation_complete": true,
+        "expected": 420210,
+        "outside_window": 0,
+        "unallocated": 0,
+        "on_time": 420210,
+        "late": 0,
+        "pending": 0,
+        "gap": 40,
+        "on_time_rate": "42021/42025",
+        "on_time_rate_display": "99.99%"
+      },
+      "import_validation": {
+        "status": "pass",
+        "errors": [],
+        "http_status": 200
+      },
+      "status": "pass",
+      "preparation_seconds": 9.334142912179232,
+      "evidence_directory": "acceptance-adapter-v1",
+      "observed_manifest_sha256": "4702a4eaea739d1a798a4644091042b43d5c04af0b141008d11e2cae7db74878"
+    },
+    {
+      "scenario": "combined-a-partial",
+      "reference_sha256": "26813fbcf73587e454483fb921bb01d906c454e831badec2da43a7dee5c933c2",
+      "observed_objective": [
+        "100",
+        "1",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "1",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0"
+      ],
+      "observed_totals": {
+        "computation_complete": true,
+        "expected": 1000,
+        "outside_window": 0,
+        "unallocated": 0,
+        "on_time": 899,
+        "late": 100,
+        "pending": 1,
+        "gap": 1,
+        "on_time_rate": "899/1000",
+        "on_time_rate_display": "89.90%"
+      },
+      "import_validation": {
+        "status": "pass",
+        "errors": [],
+        "http_status": 200
+      },
+      "status": "pass",
+      "preparation_seconds": 1.0109188370406628,
+      "evidence_directory": "acceptance-companion-final/combined-a-partial",
+      "observed_manifest_sha256": "33e765b2cc22a28116d0416f04cc05cd628f5239183160be32a143035d29b0f4"
+    },
+    {
+      "scenario": "combined-a-confirmed",
+      "reference_sha256": "2e6976db4c0ee75161e1e68795eb5f1299b37f6ac85cbe0db1235012f7df0e16",
+      "observed_objective": [
+        "100",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0"
+      ],
+      "observed_totals": {
+        "computation_complete": true,
+        "expected": 1000,
+        "outside_window": 0,
+        "unallocated": 0,
+        "on_time": 900,
+        "late": 100,
+        "pending": 0,
+        "gap": 0,
+        "on_time_rate": "9/10",
+        "on_time_rate_display": "90.00%"
+      },
+      "import_validation": {
+        "status": "pass",
+        "errors": [],
+        "http_status": 200
+      },
+      "status": "pass",
+      "preparation_seconds": 0.14624465629458427,
+      "evidence_directory": "acceptance-companion-final/combined-a-confirmed",
+      "observed_manifest_sha256": "33e765b2cc22a28116d0416f04cc05cd628f5239183160be32a143035d29b0f4"
+    },
+    {
+      "scenario": "combined-b-ban",
+      "reference_sha256": "874ff19462ed159e57c2d14e3c84d71014634464da73ea8d91fa50f9d1122310",
+      "observed_objective": [
+        "1",
+        "1",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "1",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0"
+      ],
+      "observed_totals": {
+        "computation_complete": true,
+        "expected": 4,
+        "outside_window": 0,
+        "unallocated": 0,
+        "on_time": 2,
+        "late": 1,
+        "pending": 1,
+        "gap": 1,
+        "on_time_rate": "1/2",
+        "on_time_rate_display": "50.00%"
+      },
+      "import_validation": {
+        "status": "pass",
+        "errors": [],
+        "http_status": 200
+      },
+      "status": "pass",
+      "preparation_seconds": 0.11433626711368561,
+      "evidence_directory": "acceptance-companion-final/combined-b-ban",
+      "observed_manifest_sha256": "33e765b2cc22a28116d0416f04cc05cd628f5239183160be32a143035d29b0f4"
+    },
+    {
+      "scenario": "combined-b-confirmed",
+      "reference_sha256": "824e4f9ed896cc6127471803e2da951717fd2faa100df2784636df099fa374af",
+      "observed_objective": [
+        "1",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0"
+      ],
+      "observed_totals": {
+        "computation_complete": true,
+        "expected": 4,
+        "outside_window": 0,
+        "unallocated": 0,
+        "on_time": 3,
+        "late": 1,
+        "pending": 0,
+        "gap": 0,
+        "on_time_rate": "3/4",
+        "on_time_rate_display": "75.00%"
+      },
+      "import_validation": {
+        "status": "pass",
+        "errors": [],
+        "http_status": 200
+      },
+      "status": "pass",
+      "preparation_seconds": 0.12233066186308861,
+      "evidence_directory": "acceptance-companion-final/combined-b-confirmed",
+      "observed_manifest_sha256": "33e765b2cc22a28116d0416f04cc05cd628f5239183160be32a143035d29b0f4"
+    }
+  ],
+  "synthetic_role_matrix": {
+    "kind": "twenty synthetic account public role matrix",
+    "target": {
+      "kind": "adapter",
+      "disposable": true,
+      "production": false
+    },
+    "checks": [
+      {
+        "account_index": 1,
+        "expected_roles": [
+          "editor"
+        ],
+        "active": true,
+        "requests": [
+          {
+            "method": "POST",
+            "path": "/auth/login",
+            "expected_http": 200,
+            "observed_http": 200
+          },
+          {
+            "method": "GET",
+            "path": "/auth/me",
+            "expected_http": 200,
+            "observed_http": 200
+          },
+          {
+            "method": "GET",
+            "path": "/plans/current",
+            "expected_http": 200,
+            "observed_http": 200
+          },
+          {
+            "method": "GET",
+            "path": "/admin/authorizations",
+            "expected_http": 403,
+            "observed_http": 403
+          },
+          {
+            "method": "POST",
+            "path": "/plans/preview",
+            "expected_http": 200,
+            "observed_http": 200
+          },
+          {
+            "method": "POST",
+            "path": "/plans/save",
+            "expected_http": 200,
+            "observed_http": 200
+          },
+          {
+            "method": "POST",
+            "path": "/auth/logout",
+            "expected_http": 200,
+            "observed_http": 200
+          },
+          {
+            "method": "GET",
+            "path": "/auth/me",
+            "expected_http": 401,
+            "observed_http": 401
+          }
+        ],
+        "status": "pass",
+        "operation_id": "b5479a34-235d-448b-ad4f-bdd2eee9fc07",
+        "committed": {
+          "status": "COMMITTED",
+          "revision": 2,
+          "latest_adoption": 1,
+          "input_version": 1,
+          "pending": true
+        }
+      },
+      {
+        "account_index": 2,
+        "expected_roles": [
+          "viewer"
+        ],
+        "active": true,
+        "requests": [
+          {
+            "method": "POST",
+            "path": "/auth/login",
+            "expected_http": 200,
+            "observed_http": 200
+          },
+          {
+            "method": "GET",
+            "path": "/auth/me",
+            "expected_http": 200,
+            "observed_http": 200
+          },
+          {
+            "method": "GET",
+            "path": "/plans/current",
+            "expected_http": 200,
+            "observed_http": 200
+          },
+          {
+            "method": "GET",
+            "path": "/admin/authorizations",
+            "expected_http": 403,
+            "observed_http": 403
+          },
+          {
+            "method": "POST",
+            "path": "/plans/preview",
+            "expected_http": 403,
+            "observed_http": 403
+          },
+          {
+            "method": "POST",
+            "path": "/plans/save",
+            "expected_http": 403,
+            "observed_http": 403
+          },
+          {
+            "method": "POST",
+            "path": "/auth/logout",
+            "expected_http": 200,
+            "observed_http": 200
+          },
+          {
+            "method": "GET",
+            "path": "/auth/me",
+            "expected_http": 401,
+            "observed_http": 401
+          }
+        ],
+        "status": "pass",
+        "operation_id": "c89fca6e-14c4-4255-a735-0cba247a2c99"
+      },
+      {
+        "account_index": 3,
+        "expected_roles": [
+          "administrator"
+        ],
+        "active": true,
+        "requests": [
+          {
+            "method": "POST",
+            "path": "/auth/login",
+            "expected_http": 200,
+            "observed_http": 200
+          },
+          {
+            "method": "GET",
+            "path": "/auth/me",
+            "expected_http": 200,
+            "observed_http": 200
+          },
+          {
+            "method": "GET",
+            "path": "/plans/current",
+            "expected_http": 403,
+            "observed_http": 403
+          },
+          {
+            "method": "GET",
+            "path": "/admin/authorizations",
+            "expected_http": 200,
+            "observed_http": 200
+          },
+          {
+            "method": "POST",
+            "path": "/plans/preview",
+            "expected_http": 403,
+            "observed_http": 403
+          },
+          {
+            "method": "POST",
+            "path": "/plans/save",
+            "expected_http": 403,
+            "observed_http": 403
+          },
+          {
+            "method": "POST",
+            "path": "/auth/logout",
+            "expected_http": 200,
+            "observed_http": 200
+          },
+          {
+            "method": "GET",
+            "path": "/auth/me",
+            "expected_http": 401,
+            "observed_http": 401
+          }
+        ],
+        "status": "pass",
+        "operation_id": "b0151202-c9da-415e-88a5-21a90603cf70"
+      },
+      {
+        "account_index": 4,
+        "expected_roles": [
+          "administrator",
+          "editor"
+        ],
+        "active": true,
+        "requests": [
+          {
+            "method": "POST",
+            "path": "/auth/login",
+            "expected_http": 200,
+            "observed_http": 200
+          },
+          {
+            "method": "GET",
+            "path": "/auth/me",
+            "expected_http": 200,
+            "observed_http": 200
+          },
+          {
+            "method": "GET",
+            "path": "/plans/current",
+            "expected_http": 200,
+            "observed_http": 200
+          },
+          {
+            "method": "GET",
+            "path": "/admin/authorizations",
+            "expected_http": 200,
+            "observed_http": 200
+          },
+          {
+            "method": "POST",
+            "path": "/plans/preview",
+            "expected_http": 200,
+            "observed_http": 200
+          },
+          {
+            "method": "POST",
+            "path": "/plans/save",
+            "expected_http": 200,
+            "observed_http": 200
+          },
+          {
+            "method": "POST",
+            "path": "/auth/logout",
+            "expected_http": 200,
+            "observed_http": 200
+          },
+          {
+            "method": "GET",
+            "path": "/auth/me",
+            "expected_http": 401,
+            "observed_http": 401
+          }
+        ],
+        "status": "pass",
+        "operation_id": "8caf3d2f-2163-47f5-a751-e81f55c9565c",
+        "committed": {
+          "status": "COMMITTED",
+          "revision": 3,
+          "latest_adoption": 1,
+          "input_version": 1,
+          "pending": true
+        }
+      },
+      {
+        "account_index": 5,
+        "expected_roles": [
+          "editor"
+        ],
+        "active": true,
+        "requests": [
+          {
+            "method": "POST",
+            "path": "/auth/login",
+            "expected_http": 200,
+            "observed_http": 200
+          },
+          {
+            "method": "GET",
+            "path": "/auth/me",
+            "expected_http": 200,
+            "observed_http": 200
+          },
+          {
+            "method": "GET",
+            "path": "/plans/current",
+            "expected_http": 200,
+            "observed_http": 200
+          },
+          {
+            "method": "GET",
+            "path": "/admin/authorizations",
+            "expected_http": 403,
+            "observed_http": 403
+          },
+          {
+            "method": "POST",
+            "path": "/plans/preview",
+            "expected_http": 200,
+            "observed_http": 200
+          },
+          {
+            "method": "POST",
+            "path": "/plans/save",
+            "expected_http": 200,
+            "observed_http": 200
+          },
+          {
+            "method": "POST",
+            "path": "/auth/logout",
+            "expected_http": 200,
+            "observed_http": 200
+          },
+          {
+            "method": "GET",
+            "path": "/auth/me",
+            "expected_http": 401,
+            "observed_http": 401
+          }
+        ],
+        "status": "pass",
+        "operation_id": "8e50c7f1-cb24-492b-b60b-af101fd44fa3",
+        "committed": {
+          "status": "COMMITTED",
+          "revision": 4,
+          "latest_adoption": 1,
+          "input_version": 1,
+          "pending": true
+        }
+      },
+      {
+        "account_index": 6,
+        "expected_roles": [
+          "viewer"
+        ],
+        "active": true,
+        "requests": [
+          {
+            "method": "POST",
+            "path": "/auth/login",
+            "expected_http": 200,
+            "observed_http": 200
+          },
+          {
+            "method": "GET",
+            "path": "/auth/me",
+            "expected_http": 200,
+            "observed_http": 200
+          },
+          {
+            "method": "GET",
+            "path": "/plans/current",
+            "expected_http": 200,
+            "observed_http": 200
+          },
+          {
+            "method": "GET",
+            "path": "/admin/authorizations",
+            "expected_http": 403,
+            "observed_http": 403
+          },
+          {
+            "method": "POST",
+            "path": "/plans/preview",
+            "expected_http": 403,
+            "observed_http": 403
+          },
+          {
+            "method": "POST",
+            "path": "/plans/save",
+            "expected_http": 403,
+            "observed_http": 403
+          },
+          {
+            "method": "POST",
+            "path": "/auth/logout",
+            "expected_http": 200,
+            "observed_http": 200
+          },
+          {
+            "method": "GET",
+            "path": "/auth/me",
+            "expected_http": 401,
+            "observed_http": 401
+          }
+        ],
+        "status": "pass",
+        "operation_id": "d04d5b02-6553-4d23-95aa-6175c41c51c3"
+      },
+      {
+        "account_index": 7,
+        "expected_roles": [
+          "administrator"
+        ],
+        "active": true,
+        "requests": [
+          {
+            "method": "POST",
+            "path": "/auth/login",
+            "expected_http": 200,
+            "observed_http": 200
+          },
+          {
+            "method": "GET",
+            "path": "/auth/me",
+            "expected_http": 200,
+            "observed_http": 200
+          },
+          {
+            "method": "GET",
+            "path": "/plans/current",
+            "expected_http": 403,
+            "observed_http": 403
+          },
+          {
+            "method": "GET",
+            "path": "/admin/authorizations",
+            "expected_http": 200,
+            "observed_http": 200
+          },
+          {
+            "method": "POST",
+            "path": "/plans/preview",
+            "expected_http": 403,
+            "observed_http": 403
+          },
+          {
+            "method": "POST",
+            "path": "/plans/save",
+            "expected_http": 403,
+            "observed_http": 403
+          },
+          {
+            "method": "POST",
+            "path": "/auth/logout",
+            "expected_http": 200,
+            "observed_http": 200
+          },
+          {
+            "method": "GET",
+            "path": "/auth/me",
+            "expected_http": 401,
+            "observed_http": 401
+          }
+        ],
+        "status": "pass",
+        "operation_id": "92c8b757-c9da-418e-896a-9860bc2ba6c1"
+      },
+      {
+        "account_index": 8,
+        "expected_roles": [
+          "administrator",
+          "editor"
+        ],
+        "active": true,
+        "requests": [
+          {
+            "method": "POST",
+            "path": "/auth/login",
+            "expected_http": 200,
+            "observed_http": 200
+          },
+          {
+            "method": "GET",
+            "path": "/auth/me",
+            "expected_http": 200,
+            "observed_http": 200
+          },
+          {
+            "method": "GET",
+            "path": "/plans/current",
+            "expected_http": 200,
+            "observed_http": 200
+          },
+          {
+            "method": "GET",
+            "path": "/admin/authorizations",
+            "expected_http": 200,
+            "observed_http": 200
+          },
+          {
+            "method": "POST",
+            "path": "/plans/preview",
+            "expected_http": 200,
+            "observed_http": 200
+          },
+          {
+            "method": "POST",
+            "path": "/plans/save",
+            "expected_http": 200,
+            "observed_http": 200
+          },
+          {
+            "method": "POST",
+            "path": "/auth/logout",
+            "expected_http": 200,
+            "observed_http": 200
+          },
+          {
+            "method": "GET",
+            "path": "/auth/me",
+            "expected_http": 401,
+            "observed_http": 401
+          }
+        ],
+        "status": "pass",
+        "operation_id": "35b866b8-c050-45af-b76a-7281bd9ed1b4",
+        "committed": {
+          "status": "COMMITTED",
+          "revision": 5,
+          "latest_adoption": 1,
+          "input_version": 1,
+          "pending": true
+        }
+      },
+      {
+        "account_index": 9,
+        "expected_roles": [
+          "editor"
+        ],
+        "active": true,
+        "requests": [
+          {
+            "method": "POST",
+            "path": "/auth/login",
+            "expected_http": 200,
+            "observed_http": 200
+          },
+          {
+            "method": "GET",
+            "path": "/auth/me",
+            "expected_http": 200,
+            "observed_http": 200
+          },
+          {
+            "method": "GET",
+            "path": "/plans/current",
+            "expected_http": 200,
+            "observed_http": 200
+          },
+          {
+            "method": "GET",
+            "path": "/admin/authorizations",
+            "expected_http": 403,
+            "observed_http": 403
+          },
+          {
+            "method": "POST",
+            "path": "/plans/preview",
+            "expected_http": 200,
+            "observed_http": 200
+          },
+          {
+            "method": "POST",
+            "path": "/plans/save",
+            "expected_http": 200,
+            "observed_http": 200
+          },
+          {
+            "method": "POST",
+            "path": "/auth/logout",
+            "expected_http": 200,
+            "observed_http": 200
+          },
+          {
+            "method": "GET",
+            "path": "/auth/me",
+            "expected_http": 401,
+            "observed_http": 401
+          }
+        ],
+        "status": "pass",
+        "operation_id": "15477f6c-e436-4627-a9c6-7398e7a55427",
+        "committed": {
+          "status": "COMMITTED",
+          "revision": 6,
+          "latest_adoption": 1,
+          "input_version": 1,
+          "pending": true
+        }
+      },
+      {
+        "account_index": 10,
+        "expected_roles": [
+          "viewer"
+        ],
+        "active": true,
+        "requests": [
+          {
+            "method": "POST",
+            "path": "/auth/login",
+            "expected_http": 200,
+            "observed_http": 200
+          },
+          {
+            "method": "GET",
+            "path": "/auth/me",
+            "expected_http": 200,
+            "observed_http": 200
+          },
+          {
+            "method": "GET",
+            "path": "/plans/current",
+            "expected_http": 200,
+            "observed_http": 200
+          },
+          {
+            "method": "GET",
+            "path": "/admin/authorizations",
+            "expected_http": 403,
+            "observed_http": 403
+          },
+          {
+            "method": "POST",
+            "path": "/plans/preview",
+            "expected_http": 403,
+            "observed_http": 403
+          },
+          {
+            "method": "POST",
+            "path": "/plans/save",
+            "expected_http": 403,
+            "observed_http": 403
+          },
+          {
+            "method": "POST",
+            "path": "/auth/logout",
+            "expected_http": 200,
+            "observed_http": 200
+          },
+          {
+            "method": "GET",
+            "path": "/auth/me",
+            "expected_http": 401,
+            "observed_http": 401
+          }
+        ],
+        "status": "pass",
+        "operation_id": "841a167a-e793-4a80-9e2a-a12543fd0309"
+      },
+      {
+        "account_index": 11,
+        "expected_roles": [
+          "administrator"
+        ],
+        "active": true,
+        "requests": [
+          {
+            "method": "POST",
+            "path": "/auth/login",
+            "expected_http": 200,
+            "observed_http": 200
+          },
+          {
+            "method": "GET",
+            "path": "/auth/me",
+            "expected_http": 200,
+            "observed_http": 200
+          },
+          {
+            "method": "GET",
+            "path": "/plans/current",
+            "expected_http": 403,
+            "observed_http": 403
+          },
+          {
+            "method": "GET",
+            "path": "/admin/authorizations",
+            "expected_http": 200,
+            "observed_http": 200
+          },
+          {
+            "method": "POST",
+            "path": "/plans/preview",
+            "expected_http": 403,
+            "observed_http": 403
+          },
+          {
+            "method": "POST",
+            "path": "/plans/save",
+            "expected_http": 403,
+            "observed_http": 403
+          },
+          {
+            "method": "POST",
+            "path": "/auth/logout",
+            "expected_http": 200,
+            "observed_http": 200
+          },
+          {
+            "method": "GET",
+            "path": "/auth/me",
+            "expected_http": 401,
+            "observed_http": 401
+          }
+        ],
+        "status": "pass",
+        "operation_id": "16084e1b-e94c-438c-8eff-9c3dadc335fc"
+      },
+      {
+        "account_index": 12,
+        "expected_roles": [
+          "administrator",
+          "editor"
+        ],
+        "active": true,
+        "requests": [
+          {
+            "method": "POST",
+            "path": "/auth/login",
+            "expected_http": 200,
+            "observed_http": 200
+          },
+          {
+            "method": "GET",
+            "path": "/auth/me",
+            "expected_http": 200,
+            "observed_http": 200
+          },
+          {
+            "method": "GET",
+            "path": "/plans/current",
+            "expected_http": 200,
+            "observed_http": 200
+          },
+          {
+            "method": "GET",
+            "path": "/admin/authorizations",
+            "expected_http": 200,
+            "observed_http": 200
+          },
+          {
+            "method": "POST",
+            "path": "/plans/preview",
+            "expected_http": 200,
+            "observed_http": 200
+          },
+          {
+            "method": "POST",
+            "path": "/plans/save",
+            "expected_http": 200,
+            "observed_http": 200
+          },
+          {
+            "method": "POST",
+            "path": "/auth/logout",
+            "expected_http": 200,
+            "observed_http": 200
+          },
+          {
+            "method": "GET",
+            "path": "/auth/me",
+            "expected_http": 401,
+            "observed_http": 401
+          }
+        ],
+        "status": "pass",
+        "operation_id": "5321b8e8-311c-44a3-babd-d69b5440c94d",
+        "committed": {
+          "status": "COMMITTED",
+          "revision": 7,
+          "latest_adoption": 1,
+          "input_version": 1,
+          "pending": true
+        }
+      },
+      {
+        "account_index": 13,
+        "expected_roles": [
+          "editor"
+        ],
+        "active": true,
+        "requests": [
+          {
+            "method": "POST",
+            "path": "/auth/login",
+            "expected_http": 200,
+            "observed_http": 200
+          },
+          {
+            "method": "GET",
+            "path": "/auth/me",
+            "expected_http": 200,
+            "observed_http": 200
+          },
+          {
+            "method": "GET",
+            "path": "/plans/current",
+            "expected_http": 200,
+            "observed_http": 200
+          },
+          {
+            "method": "GET",
+            "path": "/admin/authorizations",
+            "expected_http": 403,
+            "observed_http": 403
+          },
+          {
+            "method": "POST",
+            "path": "/plans/preview",
+            "expected_http": 200,
+            "observed_http": 200
+          },
+          {
+            "method": "POST",
+            "path": "/plans/save",
+            "expected_http": 200,
+            "observed_http": 200
+          },
+          {
+            "method": "POST",
+            "path": "/auth/logout",
+            "expected_http": 200,
+            "observed_http": 200
+          },
+          {
+            "method": "GET",
+            "path": "/auth/me",
+            "expected_http": 401,
+            "observed_http": 401
+          }
+        ],
+        "status": "pass",
+        "operation_id": "31887c7f-6c99-4291-bd25-2cf3bb8625b8",
+        "committed": {
+          "status": "COMMITTED",
+          "revision": 8,
+          "latest_adoption": 1,
+          "input_version": 1,
+          "pending": true
+        }
+      },
+      {
+        "account_index": 14,
+        "expected_roles": [
+          "viewer"
+        ],
+        "active": true,
+        "requests": [
+          {
+            "method": "POST",
+            "path": "/auth/login",
+            "expected_http": 200,
+            "observed_http": 200
+          },
+          {
+            "method": "GET",
+            "path": "/auth/me",
+            "expected_http": 200,
+            "observed_http": 200
+          },
+          {
+            "method": "GET",
+            "path": "/plans/current",
+            "expected_http": 200,
+            "observed_http": 200
+          },
+          {
+            "method": "GET",
+            "path": "/admin/authorizations",
+            "expected_http": 403,
+            "observed_http": 403
+          },
+          {
+            "method": "POST",
+            "path": "/plans/preview",
+            "expected_http": 403,
+            "observed_http": 403
+          },
+          {
+            "method": "POST",
+            "path": "/plans/save",
+            "expected_http": 403,
+            "observed_http": 403
+          },
+          {
+            "method": "POST",
+            "path": "/auth/logout",
+            "expected_http": 200,
+            "observed_http": 200
+          },
+          {
+            "method": "GET",
+            "path": "/auth/me",
+            "expected_http": 401,
+            "observed_http": 401
+          }
+        ],
+        "status": "pass",
+        "operation_id": "1826007d-65f0-4fc6-aabc-f1562d1b0e52"
+      },
+      {
+        "account_index": 15,
+        "expected_roles": [
+          "administrator"
+        ],
+        "active": true,
+        "requests": [
+          {
+            "method": "POST",
+            "path": "/auth/login",
+            "expected_http": 200,
+            "observed_http": 200
+          },
+          {
+            "method": "GET",
+            "path": "/auth/me",
+            "expected_http": 200,
+            "observed_http": 200
+          },
+          {
+            "method": "GET",
+            "path": "/plans/current",
+            "expected_http": 403,
+            "observed_http": 403
+          },
+          {
+            "method": "GET",
+            "path": "/admin/authorizations",
+            "expected_http": 200,
+            "observed_http": 200
+          },
+          {
+            "method": "POST",
+            "path": "/plans/preview",
+            "expected_http": 403,
+            "observed_http": 403
+          },
+          {
+            "method": "POST",
+            "path": "/plans/save",
+            "expected_http": 403,
+            "observed_http": 403
+          },
+          {
+            "method": "POST",
+            "path": "/auth/logout",
+            "expected_http": 200,
+            "observed_http": 200
+          },
+          {
+            "method": "GET",
+            "path": "/auth/me",
+            "expected_http": 401,
+            "observed_http": 401
+          }
+        ],
+        "status": "pass",
+        "operation_id": "7ba74732-da7d-4917-88a5-1495cb07a18b"
+      },
+      {
+        "account_index": 16,
+        "expected_roles": [
+          "administrator",
+          "editor"
+        ],
+        "active": true,
+        "requests": [
+          {
+            "method": "POST",
+            "path": "/auth/login",
+            "expected_http": 200,
+            "observed_http": 200
+          },
+          {
+            "method": "GET",
+            "path": "/auth/me",
+            "expected_http": 200,
+            "observed_http": 200
+          },
+          {
+            "method": "GET",
+            "path": "/plans/current",
+            "expected_http": 200,
+            "observed_http": 200
+          },
+          {
+            "method": "GET",
+            "path": "/admin/authorizations",
+            "expected_http": 200,
+            "observed_http": 200
+          },
+          {
+            "method": "POST",
+            "path": "/plans/preview",
+            "expected_http": 200,
+            "observed_http": 200
+          },
+          {
+            "method": "POST",
+            "path": "/plans/save",
+            "expected_http": 200,
+            "observed_http": 200
+          },
+          {
+            "method": "POST",
+            "path": "/auth/logout",
+            "expected_http": 200,
+            "observed_http": 200
+          },
+          {
+            "method": "GET",
+            "path": "/auth/me",
+            "expected_http": 401,
+            "observed_http": 401
+          }
+        ],
+        "status": "pass",
+        "operation_id": "4e0a9f8a-78b8-4eef-b49e-f95080556e91",
+        "committed": {
+          "status": "COMMITTED",
+          "revision": 9,
+          "latest_adoption": 1,
+          "input_version": 1,
+          "pending": true
+        }
+      },
+      {
+        "account_index": 17,
+        "expected_roles": [
+          "editor"
+        ],
+        "active": true,
+        "requests": [
+          {
+            "method": "POST",
+            "path": "/auth/login",
+            "expected_http": 200,
+            "observed_http": 200
+          },
+          {
+            "method": "GET",
+            "path": "/auth/me",
+            "expected_http": 200,
+            "observed_http": 200
+          },
+          {
+            "method": "GET",
+            "path": "/plans/current",
+            "expected_http": 200,
+            "observed_http": 200
+          },
+          {
+            "method": "GET",
+            "path": "/admin/authorizations",
+            "expected_http": 403,
+            "observed_http": 403
+          },
+          {
+            "method": "POST",
+            "path": "/plans/preview",
+            "expected_http": 200,
+            "observed_http": 200
+          },
+          {
+            "method": "POST",
+            "path": "/plans/save",
+            "expected_http": 200,
+            "observed_http": 200
+          },
+          {
+            "method": "POST",
+            "path": "/auth/logout",
+            "expected_http": 200,
+            "observed_http": 200
+          },
+          {
+            "method": "GET",
+            "path": "/auth/me",
+            "expected_http": 401,
+            "observed_http": 401
+          }
+        ],
+        "status": "pass",
+        "operation_id": "f8d72bb4-e3e7-4d3f-a627-2d9c047140be",
+        "committed": {
+          "status": "COMMITTED",
+          "revision": 10,
+          "latest_adoption": 1,
+          "input_version": 1,
+          "pending": true
+        }
+      },
+      {
+        "account_index": 18,
+        "expected_roles": [
+          "viewer"
+        ],
+        "active": true,
+        "requests": [
+          {
+            "method": "POST",
+            "path": "/auth/login",
+            "expected_http": 200,
+            "observed_http": 200
+          },
+          {
+            "method": "GET",
+            "path": "/auth/me",
+            "expected_http": 200,
+            "observed_http": 200
+          },
+          {
+            "method": "GET",
+            "path": "/plans/current",
+            "expected_http": 200,
+            "observed_http": 200
+          },
+          {
+            "method": "GET",
+            "path": "/admin/authorizations",
+            "expected_http": 403,
+            "observed_http": 403
+          },
+          {
+            "method": "POST",
+            "path": "/plans/preview",
+            "expected_http": 403,
+            "observed_http": 403
+          },
+          {
+            "method": "POST",
+            "path": "/plans/save",
+            "expected_http": 403,
+            "observed_http": 403
+          },
+          {
+            "method": "POST",
+            "path": "/auth/logout",
+            "expected_http": 200,
+            "observed_http": 200
+          },
+          {
+            "method": "GET",
+            "path": "/auth/me",
+            "expected_http": 401,
+            "observed_http": 401
+          }
+        ],
+        "status": "pass",
+        "operation_id": "6a773ff3-0561-44a6-8494-462246e751f1"
+      },
+      {
+        "account_index": 19,
+        "expected_roles": [],
+        "active": true,
+        "requests": [
+          {
+            "method": "POST",
+            "path": "/auth/login",
+            "expected_http": 403,
+            "observed_http": 403
+          }
+        ],
+        "status": "pass"
+      },
+      {
+        "account_index": 20,
+        "expected_roles": [
+          "administrator",
+          "editor"
+        ],
+        "active": false,
+        "requests": [
+          {
+            "method": "POST",
+            "path": "/auth/login",
+            "expected_http": 403,
+            "observed_http": 403
+          }
+        ],
+        "status": "pass"
+      }
+    ],
+    "write_probe": "acknowledged zero-change draft save",
+    "real_company_accounts": {
+      "status": "not_run",
+      "reason": "Prepared synthetic identities do not establish real company login, company-side stop behavior or twenty real users."
+    },
+    "synthetic_result": "pass",
+    "acceptance": "not_run"
+  },
+  "browser_preparation": [
+    {
+      "directory": "acceptance-browser-adapter-v1",
+      "kind": "external browser with explicitly configured adapters",
+      "automated_observation": "fail",
+      "scenario": "r20-loose",
+      "repeats": [
+        {
+          "operation": "selection",
+          "repeat": 1,
+          "first": true,
+          "gate_seconds": 1,
+          "status": "fail",
+          "clicked_ms": 27779.540532,
+          "full_render_ms": 28954.548413,
+          "seconds": 1.1750078810000013
+        },
+        {
+          "operation": "selection",
+          "repeat": 2,
+          "first": false,
+          "gate_seconds": 1,
+          "status": "fail",
+          "clicked_ms": 42243.166876,
+          "full_render_ms": 43255.058228,
+          "seconds": 1.0118913519999988
+        },
+        {
+          "operation": "selection",
+          "repeat": 3,
+          "first": false,
+          "gate_seconds": 1,
+          "status": "fail",
+          "clicked_ms": 58257.51848,
+          "full_render_ms": 59261.459523,
+          "seconds": 1.0039410429999989
+        },
+        {
+          "operation": "selection",
+          "repeat": 4,
+          "first": false,
+          "gate_seconds": 1,
+          "status": "fail",
+          "clicked_ms": 76158.881362,
+          "full_render_ms": 77169.397635,
+          "seconds": 1.010516273000001
+        },
+        {
+          "operation": "selection",
+          "repeat": 5,
+          "first": false,
+          "gate_seconds": 1,
+          "status": "pass",
+          "clicked_ms": 89882.350965,
+          "full_render_ms": 90785.058312,
+          "seconds": 0.9027073469999887
+        },
+        {
+          "operation": "week",
+          "repeat": 1,
+          "first": true,
+          "gate_seconds": 3,
+          "status": "pass",
+          "clicked_ms": 103904.185831,
+          "full_render_ms": 104867.471893,
+          "seconds": 0.9632860619999992
+        },
+        {
+          "operation": "week",
+          "repeat": 2,
+          "first": false,
+          "gate_seconds": 3,
+          "status": "pass",
+          "clicked_ms": 116354.953478,
+          "full_render_ms": 117050.360084,
+          "seconds": 0.6954066060000041
+        },
+        {
+          "operation": "week",
+          "repeat": 3,
+          "first": false,
+          "gate_seconds": 3,
+          "status": "pass",
+          "clicked_ms": 129484.308536,
+          "full_render_ms": 130633.039324,
+          "seconds": 1.1487307880000008
+        },
+        {
+          "operation": "week",
+          "repeat": 4,
+          "first": false,
+          "gate_seconds": 3,
+          "status": "pass",
+          "clicked_ms": 143908.888997,
+          "full_render_ms": 144816.602542,
+          "seconds": 0.907713545000006
+        },
+        {
+          "operation": "week",
+          "repeat": 5,
+          "first": false,
+          "gate_seconds": 3,
+          "status": "pass",
+          "clicked_ms": 158623.633895,
+          "full_render_ms": 159649.380483,
+          "seconds": 1.0257465879999799
+        },
+        {
+          "operation": "day",
+          "repeat": 1,
+          "first": true,
+          "gate_seconds": 3,
+          "status": "pass",
+          "clicked_ms": 173254.154886,
+          "full_render_ms": 173415.160994,
+          "seconds": 0.1610061080000014
+        },
+        {
+          "operation": "day",
+          "repeat": 2,
+          "first": false,
+          "gate_seconds": 3,
+          "status": "pass",
+          "clicked_ms": 188595.841055,
+          "full_render_ms": 188747.607028,
+          "seconds": 0.1517659730000014
+        },
+        {
+          "operation": "day",
+          "repeat": 3,
+          "first": false,
+          "gate_seconds": 3,
+          "status": "pass",
+          "clicked_ms": 205014.38353,
+          "full_render_ms": 205182.855471,
+          "seconds": 0.16847194099999616
+        },
+        {
+          "operation": "day",
+          "repeat": 4,
+          "first": false,
+          "gate_seconds": 3,
+          "status": "pass",
+          "clicked_ms": 222482.907099,
+          "full_render_ms": 222797.664822,
+          "seconds": 0.3147577229999879
+        },
+        {
+          "operation": "day",
+          "repeat": 5,
+          "first": false,
+          "gate_seconds": 3,
+          "status": "pass",
+          "clicked_ms": 257175.429594,
+          "full_render_ms": 257328.217021,
+          "seconds": 0.15278742700000295
+        }
+      ],
+      "client": {
+        "chromium": "156.0.8078.4",
+        "node": "v24.13.0",
+        "platform": "linux"
+      },
+      "timing_note": "v1 includes automation preparation before click; v2 uses browser input events. Both retain failures; neither is deployed constrained-resource SLA evidence."
+    },
+    {
+      "directory": "acceptance-browser-adapter-v2",
+      "kind": "external browser with explicitly configured adapters",
+      "automated_observation": "fail",
+      "scenario": "r20-loose",
+      "repeats": [
+        {
+          "operation": "selection",
+          "repeat": 1,
+          "first": true,
+          "gate_seconds": 1,
+          "status": "fail",
+          "clicked_ms": 50851.714111328125,
+          "clicked_epoch_ms": 1792079406618.3,
+          "full_render_ms": 52088.604443,
+          "seconds": 1.2368903316718716
+        },
+        {
+          "operation": "selection",
+          "repeat": 2,
+          "first": false,
+          "gate_seconds": 1,
+          "status": "fail",
+          "clicked_ms": 68614.81420898438,
+          "clicked_epoch_ms": 1792079424381.4001,
+          "full_render_ms": 69654.654365,
+          "seconds": 1.0398401560156199
+        },
+        {
+          "operation": "selection",
+          "repeat": 3,
+          "first": false,
+          "gate_seconds": 1,
+          "status": "fail",
+          "clicked_ms": 89356.9140625,
+          "clicked_epoch_ms": 1792079445123.5,
+          "full_render_ms": 91105.76914,
+          "seconds": 1.748855077500004
+        },
+        {
+          "operation": "selection",
+          "repeat": 4,
+          "first": false,
+          "gate_seconds": 1,
+          "status": "fail",
+          "clicked_ms": 106030.9140625,
+          "clicked_epoch_ms": 1792079461797.5,
+          "full_render_ms": 107053.026815,
+          "seconds": 1.0221127525000047
+        },
+        {
+          "operation": "selection",
+          "repeat": 5,
+          "first": false,
+          "gate_seconds": 1,
+          "status": "pass",
+          "clicked_ms": 122263.71411132812,
+          "clicked_epoch_ms": 1792079478030.3,
+          "full_render_ms": 123235.752868,
+          "seconds": 0.9720387566718709
+        }
+      ],
+      "client": {
+        "chromium": "156.0.8078.4",
+        "node": "v24.13.0",
+        "platform": "linux"
+      },
+      "timing_note": "v1 includes automation preparation before click; v2 uses browser input events. Both retain failures; neither is deployed constrained-resource SLA evidence."
+    }
+  ],
+  "pending": [
+    {
+      "observation": "User-confirmed distributions, reference vectors and quality",
+      "status": "not_run",
+      "reason": "User confirmation has not occurred."
+    },
+    {
+      "observation": "Deployed browser-to-Oracle five repeats in both modes for every scenario",
+      "status": "not_run",
+      "reason": "Owner coordinates the packaged disposable Oracle runs and actual constrained resources."
+    },
+    {
+      "observation": "Five sustained automated editor contexts plus one computation",
+      "status": "not_run",
+      "reason": "Runner is implemented; no complete concurrent run was observed by this helper."
+    },
+    {
+      "observation": "Initial-import validation under concurrent editors",
+      "status": "not_run",
+      "reason": "A fresh first-import target has no shared edit state; a coordinated additional target or agreed case is required."
+    },
+    {
+      "observation": "Twenty real accounts, company authentication/deactivation and five humans",
+      "status": "not_run",
+      "reason": "Synthetic adapters do not establish real accounts or human participation."
+    },
+    {
+      "observation": "Combined full-scale protected/confirmation reference",
+      "status": "not_run",
+      "reason": "Small exact companions exist; representative combined scale references still need preparation and user confirmation."
+    },
+    {
+      "observation": "Real Excel mapping, worksite migration and final adoption",
+      "status": "not_run",
+      "reason": "Separate sample/migration prerequisite remains open; no worksite data used."
+    },
+    {
+      "observation": "Oracle disaster recovery and storage exhaustion",
+      "status": "not_run",
+      "reason": "Outside helper run and shared-instance destructive test authorization."
+    }
+  ]
+}
