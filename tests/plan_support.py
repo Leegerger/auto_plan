@@ -15,11 +15,14 @@ class MemoryPlanStore:
     def __init__(self,inputs):
         self.input_store=inputs; self.lock=RLock(); self.revision=0; self.adoption=0
         self.cursor=self
-        self.plan=Plan(); self.context=PlanningContext(); self.revisions={0:zero_revision()}; self.adoptions={}; self.keys={}
+        self.plan=Plan(); self.context=PlanningContext(); self.contexts={self.inputs.input_version:self.context.model_copy(deep=True)}; self.revisions={0:zero_revision()}; self.adoptions={}; self.keys={}
     @property
     def inputs(self): return self.input_store.read()
     def get_inputs(self,version): return self.input_store.read(version)
-    def get_context(self,version): return self.context
+    def get_context(self,version):
+        if version==self.inputs.input_version: return self.context.model_copy(deep=True)
+        eligible=[number for number in self.contexts if number<=version]
+        return self.contexts[max(eligible)].model_copy(deep=True) if eligible else PlanningContext()
     def get_revision(self,identity): return deepcopy(self.revisions[identity])
     def get_adoption(self,identity): return deepcopy(self.adoptions[identity])
     def effects_since(self,revision): return {tuple(k) for number,row in self.revisions.items() if number>revision for k in row['effects']}
@@ -38,8 +41,10 @@ class MemoryPlanStore:
             self.keys[key]={'actor':actor,'kind':kind,'digest':digest,'result':deepcopy(result)}
             return result
     def write_context(self,context,actor,now):
+        self.contexts[self.inputs.input_version]=self.context.model_copy(deep=True)
         self.input_store.update(actor,now,lambda current:current.model_copy(update={'input_version':current.input_version+1}))
         self.context=context
+        self.contexts[self.inputs.input_version]=context.model_copy(deep=True)
     def append(self,prepared,operations,actor,now,kind,pending):
         self.revision+=1
         prepared=deepcopy(prepared)|{'revision':self.revision,'operations':deepcopy(operations),'actor':actor,'recorded_at':now.isoformat(),'pending':pending,'kind':kind}
@@ -55,7 +60,9 @@ class MemoryPlanStore:
 
     def initialize_in_transaction(self,cursor,actor,now,inputs,context,plan,lineage,operation_id):
         from auto_plan.plans import PlanService, PlanCommand
+        self.contexts[self.inputs.input_version]=self.context.model_copy(deep=True)
         saved=self.input_store.update(actor,now,lambda current:inputs.model_copy(update={'input_version':current.input_version+1}))
         self.context=context.model_copy(update={'lineage':lineage})
+        self.contexts[saved.input_version]=self.context.model_copy(deep=True)
         prepared=PlanService(self)._prepare(self,PlanCommand(base_revision=0,input_version=saved.input_version,latest_adoption=0,operations=[{'kind':'replace_plan','plan':plan.model_dump(mode='json')}]),now)
         return self.append(prepared,[],actor,now,'initialize',True)

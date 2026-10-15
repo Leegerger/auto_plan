@@ -331,6 +331,18 @@ class PlanService:
                     'evaluation':evaluate(snapshot).model_dump(mode='json')}
         return self.store.read(actor,current)
 
+    def compare(self, base_revision, input_version, actor):
+        def compare(unit):
+            base=unit.get_revision(base_revision)
+            old_inputs=unit.get_inputs(input_version)
+            old_context=unit.get_context(input_version)
+            return {'base_revision':base_revision,'base_input_version':input_version,
+                    'revision':unit.revision,'input_version':unit.inputs.input_version,'latest_adoption':unit.adoption,
+                    'plan_changes':plan_differences(base['snapshot']['plan'],unit.plan.model_dump(mode='json')),
+                    'input_changes':differences(old_inputs.model_dump(mode='json'),unit.inputs.model_dump(mode='json')) +
+                        differences(old_context.model_dump(mode='json'),unit.context.model_dump(mode='json'),('context',))}
+        return self.store.read(actor,compare)
+
     def revision(self, identity, actor):
         return self.store.read(actor,lambda unit:unit.get_revision(identity))
 
