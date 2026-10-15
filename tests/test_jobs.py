@@ -1,5 +1,6 @@
 """Durable calculation behavior through the public business HTTP interface."""
 from uuid import uuid4
+import pytest
 from tests.test_plan_transactions import shared_client
 
 
@@ -116,28 +117,29 @@ def test_malformed_worker_frame_preserves_only_prior_complete_candidate(shared_c
     finally: controller.shutdown()
 
 
-def test_stop_force_kills_owned_group_at_ten_seconds_and_retains_candidate(shared_client,tmp_path,monkeypatch):
+@pytest.mark.parametrize('with_candidate',[True,False])
+def test_stop_force_kills_owned_group_at_ten_seconds_and_retains_candidate(shared_client,tmp_path,monkeypatch,with_candidate):
     import json,time,os
     from tests.test_solver import setup
     client,plans,inputs=shared_client
     setup(inputs,[{'model_code':'M','week':'2026-10-12','quantity':1}])
     monkeypatch.setenv('T37_PARENT_SECRET','never-pass-to-compute')
     processes=[];evidence=tmp_path/'owned.json'
-    controller=install_controller(client,plans,process_factory=fixture_factory('stall',evidence,processes))
+    controller=install_controller(client,plans,process_factory=fixture_factory('stall' if with_candidate else 'empty_stall',evidence,processes))
     try:
         identity=client.post('/auto_plan/api/jobs',json=submission()).json()['job_id']
         deadline=time.monotonic()+10
         while time.monotonic()<deadline:
             job=client.get('/auto_plan/api/jobs/'+identity).json()
-            if job['candidates']: break
+            if job['candidates'] or not with_candidate and evidence.exists(): break
             time.sleep(.05)
-        assert len(job['candidates'])==1
+        assert len(job['candidates'])==(1 if with_candidate else 0)
         started=time.monotonic()
         assert client.post('/auto_plan/api/jobs/'+identity+'/stop').status_code==200
         job=wait_job(client,identity,timeout=13)
         elapsed=time.monotonic()-started
         assert 9.5<=elapsed<=12.5
-        assert job['state']=='interrupted' and len(job['candidates'])==1
+        assert job['state']=='interrupted' and len(job['candidates'])==(1 if with_candidate else 0)
         assert job['result']['reason']=='stop_deadline'
         record=json.loads(evidence.read_text())
         (tmp_path/'stop-measurement.json').write_text(json.dumps({'stop_seconds':elapsed,'limit_seconds':10,'owned_pid':record['pid'],'descendant_pid':record['descendant_pid']}))

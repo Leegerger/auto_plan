@@ -73,10 +73,12 @@ def apply_candidate(plan,command,context):
         from .execution_rules import execution_certificate
         proposed=execution_certificate(proposed,context,candidate.request.scope)
     validate_change(plan,proposed,candidate.request,context)
+    from .solver import patch_operation
+    applied_patch=patch_operation(plan,proposed)
     return ReplayResult(proposed,lineage={'candidate_application':{
         'job_id':str(command.job_id),'candidate_id':str(command.candidate_id),'payload_sha':command.payload_sha,
         'source_revision':candidate.source_revision,'input_version':candidate.input_version,'selection':command.selection,
-        'applied_patch':operation.model_dump(mode='json')}})
+        'applied_patch':applied_patch}})
 
 
 register_operation('apply_candidate',ApplyCandidate,apply_candidate)

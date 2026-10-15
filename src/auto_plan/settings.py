@@ -57,8 +57,8 @@ class Settings(BaseSettings):
     @field_validator("oracle_pool_max")
     @classmethod
     def valid_pool(cls, value):
-        if not 1 <= value <= 10:
-            raise ValueError("oracle_pool_max must be 1..10")
+        if value < 1:
+            raise ValueError("oracle_pool_max must be positive")
         return value
 
     @model_validator(mode="after")

@@ -162,7 +162,8 @@ class JobController:
         self.watchdog=Thread(target=self._watch,daemon=True);self.watchdog.start()
 
     def close_admission(self):
-        self.accepting=False
+        with self.lock:
+            self.accepting=False
 
     def signal_stop(self,identity,requested_at=None):
         with self.lock:
@@ -194,12 +195,19 @@ class JobController:
                     if claim is not None:
                         # Each simultaneous solve receives one native thread.
                         frozen=claim['frozen']
-                        try: process=self.process_factory(frozen,1)
-                        except BaseException:
-                            self.store.finish(claim['job_id'],claim['run_id'],claim['generation'],'failed',{'reason':'spawn_failed'},[],self.clock())
+                        with self.lock:
+                            if not self.accepting or self.closing.is_set():
+                                process=None
+                            else:
+                                try: process=self.process_factory(frozen,1)
+                                except BaseException: process=None
+                                if process is not None:
+                                    run=Run(claim,process)
+                                    self.runs[claim['job_id']]=run
+                        if process is None:
+                            state='interrupted' if self.closing.is_set() else 'failed'
+                            self.store.finish(claim['job_id'],claim['run_id'],claim['generation'],state,{'reason':'shutdown_before_spawn' if state=='interrupted' else 'spawn_failed'},[],self.clock())
                             continue
-                        run=Run(claim,process)
-                        with self.lock: self.runs[claim['job_id']]=run
                         Thread(target=self._control,args=(run,),daemon=True).start()
                         Thread(target=self._consume,args=(run,),daemon=True).start()
                 except (StoreUnavailable,JobUnknown,PlanProblem): pass
