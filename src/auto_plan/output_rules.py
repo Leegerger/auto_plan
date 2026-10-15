@@ -346,11 +346,14 @@ def _output_from_cells(snapshot, cells, index):
             'excluded_demands': excluded_demands, 'attributions': attributions, 'weekly_results': weekly, 'confirmation_usage': usages, 'output_totals': total}
 
 
-def output_evaluation(snapshot, index=None, *, output_cache=None):
+def output_evaluation(snapshot, index=None, *, output_cache=None, json_mode=False):
     index = index if index is not None else InputIndex(snapshot.inputs)
     issues, cells = _reconcile(snapshot, index)
-    output = (output_cache.evaluate(snapshot, index, cells, _output_from_cells)
+    output = (output_cache.evaluate(snapshot, index, cells, _output_from_cells, json_mode=json_mode)
               if output_cache is not None and not issues
               else _output_from_cells(snapshot, cells, index))
+    if json_mode and (output_cache is None or issues):
+        from .output_reuse import output_json
+        output = output_json(output)
     output['issues'] = issues + output['issues']
     return output
