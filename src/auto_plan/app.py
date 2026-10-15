@@ -177,6 +177,8 @@ def create_app(settings: Settings | None = None, *, store=None, input_store=None
     app.include_router(plan_router, prefix=f"{settings.base_path}/api")
     from .shared_plan_api import router as shared_plan_router
     app.include_router(shared_plan_router, prefix=f"{settings.base_path}/api")
+    from .solver_api import router as solver_router
+    app.include_router(solver_router, prefix=f"{settings.base_path}/api")
     for router in routers:
         app.include_router(router, prefix=f"{settings.base_path}/api")
 
