@@ -441,6 +441,10 @@ class PlanService:
     def revision(self, identity, actor):
         return self.store.read(actor,lambda unit:unit.get_revision(identity))
 
+    def history(self, actor, now, before=None, limit=50):
+        from .history import RECOVERY_DAYS
+        return self.store.read(actor,lambda unit:unit.list_history(now-timedelta(days=RECOVERY_DAYS),before,limit))
+
     def adoption(self, identity, actor):
         return self.store.read(actor,lambda unit:unit.get_adoption(identity))
 
