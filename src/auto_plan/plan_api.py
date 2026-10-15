@@ -24,7 +24,7 @@ def frozen_snapshot(source, request, *, plan=None):
     return EvaluationSnapshot.model_validate(values)
 
 
-@router.post('/plans/preview', response_model=EvaluationResult)
+@router.post('/plans/evaluate', response_model=EvaluationResult)
 def preview_plan(payload: PlanPreview, request: Request, principal=Depends(require_editor)):
     return evaluate(frozen_snapshot(payload.snapshot, request))
 

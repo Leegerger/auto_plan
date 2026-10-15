@@ -12,7 +12,7 @@
 
 公开 API 均位于配置的 API 前缀下，只有编辑者可用，均不写入资料或计划：
 
-- `POST /plans/preview` 接收 `{snapshot: EvaluationSnapshot}`，返回日容量、Recipe 汇总上限、切机次数及总时长／空闲／额外扣减、问题和冻结计算时间。
+- `POST /plans/evaluate` 接收 `{snapshot: EvaluationSnapshot}`，返回日容量、Recipe 汇总上限、切机次数及总时长／空闲／额外扣减、问题和冻结计算时间。
 - `POST /plans/certificate/preview` 接收同样上下文，计划使用 `SourcePlan`，生产段不提供工时。返回 `{plan,evaluation,issues}`。容量依据无法构造时 `plan`、`evaluation` 为 `null`。
 
 `auto_plan.plan_models` 定义计划、精确工时、执行事实及覆盖、周一快照、锁定、采用基线与计算时间的类型。维护资料继续使用原有 `InputSnapshot`。纯函数 `auto_plan.rules.evaluate` 接收完整上下文和精确计划，不读取时钟、数据库或求解器。`auto_plan.certificate.construct_hour_certificate` 是导入与页面共用的工时构造入口。`InputIndex` 由资料诊断和规则校验共用，统一解释产能、日历与有向切机缺失值。

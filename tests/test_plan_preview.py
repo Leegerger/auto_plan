@@ -24,7 +24,7 @@ def segment(id, order, model, quantity, hours, day='2026-10-14'):
 
 
 def preview(client, data):
-    response = client.post('/auto_plan/api/plans/preview', json={'snapshot': data})
+    response = client.post('/auto_plan/api/plans/evaluate', json={'snapshot': data})
     assert response.status_code == 200, response.text
     return response.json()
 
@@ -66,7 +66,7 @@ def test_exact_open_capacity_boundary_and_tiny_positive_hour_display(inputs_clie
     data['plan']['segments'][0]['hours'] = '0'
     assert preview(inputs_client, data)['capacity_valid'] is False
     data['plan']['segments'][0]['hours'] = 0.024001
-    assert inputs_client.post('/auto_plan/api/plans/preview', json={'snapshot': data}).status_code == 422
+    assert inputs_client.post('/auto_plan/api/plans/evaluate', json={'snapshot': data}).status_code == 422
 
 
 def test_two_recipes_share_one_hour_and_switch_extra_is_not_double_deducted(inputs_client):
@@ -215,7 +215,7 @@ def test_evaluation_freezes_beijing_production_time_and_rejects_outside_window(i
     data['time'] = {'as_of': '2026-10-12T07:00:00+08:00', 'window_start': '2026-10-05', 'weeks': 15}
     assert preview(inputs_client, data)['time']['window_start'] == '2026-10-05'
     data['time']['as_of'] = '2026-10-12T07:00:00'
-    assert inputs_client.post('/auto_plan/api/plans/preview', json={'snapshot': data}).status_code == 422
+    assert inputs_client.post('/auto_plan/api/plans/evaluate', json={'snapshot': data}).status_code == 422
     del data['time']
     data['plan']['segments'][0]['date'] = '2027-01-25'
     assert any(i['code'] == 'outside_window' for i in preview(inputs_client, data)['issues'])
@@ -261,7 +261,7 @@ def test_preview_remains_editor_only_and_critical_missing_yields_are_localized(i
     assert {'missing_line_yield', 'missing_model_yield'} <= {row['code'] for row in result['issues']}
     assert all(row['date'] == '2026-10-14' and row['line_code'] == 'L' and row['model_code'] in {'M', 'N'} for row in result['issues'])
     inputs_client.post('/auto_plan/api/auth/logout')
-    assert inputs_client.post('/auto_plan/api/plans/preview', json={'snapshot': data}).status_code == 401
+    assert inputs_client.post('/auto_plan/api/plans/evaluate', json={'snapshot': data}).status_code == 401
 
 
 def test_certificate_keeps_valid_long_master_codes_without_inventing_invalid_switch_ids(inputs_client):

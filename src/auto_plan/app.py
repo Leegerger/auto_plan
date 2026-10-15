@@ -59,7 +59,7 @@ class Authorization(BaseModel):
     active: bool = True
 
 
-def create_app(settings: Settings | None = None, *, store=None, input_store=None, authenticator=None, clock=None, routers=()):
+def create_app(settings: Settings | None = None, *, store=None, input_store=None, plan_store=None, authenticator=None, clock=None, routers=()):
     settings = settings or Settings()
     owns_store = store is None
     owns_auth = authenticator is None
@@ -84,6 +84,7 @@ def create_app(settings: Settings | None = None, *, store=None, input_store=None
     app.state.settings = settings
     app.state.access_store = store
     app.state.input_store = input_store
+    app.state.plan_store = plan_store
     app.state.authenticator = authenticator
     app.state.clock = clock or (lambda: datetime.now(timezone.utc))
 
@@ -171,6 +172,8 @@ def create_app(settings: Settings | None = None, *, store=None, input_store=None
     app.include_router(input_router, prefix=f"{settings.base_path}/api")
     from .plan_api import router as plan_router
     app.include_router(plan_router, prefix=f"{settings.base_path}/api")
+    from .shared_plan_api import router as shared_plan_router
+    app.include_router(shared_plan_router, prefix=f"{settings.base_path}/api")
     for router in routers:
         app.include_router(router, prefix=f"{settings.base_path}/api")
 

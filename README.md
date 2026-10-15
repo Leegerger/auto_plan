@@ -1,6 +1,6 @@
 # Bonding 生产排程
 
-Vue 3、TypeScript、Element Plus 前端与 FastAPI 应用共用一个服务。Oracle 19c 是会话和授权的唯一持久存储。
+Vue 3、TypeScript、Element Plus 前端与 FastAPI 应用共用一个服务。Oracle 19c 是会话、授权、输入资料、共享计划、采用版与幂等结果的唯一真源。
 
 安装与构建：
 
@@ -18,6 +18,8 @@ cd ..
 
 ```bash
 uv run python -m auto_plan.migrate migrations/001_access.sql --expected-user PLAN_TEST
+uv run python -m auto_plan.migrate migrations/002_inputs.sql --expected-user PLAN_TEST
+uv run python -m auto_plan.migrate migrations/003_plans.sql --expected-user PLAN_TEST
 uv run uvicorn auto_plan.app:create_app --factory --host 0.0.0.0 --port 8000
 ```
 
@@ -35,7 +37,7 @@ npx playwright install chromium
 npm run test:e2e
 ```
 
-普通 API 测试明确注入公司 API 与数据库边界适配器，不验证 Oracle。浏览器测试启动本机 HTTPS 服务并注入相同测试边界，无真实公司账号参与。真实 Oracle 测试使用当前应用的公开 API，只在显式配置 `AUTO_PLAN_TEST_ORACLE=1` 且账号为 `PLAN_TEST` 时运行，先单独执行迁移，测试只写 `AP_*` 对象和 `T24*` 测试账号。
+普通 API 测试明确注入公司 API 与数据库边界适配器，不验证 Oracle。浏览器测试启动本机 HTTPS 服务并注入相同测试边界，无真实公司账号参与。真实 Oracle 测试使用当前应用的公开 API，只在显式配置 `AUTO_PLAN_TEST_ORACLE=1` 且账号为 `PLAN_TEST` 时运行，先单独执行迁移，测试只写 `AP_*` 对象和 `T24*`、`T28*`、`T29*` 测试账号。
 
 ```bash
 AUTO_PLAN_TEST_ORACLE=1 uv run pytest tests/test_oracle_access.py
@@ -44,3 +46,5 @@ AUTO_PLAN_TEST_ORACLE=1 uv run pytest tests/test_oracle_access.py
 Oracle 测试会使本应用测试会话失效，并保留授权审计。应在无人使用该测试应用时执行。测试认证仅可显式启用 `AUTO_PLAN_TEST_AUTH_ENABLED=true` 与独立的 `AUTO_PLAN_TEST_AUTH_PASSWORD`，且只允许 PLAN_TEST；PLAN_PROD 会拒绝启动。真实公司账号登录和容器部署另行验证。
 
 业务编辑者可在「日内详情」预览精确生产工时、Recipe 汇总容量与有向切机。十进制和分数工时无损保存于预览上下文，默认四位小数仅用于显示；标准数量和顺序可生成工时依据。参见[精确容量与切机预览](docs/plan-preview.md)。
+
+「共享计划」区分本机修改、共享草稿与正式采用。保存未知时只读，先核实为已提交或已作废；作废后由用户重新发起。参见[共享计划事务与扩展接口](docs/shared-plans.md)。

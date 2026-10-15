@@ -9,7 +9,7 @@ export const online = ref(navigator.onLine)
 window.addEventListener('online', () => { online.value = true })
 window.addEventListener('offline', () => { online.value = false })
 export class ApiError extends Error {
-  constructor(message: string, public status: number) { super(message) }
+  constructor(message: string, public status: number, public data: Record<string, unknown> = {}) { super(message) }
 }
 export async function api<T>(path: string, options: RequestInit = {}): Promise<T> {
   if (!online.value) throw new ApiError('网络已断开，请恢复连接后继续', 0)
@@ -23,8 +23,9 @@ export async function api<T>(path: string, options: RequestInit = {}): Promise<T
   if (!response.ok) {
     if (response.status === 401) principal.value = null
     let message = '操作失败，请稍后重试'
-    try { const body = await response.json(); if (typeof body.detail === 'string') message = body.detail } catch { /* Preserve the useful fallback. */ }
-    throw new ApiError(message, response.status)
+    let data: Record<string, unknown> = {}
+    try { const body = await response.json(); data = body; if (typeof body.detail === 'string') message = body.detail } catch { /* Preserve the useful fallback. */ }
+    throw new ApiError(message, response.status, data)
   }
   return response.json() as Promise<T>
 }
