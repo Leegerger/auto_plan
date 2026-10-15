@@ -33,14 +33,17 @@ class MemoryJobStore:
                 raise PlanProblem(429,'任务队列已满')
             if any(j['actor']==actor and j['state']=='queued' for j in self.jobs.values()):
                 raise PlanProblem(429,'每个账号最多一个运行加一个排队任务')
-            frozen = freeze(self.plans)
-            identity = str(uuid4())
-            result = {'status':'ACCEPTED','submission_id':key,'job_id':identity}
-            self.keys[key] = actor, body, result
-            self.jobs[identity] = {'job_id':identity,'actor':actor,'state':'queued','fifo':len(self.jobs)+1,
-                'source_revision':frozen.source_revision,'input_version':frozen.input_version,'latest_adoption':frozen.latest_adoption,
-                'frozen':frozen,'candidates':[],'created_at':now.isoformat(),'stop_requested_at':None}
-            return deepcopy(result)
+            # Match Oracle capture: plan and complete-input guards protect the
+            # new freeze/result, while original UUID replay needs neither lock.
+            with self.plans.lock, self.plans.input_store.lock:
+                frozen = freeze(self.plans)
+                identity = str(uuid4())
+                result = {'status':'ACCEPTED','submission_id':key,'job_id':identity}
+                self.keys[key] = actor, body, result
+                self.jobs[identity] = {'job_id':identity,'actor':actor,'state':'queued','fifo':len(self.jobs)+1,
+                    'source_revision':frozen.source_revision,'input_version':frozen.input_version,'latest_adoption':frozen.latest_adoption,
+                    'frozen':frozen,'candidates':[],'created_at':now.isoformat(),'stop_requested_at':None}
+                return deepcopy(result)
 
     def verify(self,key,actor,now):
         with self.lock:
