@@ -29,14 +29,8 @@ class PendingSegment:
 
 
 def _executed_minima(plan, execution):
-    facts = {(r.date, r.line_code, r.model_code): r.quantity for r in execution.facts}
-    assigned = defaultdict(int)
-    minima = {}
-    for row in sorted(plan.segments, key=lambda r: (r.date, r.line_code, r.order, r.id)):
-        key = row.date, row.line_code, row.model_code
-        minima[row.id] = min(row.quantity, max(0, facts.get(key, 0) - assigned[key]))
-        assigned[key] += minima[row.id]
-    return minima
+    from .execution_rules import executed_by_segment
+    return executed_by_segment(plan,execution)
 
 
 def change_quantity(plan, command, context):
@@ -74,6 +68,10 @@ def change_quantity(plan, command, context):
         if minima[row.id]:
             key = row.date, row.line_code, row.model_code
             last_executed[key] = max(last_executed.get(key, (-1, '')), (row.order, row.id))
+    from .production_time import production_date
+    from .execution_rules import confirmed_day_capacity
+    today=production_date(context.time.as_of)
+    today_available=confirmed_day_capacity(context,selected.line_code) is not None
     tasks = []
     reserved = []
     for row in sorted(plan.segments, key=lambda r: (r.date, r.line_code, r.order, r.id)):
@@ -81,6 +79,10 @@ def change_quantity(plan, command, context):
         eligible = row.line_code == selected.line_code and selected.date <= row.date <= command.end_date and follows and scope.contains(row)
         if not eligible or (row.date, row.line_code, row.model_code) in locked:
             reserved.append(row)
+            continue
+        if row.date==today and not today_available:
+            reserved.append(row)
+            if row.id==selected.id: tasks.append(PendingSegment(row,command.quantity,command.quantity-row.quantity))
             continue
         quantity = command.quantity if row.id == selected.id else row.quantity
         executed = minima[row.id]
@@ -101,6 +103,8 @@ def change_quantity(plan, command, context):
     placed_ids = defaultdict(set)
     day = selected.date
     while day <= command.end_date:
+        if day<today or day==today and not today_available:
+            day+=timedelta(days=1);continue
         for task in tasks:
             if not task.remaining or task.row.date > day:
                 continue

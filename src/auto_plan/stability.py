@@ -23,13 +23,13 @@ def _percent(value):
     return f'{hundredths//100}.{hundredths%100:02d}%'
 
 
-def _remaining_segments(plan, actual, known):
+def _remaining_segments(plan, actual, known, executed=None):
     assigned=defaultdict(int)
     output=defaultdict(list)
     for row in sorted(plan.segments,key=lambda r:(r.date,r.line_code,r.order,r.id)):
         key=row.date,row.line_code,row.model_code
         if not known(key): continue
-        used=min(row.quantity,max(0,actual.get(key,0)-assigned[key]))
+        used=executed.get(row.id,0) if executed is not None else min(row.quantity,max(0,actual.get(key,0)-assigned[key]))
         assigned[key]+=used
         if row.quantity>used: output[row.date,row.line_code].append(row.model_code)
     return output
@@ -53,14 +53,20 @@ def _order_changes(before, after):
 
 
 def compare_stability(snapshot):
+    from .execution_rules import executed_by_segment
     baseline=snapshot.baseline
     prefs=snapshot.preferences
     old=_cells(baseline.plan) if baseline else {}
     new=_cells(snapshot.plan)
     actual={(r.date,r.line_code,r.model_code):r.quantity for r in snapshot.execution.facts}
+    executed=executed_by_segment(snapshot.plan,snapshot.execution)
+    remaining=defaultdict(int)
+    for row in snapshot.plan.segments:
+        remaining[row.date,row.line_code,row.model_code]+=max(0,row.quantity-executed.get(row.id,0))
     today=production_date(snapshot.time.as_of)
+    cutoff=snapshot.execution.cutoff
     def execution_known(key):
-        return key in actual or key[0]>today or _covered(key,snapshot.execution.coverage)
+        return key[0]>today or cutoff is not None and cutoff<=snapshot.time.as_of and key[0]<=production_date(cutoff) and (key in actual or _covered(key,snapshot.execution.coverage))
     relevant=defaultdict(set)
     for key in old.keys()|new.keys():
         if snapshot.time.window_start<=key[0]<=snapshot.time.window_end:
@@ -92,7 +98,7 @@ def compare_stability(snapshot):
             if not execution_known(key):
                 unknown_execution+=1; continue
             p=max(0,old.get(key,0)-actual.get(key,0))
-            n=max(0,new.get(key,0)-actual.get(key,0))
+            n=remaining[key]
             old_total+=p;new_total+=n;change+=abs(n-p)
         known_baseline=bool(known_keys or declared[number])
         # A partial dated declaration does not establish the rest of its week.
@@ -121,7 +127,7 @@ def compare_stability(snapshot):
     order=0
     if baseline:
         old_sequence=_remaining_segments(baseline.plan,actual,execution_known)
-        new_sequence=_remaining_segments(snapshot.plan,actual,execution_known)
+        new_sequence=_remaining_segments(snapshot.plan,actual,execution_known,executed)
         old_sequence={k:v for k,v in old_sequence.items() if snapshot.time.window_start<=k[0]<=snapshot.time.window_end}
         order=_order_changes(old_sequence,new_sequence)
     return StabilityResult(baseline_version=baseline.version if baseline else None,weeks=weeks,

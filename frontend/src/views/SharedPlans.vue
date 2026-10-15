@@ -5,6 +5,7 @@ import OutputResults from '../components/OutputResults.vue'
 import ManualEditor from '../components/ManualEditor.vue'
 import LocalRecovery from '../components/LocalRecovery.vue'
 import StabilityPanel from '../components/StabilityPanel.vue'
+import ExecutionResetPanel from '../components/ExecutionResetPanel.vue'
 import { useSharedPlan } from '../useSharedPlan'
 const shared=useSharedPlan()
 const {head,preview,proposal,operations,selectedActions,undo,busy,unknown,pending,message,error,differences,conflict,voided,
@@ -16,7 +17,7 @@ const conflictRows=computed(()=>Array.isArray(conflict.value?.conflicts) ? confl
   return {kind:'需求归属及确认额度',model_code:key[1],week:key[2]}
 }) : [])
 const changeRows=computed(()=>Array.isArray(conflict.value?.changes) ? conflict.value.changes : [])
-const operationNames:Record<string,string>={lock_cells:'批量锁定',unlock_cells:'显式解锁',set_preferences:'稳定性偏好',change_quantity:'改量顺延',append_fill:'追加填量',swap_segments:'完整交换',move_segment:'移动',split_segment:'拆分',clear_segments:'清空',reorder_segments:'日内排序',copy_segments:'复制新增',overwrite_copy_segments:'覆盖复制',discard_unallocated:'舍弃指定余额'}
+const operationNames:Record<string,string>={record_execution:'累计执行事实及纠错',confirm_day_capacity:'当日剩余容量确认',weekly_reset:'每周重置及更正',lock_cells:'批量锁定',unlock_cells:'显式解锁',set_preferences:'稳定性偏好',change_quantity:'改量顺延',append_fill:'追加填量',swap_segments:'完整交换',move_segment:'移动',split_segment:'拆分',clear_segments:'清空',reorder_segments:'日内排序',copy_segments:'复制新增',overwrite_copy_segments:'覆盖复制',discard_unallocated:'舍弃指定余额'}
 const fields:Record<string,string>={date:'生产日',line_code:'线体',model_code:'机种',recipe_code:'Recipe',quantity:'数量',hours:'精确工时',order:'顺序',from_recipe:'原Recipe',to_recipe:'目标Recipe',allocations:'切机分配',idle_hours:'使用普通空闲',id:'记录',reason:'原因',week:'需求周',batch_id:'批次',code:'检查项'}
 function operationDescription(value:Record<string,unknown>):string {
   const parts=[value.model_code,value.quantity===undefined ? '' : `${value.quantity}片`,value.line_code,value.start_date,value.end_date,value.target_date,value.target_start_date,value.target_line]
@@ -49,6 +50,7 @@ function display(value: unknown): string {
     <LocalRecovery :shared="shared" />
     <ManualEditor :shared="shared" />
     <StabilityPanel :shared="shared" />
+    <ExecutionResetPanel :shared="shared" />
     <section v-if="editor" aria-label="本机完整动作队列">
       <h2>本机动作</h2><p>按完整动作选取后重新预览；交换两端、拆分与复制组保持完整。取消选取会使旧预览失效。</p>
       <label v-for="operation in operations" :key="operation.action_id" class="queued-action"><input type="checkbox" v-model="selectedActions" :value="operation.action_id" :disabled="readonly" @change="changed">{{operationNames[operation.kind] ?? '计划调整'}} · {{operationDescription(operation)}}</label>
@@ -58,7 +60,7 @@ function display(value: unknown): string {
       <el-checkbox v-model="pending" :disabled="readonly">保存为待处理草稿</el-checkbox>
       <el-button @click="check()" :disabled="readonly || !head">预览本机修改</el-button>
       <el-button type="primary" @click="submit('save')" :disabled="readonly || !preview">共享保存</el-button>
-      <el-button type="success" @click="submit('adopt')" :disabled="readonly || !preview">正式采用</el-button>
+      <el-button type="success" @click="submit('adopt')" :disabled="readonly || !preview || !preview.executable || proposal?.adoption_blocked">正式采用</el-button>
     </div>
     <div v-if="conflict">
       <p>修改已保留。请核对关联变更后，按最新共享状态与资料重新预览。</p>

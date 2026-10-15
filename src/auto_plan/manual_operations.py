@@ -54,11 +54,30 @@ def _state_before(plan,index,line,day):
     return max(endings,key=lambda value:value[0])[1] if endings else states.initial_states.get(line)
 
 
+def _outgoing_compatible(plan,index,line,end_date,state,old_state):
+    if state==old_state: return True
+    events=[]
+    for row in plan.segments:
+        if row.line_code==line and row.date>end_date and (row.quantity or Fraction(row.hours)):
+            events.append((row.date,row.order,'production',index.models[row.model_code].recipe_code))
+    for switch in plan.switches:
+        if switch.line_code==line:
+            events.extend((a.date,a.order,'switch',switch.from_recipe) for a in switch.allocations if a.date>end_date)
+    if not events: return True
+    _,_,kind,recipe=min(events)
+    return state==recipe or kind=='production' and state is None
+
+
 class CapacityWitnessError(ValueError):
     pass
 
 
 def bounded_certificate(plan,context,scope):
+    from .execution_rules import execution_certificate
+    return execution_certificate(plan,context,scope)
+
+
+def _bounded_certificate(plan,context,scope):
     """Rebuild only authorized lines/dates; preserve all outside rows verbatim.
 
     Crossing switches and outgoing state mismatches require explicit expansion.
@@ -87,7 +106,7 @@ def bounded_certificate(plan,context,scope):
         outgoing=_state_before(certificate,index,line,scope.end_date+timedelta(days=1))
         old_outgoing=_state_before(original,index,line,scope.end_date+timedelta(days=1))
         outside_later=any(r.line_code==line and r.date>scope.end_date and r.quantity for r in original.segments) or any(s.line_code==line and any(a.date>scope.end_date for a in s.allocations) for s in original.switches)
-        if outside_later and outgoing!=old_outgoing:
+        if outside_later and not _outgoing_compatible(original,index,line,scope.end_date,outgoing,old_outgoing):
             raise ValueError(f'{scope.end_date} {line} 调整会改变范围外 Recipe 衔接，请扩大范围后重新预览')
         if scope.model_codes:
             fixed_inside=[r for r in original.segments if r.line_code==line and scope.start_date<=r.date<=scope.end_date]
@@ -237,7 +256,13 @@ def append_fill(plan,command,context):
     recipe=index.models[command.model_code].recipe_code
     day=command.start_date
     allowed=False
+    from .production_time import production_date
+    from .execution_rules import confirmed_day_capacity
+    today=production_date(context.time.as_of)
     while day<=command.end_date and remaining:
+        if day<today or day==today and confirmed_day_capacity(context,command.line_code) is None:
+            allowed=True
+            day+=timedelta(days=1);continue
         capacity=index.capacity(day.strftime('%Y-%m'),recipe,command.line_code)
         if capacity['state']!='known' or not capacity['pieces']:
             day+=timedelta(days=1); continue

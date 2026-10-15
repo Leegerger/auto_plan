@@ -58,5 +58,22 @@ if __name__ == '__main__':
             options['demand_store']=MemoryDemandStore(plans)
             options['clock']=lambda: datetime(2026,10,14,tzinfo=timezone.utc)
             access.users['IMPORT_EDITOR']={'user_id':'IMPORT_EDITOR','roles':['editor'],'active':True}
+        if os.getenv('AUTO_PLAN_BROWSER_RESET_FIXTURE') == '1':
+            from datetime import date, datetime, timezone
+            from uuid import uuid4
+            from auto_plan.input_models import InputSnapshot
+            from auto_plan.plan_models import ExecutionCoverage, ExecutionContext
+            from auto_plan.plans import PlanService, SubmitPlan, PlanningContext
+            from tests.plan_support import MemoryPlanStore
+            from tests.test_plan_preview import snapshot
+            inputs.versions[1]=InputSnapshot.model_validate(snapshot()['inputs']|{'input_version':1});inputs.version=1
+            plans=MemoryPlanStore(inputs)
+            coverage=ExecutionCoverage(start_date='2026-10-12',end_date='2026-10-18',line_codes=['L'],model_codes=['M','N','P'],blanks_are_zero=True)
+            now=datetime(2026,10,14,tzinfo=timezone.utc)
+            plans.context=PlanningContext(coverage=[coverage],execution=ExecutionContext(coverage=[coverage.model_copy(update={'end_date':date(2026,10,14)})],cutoff=now))
+            rows=[{'id':identity,'date':day,'line_code':'L','model_code':'M','order':0,'quantity':1000,'hours':'24'} for identity,day in [('early','2026-10-15'),('late','2026-10-16')]]
+            PlanService(plans).submit(SubmitPlan(base_revision=0,input_version=1,latest_adoption=0,operation_id=uuid4(),operations=[{'kind':'replace_plan','plan':{'segments':rows}}]),'RESET_EDITOR',now,'adopt')
+            options['plan_store']=plans;options['clock']=lambda:now
+            access.users['RESET_EDITOR']={'user_id':'RESET_EDITOR','roles':['editor'],'active':True}
         app = create_app(settings, store=access, input_store=inputs, authenticator=CompanyAuthentication(), **options)
         uvicorn.run(app, host='127.0.0.1', port=port, ssl_keyfile=str(key), ssl_certfile=str(cert), access_log=False)
