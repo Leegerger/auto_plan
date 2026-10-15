@@ -20,6 +20,8 @@ class Settings(BaseSettings):
     auth_sys_id: str = "FS_MOD-SCM_PORTAL"
     test_auth_enabled: bool = False
     test_auth_password: SecretStr = SecretStr("")
+    proxy_trusted_ips: str = "127.0.0.1"
+    adoption_space_warning_bytes: int = 1073741824
     job_queue_capacity: int = 20
     job_workers: int | None = None
     frontend_dist: Path = Path("frontend/dist")
@@ -54,7 +56,7 @@ class Settings(BaseSettings):
             raise ValueError("job_workers cannot be negative")
         return value
 
-    @field_validator("oracle_pool_max")
+    @field_validator("adoption_space_warning_bytes", "oracle_pool_max")
     @classmethod
     def valid_pool(cls, value):
         if value < 1:

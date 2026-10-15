@@ -1,0 +1,1590 @@
+{
+  "schema_version": 1,
+  "prepared_at": "2026-10-15",
+  "reference_confirmation": {
+    "status": "not_run",
+    "reason": "User has not confirmed these serialized distributions, actions or reference vectors."
+  },
+  "gates_seconds": {
+    "selection": 1,
+    "single_cell": 1,
+    "week": 3,
+    "day": 3,
+    "batch_preview": 5,
+    "import_validation": 5,
+    "shared_save": 5,
+    "local": 30,
+    "new_week": 120,
+    "all_replan": 120
+  },
+  "repeats_per_mode": 5,
+  "include_first_repeat": true,
+  "load_modes": [
+    "solo",
+    "five_automated_editors_one_computation"
+  ],
+  "fixture_family": "local-v2",
+  "predecessor_manifest_sha256": "33e765b2cc22a28116d0416f04cc05cd628f5239183160be32a143035d29b0f4",
+  "scenarios": [
+    {
+      "id": "r10-near-increase-v2",
+      "kind": "local_increase",
+      "source": {
+        "path": "62b637830fc37c165f9b1c3ba2237641b7fe78fd97f6aeba22c4777e167e8891.json.gz",
+        "sha256": "62b637830fc37c165f9b1c3ba2237641b7fe78fd97f6aeba22c4777e167e8891",
+        "canonical_bytes": 1276556
+      },
+      "reference": {
+        "path": "8f7f6db971429216f4a2e0700f09e17f97418b7b3f518b392a30845db053ba82.json.gz",
+        "sha256": "8f7f6db971429216f4a2e0700f09e17f97418b7b3f518b392a30845db053ba82",
+        "canonical_bytes": 1276558
+      },
+      "action": {
+        "path": "ee0a884e0412d1b02099ba34e93cddbd7ae010e1b4c26c4701c8b3752177a7d9.json.gz",
+        "sha256": "ee0a884e0412d1b02099ba34e93cddbd7ae010e1b4c26c4701c8b3752177a7d9",
+        "canonical_bytes": 269
+      },
+      "import": {
+        "path": "43df9a2ad7dac87352bb95fdd9db1ec85dc416e7c0da956c40757603c8e940b7.json.gz",
+        "sha256": "43df9a2ad7dac87352bb95fdd9db1ec85dc416e7c0da956c40757603c8e940b7",
+        "canonical_bytes": 586840
+      },
+      "scope": {
+        "start_date": "2026-10-25",
+        "end_date": "2026-10-25",
+        "line_codes": [
+          "L00"
+        ],
+        "model_codes": [
+          "M00"
+        ]
+      },
+      "tokens": {
+        "source_revision": 1,
+        "input_version": 1,
+        "latest_adoption": 1,
+        "binding": "Logical frozen tokens. Live bindings must be recorded after public preparation; do not silently rewrite a measured run."
+      },
+      "expected": {
+        "totals": {
+          "expected": 420040,
+          "on_time": 420040,
+          "late": 0,
+          "gap": 0,
+          "pending": 0,
+          "unallocated": 0,
+          "outside_window": 0
+        },
+        "objective": [
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "418",
+          "120",
+          "0"
+        ],
+        "capacity_valid": true,
+        "computation_complete": true,
+        "executable": true
+      },
+      "reference_kind": "independent feasible witness; upper bound, not global optimality proof",
+      "quality_acceptance": "not_run",
+      "notes": [
+        "Only this demand week changes. Entire-plan weekly absolute change rate is exactly 1/700.",
+        "V2 retains V1 business values, scope, reference objective and gates.",
+        "Public original-demand adoption precedes the complete same-day replacement; immutable file history is required.",
+        "Only materialized demand row ordering changes in the source/reference snapshots. V1 is preserved."
+      ],
+      "preparation_source": {
+        "path": "0be3295c67bc3897fea7a085369c46f91fa4a4393d13f2d5b14a0b4f9963eb05.json.gz",
+        "sha256": "0be3295c67bc3897fea7a085369c46f91fa4a4393d13f2d5b14a0b4f9963eb05",
+        "canonical_bytes": 1276556
+      },
+      "demand_replacement": {
+        "path": "063b310d3f6a95362a71c43935a88dd4fad8ae093333a680151c43eb20e1f689.json.gz",
+        "sha256": "063b310d3f6a95362a71c43935a88dd4fad8ae093333a680151c43eb20e1f689",
+        "canonical_bytes": 41954
+      },
+      "predecessor": {
+        "scenario": "r10-near-increase",
+        "manifest_sha256": "33e765b2cc22a28116d0416f04cc05cd628f5239183160be32a143035d29b0f4",
+        "source_sha256": "e816beb81fee3453adb910e16a3f110b24c5d5ca98085f9faa0122d8765154b8",
+        "reference_sha256": "f2e746a5a6e070fcb8788aec2790021f5e06fc9c4b3918eab72695d7c4738350",
+        "action_sha256": "ee0a884e0412d1b02099ba34e93cddbd7ae010e1b4c26c4701c8b3752177a7d9",
+        "import_sha256": "c85618e91d3c509c4c8c20480be10b59204859e62205ef0f5d830c913d77673b"
+      },
+      "public_preparation": {
+        "schema_version": 1,
+        "initial_scenario": "r10-loose",
+        "sequence": [
+          "initialize_original_demand",
+          "adopt_exact_original_plan",
+          "replace_complete_same_day_demand_file"
+        ],
+        "materialized_demand_order": [
+          "model_code",
+          "week"
+        ],
+        "requires_original_and_replacement_file_history": true,
+        "status": "not_run"
+      }
+    },
+    {
+      "id": "r10-near-decrease-v2",
+      "kind": "local_decrease",
+      "source": {
+        "path": "e6c4e0f4333d16503f520d82e98ef38a3a6dfbc066466e943f8bc126c2f655d2.json.gz",
+        "sha256": "e6c4e0f4333d16503f520d82e98ef38a3a6dfbc066466e943f8bc126c2f655d2",
+        "canonical_bytes": 1276556
+      },
+      "reference": {
+        "path": "28d26c1695c2afdace588bcde0428e19bb693d62f4abf29f73e820d41d528194.json.gz",
+        "sha256": "28d26c1695c2afdace588bcde0428e19bb693d62f4abf29f73e820d41d528194",
+        "canonical_bytes": 1276557
+      },
+      "action": {
+        "path": "ee0a884e0412d1b02099ba34e93cddbd7ae010e1b4c26c4701c8b3752177a7d9.json.gz",
+        "sha256": "ee0a884e0412d1b02099ba34e93cddbd7ae010e1b4c26c4701c8b3752177a7d9",
+        "canonical_bytes": 269
+      },
+      "import": {
+        "path": "43df9a2ad7dac87352bb95fdd9db1ec85dc416e7c0da956c40757603c8e940b7.json.gz",
+        "sha256": "43df9a2ad7dac87352bb95fdd9db1ec85dc416e7c0da956c40757603c8e940b7",
+        "canonical_bytes": 586840
+      },
+      "scope": {
+        "start_date": "2026-10-25",
+        "end_date": "2026-10-25",
+        "line_codes": [
+          "L00"
+        ],
+        "model_codes": [
+          "M00"
+        ]
+      },
+      "tokens": {
+        "source_revision": 1,
+        "input_version": 1,
+        "latest_adoption": 1,
+        "binding": "Logical frozen tokens. Live bindings must be recorded after public preparation; do not silently rewrite a measured run."
+      },
+      "expected": {
+        "totals": {
+          "expected": 419960,
+          "on_time": 419960,
+          "late": 0,
+          "gap": 0,
+          "pending": 0,
+          "unallocated": 0,
+          "outside_window": 0
+        },
+        "objective": [
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "418",
+          "120",
+          "0"
+        ],
+        "capacity_valid": true,
+        "computation_complete": true,
+        "executable": true
+      },
+      "reference_kind": "independent feasible witness; upper bound, not global optimality proof",
+      "quality_acceptance": "not_run",
+      "notes": [
+        "Only this demand week changes. Entire-plan weekly absolute change rate is exactly 1/700.",
+        "V2 retains V1 business values, scope, reference objective and gates.",
+        "Public original-demand adoption precedes the complete same-day replacement; immutable file history is required.",
+        "Only materialized demand row ordering changes in the source/reference snapshots. V1 is preserved."
+      ],
+      "preparation_source": {
+        "path": "0be3295c67bc3897fea7a085369c46f91fa4a4393d13f2d5b14a0b4f9963eb05.json.gz",
+        "sha256": "0be3295c67bc3897fea7a085369c46f91fa4a4393d13f2d5b14a0b4f9963eb05",
+        "canonical_bytes": 1276556
+      },
+      "demand_replacement": {
+        "path": "6e672e492c82acbdcadb65e6125e2215727d79275260b4e233412dac0e161f19.json.gz",
+        "sha256": "6e672e492c82acbdcadb65e6125e2215727d79275260b4e233412dac0e161f19",
+        "canonical_bytes": 41954
+      },
+      "predecessor": {
+        "scenario": "r10-near-decrease",
+        "manifest_sha256": "33e765b2cc22a28116d0416f04cc05cd628f5239183160be32a143035d29b0f4",
+        "source_sha256": "7d66e63f9119752530d9af5be5cc2d7692fc1a7c51fb2654d51996d1405c6d0b",
+        "reference_sha256": "a08fd260be7ec487cdabeeb25ee738bc7eb314649c7a288ece348d04c15269a1",
+        "action_sha256": "ee0a884e0412d1b02099ba34e93cddbd7ae010e1b4c26c4701c8b3752177a7d9",
+        "import_sha256": "53e7e6397f341fb11686e50f6e50cb08a6a81f992e5d347e9c6ead0579ba4e73"
+      },
+      "public_preparation": {
+        "schema_version": 1,
+        "initial_scenario": "r10-loose",
+        "sequence": [
+          "initialize_original_demand",
+          "adopt_exact_original_plan",
+          "replace_complete_same_day_demand_file"
+        ],
+        "materialized_demand_order": [
+          "model_code",
+          "week"
+        ],
+        "requires_original_and_replacement_file_history": true,
+        "status": "not_run"
+      }
+    },
+    {
+      "id": "r10-far-increase-v2",
+      "kind": "local_increase",
+      "source": {
+        "path": "f5431e036e134fc046ae4dc9b4c16545d19f5df8c8740e3708d80fa2b81ef5e4.json.gz",
+        "sha256": "f5431e036e134fc046ae4dc9b4c16545d19f5df8c8740e3708d80fa2b81ef5e4",
+        "canonical_bytes": 1276556
+      },
+      "reference": {
+        "path": "75c1417ecb9fa73ac980b20707325d4602af0814776e67a07f097b2c2712edc5.json.gz",
+        "sha256": "75c1417ecb9fa73ac980b20707325d4602af0814776e67a07f097b2c2712edc5",
+        "canonical_bytes": 1276558
+      },
+      "action": {
+        "path": "7f09efa1c840dfd91a5b5600ba5eb719904eba796517490cc0471487f981dcef.json.gz",
+        "sha256": "7f09efa1c840dfd91a5b5600ba5eb719904eba796517490cc0471487f981dcef",
+        "canonical_bytes": 269
+      },
+      "import": {
+        "path": "43df9a2ad7dac87352bb95fdd9db1ec85dc416e7c0da956c40757603c8e940b7.json.gz",
+        "sha256": "43df9a2ad7dac87352bb95fdd9db1ec85dc416e7c0da956c40757603c8e940b7",
+        "canonical_bytes": 586840
+      },
+      "scope": {
+        "start_date": "2026-12-06",
+        "end_date": "2026-12-06",
+        "line_codes": [
+          "L00"
+        ],
+        "model_codes": [
+          "M00"
+        ]
+      },
+      "tokens": {
+        "source_revision": 1,
+        "input_version": 1,
+        "latest_adoption": 1,
+        "binding": "Logical frozen tokens. Live bindings must be recorded after public preparation; do not silently rewrite a measured run."
+      },
+      "expected": {
+        "totals": {
+          "expected": 420040,
+          "on_time": 420040,
+          "late": 0,
+          "gap": 0,
+          "pending": 0,
+          "unallocated": 0,
+          "outside_window": 0
+        },
+        "objective": [
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "418",
+          "40",
+          "0"
+        ],
+        "capacity_valid": true,
+        "computation_complete": true,
+        "executable": true
+      },
+      "reference_kind": "independent feasible witness; upper bound, not global optimality proof",
+      "quality_acceptance": "not_run",
+      "notes": [
+        "Only this demand week changes. Entire-plan weekly absolute change rate is exactly 1/700.",
+        "V2 retains V1 business values, scope, reference objective and gates.",
+        "Public original-demand adoption precedes the complete same-day replacement; immutable file history is required.",
+        "Only materialized demand row ordering changes in the source/reference snapshots. V1 is preserved."
+      ],
+      "preparation_source": {
+        "path": "0be3295c67bc3897fea7a085369c46f91fa4a4393d13f2d5b14a0b4f9963eb05.json.gz",
+        "sha256": "0be3295c67bc3897fea7a085369c46f91fa4a4393d13f2d5b14a0b4f9963eb05",
+        "canonical_bytes": 1276556
+      },
+      "demand_replacement": {
+        "path": "3865b1775d07cc03e0ebe46e2dd3571732b5d84c5a1c5926e2cd9605fa540c77.json.gz",
+        "sha256": "3865b1775d07cc03e0ebe46e2dd3571732b5d84c5a1c5926e2cd9605fa540c77",
+        "canonical_bytes": 41954
+      },
+      "predecessor": {
+        "scenario": "r10-far-increase",
+        "manifest_sha256": "33e765b2cc22a28116d0416f04cc05cd628f5239183160be32a143035d29b0f4",
+        "source_sha256": "b1d4b0764d8d0090953d71c042befcda75b1142fcd270317eb3957104b95329a",
+        "reference_sha256": "30e7dc2d088b12686ae01a9256d11739c00ec0821c7e8f113b1ff77d30324410",
+        "action_sha256": "7f09efa1c840dfd91a5b5600ba5eb719904eba796517490cc0471487f981dcef",
+        "import_sha256": "d772d3110ec543d018c99fbfc18661b395b25a3d32dcafd6bc7d829e65d8a38f"
+      },
+      "public_preparation": {
+        "schema_version": 1,
+        "initial_scenario": "r10-loose",
+        "sequence": [
+          "initialize_original_demand",
+          "adopt_exact_original_plan",
+          "replace_complete_same_day_demand_file"
+        ],
+        "materialized_demand_order": [
+          "model_code",
+          "week"
+        ],
+        "requires_original_and_replacement_file_history": true,
+        "status": "not_run"
+      }
+    },
+    {
+      "id": "r10-far-decrease-v2",
+      "kind": "local_decrease",
+      "source": {
+        "path": "870aecd9bc4730b81bd199e47cdf7df5621990f8f38a5e869b93ff19b48964ca.json.gz",
+        "sha256": "870aecd9bc4730b81bd199e47cdf7df5621990f8f38a5e869b93ff19b48964ca",
+        "canonical_bytes": 1276556
+      },
+      "reference": {
+        "path": "558fd291250dcbf9720b7efe02e2066f74b2ca71b436016b3d7547564f9bc851.json.gz",
+        "sha256": "558fd291250dcbf9720b7efe02e2066f74b2ca71b436016b3d7547564f9bc851",
+        "canonical_bytes": 1276557
+      },
+      "action": {
+        "path": "7f09efa1c840dfd91a5b5600ba5eb719904eba796517490cc0471487f981dcef.json.gz",
+        "sha256": "7f09efa1c840dfd91a5b5600ba5eb719904eba796517490cc0471487f981dcef",
+        "canonical_bytes": 269
+      },
+      "import": {
+        "path": "43df9a2ad7dac87352bb95fdd9db1ec85dc416e7c0da956c40757603c8e940b7.json.gz",
+        "sha256": "43df9a2ad7dac87352bb95fdd9db1ec85dc416e7c0da956c40757603c8e940b7",
+        "canonical_bytes": 586840
+      },
+      "scope": {
+        "start_date": "2026-12-06",
+        "end_date": "2026-12-06",
+        "line_codes": [
+          "L00"
+        ],
+        "model_codes": [
+          "M00"
+        ]
+      },
+      "tokens": {
+        "source_revision": 1,
+        "input_version": 1,
+        "latest_adoption": 1,
+        "binding": "Logical frozen tokens. Live bindings must be recorded after public preparation; do not silently rewrite a measured run."
+      },
+      "expected": {
+        "totals": {
+          "expected": 419960,
+          "on_time": 419960,
+          "late": 0,
+          "gap": 0,
+          "pending": 0,
+          "unallocated": 0,
+          "outside_window": 0
+        },
+        "objective": [
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "418",
+          "40",
+          "0"
+        ],
+        "capacity_valid": true,
+        "computation_complete": true,
+        "executable": true
+      },
+      "reference_kind": "independent feasible witness; upper bound, not global optimality proof",
+      "quality_acceptance": "not_run",
+      "notes": [
+        "Only this demand week changes. Entire-plan weekly absolute change rate is exactly 1/700.",
+        "V2 retains V1 business values, scope, reference objective and gates.",
+        "Public original-demand adoption precedes the complete same-day replacement; immutable file history is required.",
+        "Only materialized demand row ordering changes in the source/reference snapshots. V1 is preserved."
+      ],
+      "preparation_source": {
+        "path": "0be3295c67bc3897fea7a085369c46f91fa4a4393d13f2d5b14a0b4f9963eb05.json.gz",
+        "sha256": "0be3295c67bc3897fea7a085369c46f91fa4a4393d13f2d5b14a0b4f9963eb05",
+        "canonical_bytes": 1276556
+      },
+      "demand_replacement": {
+        "path": "d340a4f82fb4dfe6a0bcd962f8011cbc7e4649d70513437020bd0b5e40beffb8.json.gz",
+        "sha256": "d340a4f82fb4dfe6a0bcd962f8011cbc7e4649d70513437020bd0b5e40beffb8",
+        "canonical_bytes": 41954
+      },
+      "predecessor": {
+        "scenario": "r10-far-decrease",
+        "manifest_sha256": "33e765b2cc22a28116d0416f04cc05cd628f5239183160be32a143035d29b0f4",
+        "source_sha256": "571cc7559952cc1acb37cdcd2fbbf8289df37cb07b646f37dea58248ac139310",
+        "reference_sha256": "dac6e018428441ef2475f52fc0006b441bdb0cd0389f545e52d47fe6f8c93270",
+        "action_sha256": "7f09efa1c840dfd91a5b5600ba5eb719904eba796517490cc0471487f981dcef",
+        "import_sha256": "e388502a738ddfeca95fadd5120611bba56b9de587bec42b3c59e80dd09c1ac7"
+      },
+      "public_preparation": {
+        "schema_version": 1,
+        "initial_scenario": "r10-loose",
+        "sequence": [
+          "initialize_original_demand",
+          "adopt_exact_original_plan",
+          "replace_complete_same_day_demand_file"
+        ],
+        "materialized_demand_order": [
+          "model_code",
+          "week"
+        ],
+        "requires_original_and_replacement_file_history": true,
+        "status": "not_run"
+      }
+    },
+    {
+      "id": "r20-near-increase-v2",
+      "kind": "local_increase",
+      "source": {
+        "path": "3985f9fcd7d962853c15e106a83c550e593469f788566cb07806a5901aefc443.json.gz",
+        "sha256": "3985f9fcd7d962853c15e106a83c550e593469f788566cb07806a5901aefc443",
+        "canonical_bytes": 1366889
+      },
+      "reference": {
+        "path": "68a7ba8f4978c8ceb370c8bf384b00f7682c545ec97d786b329d73bd38f7ccab.json.gz",
+        "sha256": "68a7ba8f4978c8ceb370c8bf384b00f7682c545ec97d786b329d73bd38f7ccab",
+        "canonical_bytes": 1366891
+      },
+      "action": {
+        "path": "ee0a884e0412d1b02099ba34e93cddbd7ae010e1b4c26c4701c8b3752177a7d9.json.gz",
+        "sha256": "ee0a884e0412d1b02099ba34e93cddbd7ae010e1b4c26c4701c8b3752177a7d9",
+        "canonical_bytes": 269
+      },
+      "import": {
+        "path": "0cc8b193b2b36429a422675cb473231801e26355e1e18ab02e2ad070a77a53c2.json.gz",
+        "sha256": "0cc8b193b2b36429a422675cb473231801e26355e1e18ab02e2ad070a77a53c2",
+        "canonical_bytes": 677173
+      },
+      "scope": {
+        "start_date": "2026-10-25",
+        "end_date": "2026-10-25",
+        "line_codes": [
+          "L00"
+        ],
+        "model_codes": [
+          "M00"
+        ]
+      },
+      "tokens": {
+        "source_revision": 1,
+        "input_version": 1,
+        "latest_adoption": 1,
+        "binding": "Logical frozen tokens. Live bindings must be recorded after public preparation; do not silently rewrite a measured run."
+      },
+      "expected": {
+        "totals": {
+          "expected": 420040,
+          "on_time": 420040,
+          "late": 0,
+          "gap": 0,
+          "pending": 0,
+          "unallocated": 0,
+          "outside_window": 0
+        },
+        "objective": [
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "418",
+          "120",
+          "0"
+        ],
+        "capacity_valid": true,
+        "computation_complete": true,
+        "executable": true
+      },
+      "reference_kind": "independent feasible witness; upper bound, not global optimality proof",
+      "quality_acceptance": "not_run",
+      "notes": [
+        "Only this demand week changes. Entire-plan weekly absolute change rate is exactly 1/700.",
+        "V2 retains V1 business values, scope, reference objective and gates.",
+        "Public original-demand adoption precedes the complete same-day replacement; immutable file history is required.",
+        "Only materialized demand row ordering changes in the source/reference snapshots. V1 is preserved."
+      ],
+      "preparation_source": {
+        "path": "d019627a21ca1507f9145aac1575c55fa03c8be52838d0f47c85088a8703d909.json.gz",
+        "sha256": "d019627a21ca1507f9145aac1575c55fa03c8be52838d0f47c85088a8703d909",
+        "canonical_bytes": 1366889
+      },
+      "demand_replacement": {
+        "path": "063b310d3f6a95362a71c43935a88dd4fad8ae093333a680151c43eb20e1f689.json.gz",
+        "sha256": "063b310d3f6a95362a71c43935a88dd4fad8ae093333a680151c43eb20e1f689",
+        "canonical_bytes": 41954
+      },
+      "predecessor": {
+        "scenario": "r20-near-increase",
+        "manifest_sha256": "33e765b2cc22a28116d0416f04cc05cd628f5239183160be32a143035d29b0f4",
+        "source_sha256": "20d28c3fcb45dc40b6664c7178a50b9388762508182088f329562663c19cfc7c",
+        "reference_sha256": "cc2fca1a6c75349a47d096e49b56d29f1e05932c7843fde3a59f0aeffd4af22d",
+        "action_sha256": "ee0a884e0412d1b02099ba34e93cddbd7ae010e1b4c26c4701c8b3752177a7d9",
+        "import_sha256": "d8b934a68891c9658e847b655f7f7579c80eb029591cee669b08839a68a4b432"
+      },
+      "public_preparation": {
+        "schema_version": 1,
+        "initial_scenario": "r20-loose",
+        "sequence": [
+          "initialize_original_demand",
+          "adopt_exact_original_plan",
+          "replace_complete_same_day_demand_file"
+        ],
+        "materialized_demand_order": [
+          "model_code",
+          "week"
+        ],
+        "requires_original_and_replacement_file_history": true,
+        "status": "not_run"
+      }
+    },
+    {
+      "id": "r20-near-decrease-v2",
+      "kind": "local_decrease",
+      "source": {
+        "path": "5140f585f8de1b4a5f21f82e49576427fbd37374e53610f026939e7fb50b2a6e.json.gz",
+        "sha256": "5140f585f8de1b4a5f21f82e49576427fbd37374e53610f026939e7fb50b2a6e",
+        "canonical_bytes": 1366889
+      },
+      "reference": {
+        "path": "8cd0cc3bf981db3b5ccbecb9e083003cde655ff0dcad9d86d06b4e3a8270fcab.json.gz",
+        "sha256": "8cd0cc3bf981db3b5ccbecb9e083003cde655ff0dcad9d86d06b4e3a8270fcab",
+        "canonical_bytes": 1366890
+      },
+      "action": {
+        "path": "ee0a884e0412d1b02099ba34e93cddbd7ae010e1b4c26c4701c8b3752177a7d9.json.gz",
+        "sha256": "ee0a884e0412d1b02099ba34e93cddbd7ae010e1b4c26c4701c8b3752177a7d9",
+        "canonical_bytes": 269
+      },
+      "import": {
+        "path": "0cc8b193b2b36429a422675cb473231801e26355e1e18ab02e2ad070a77a53c2.json.gz",
+        "sha256": "0cc8b193b2b36429a422675cb473231801e26355e1e18ab02e2ad070a77a53c2",
+        "canonical_bytes": 677173
+      },
+      "scope": {
+        "start_date": "2026-10-25",
+        "end_date": "2026-10-25",
+        "line_codes": [
+          "L00"
+        ],
+        "model_codes": [
+          "M00"
+        ]
+      },
+      "tokens": {
+        "source_revision": 1,
+        "input_version": 1,
+        "latest_adoption": 1,
+        "binding": "Logical frozen tokens. Live bindings must be recorded after public preparation; do not silently rewrite a measured run."
+      },
+      "expected": {
+        "totals": {
+          "expected": 419960,
+          "on_time": 419960,
+          "late": 0,
+          "gap": 0,
+          "pending": 0,
+          "unallocated": 0,
+          "outside_window": 0
+        },
+        "objective": [
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "418",
+          "120",
+          "0"
+        ],
+        "capacity_valid": true,
+        "computation_complete": true,
+        "executable": true
+      },
+      "reference_kind": "independent feasible witness; upper bound, not global optimality proof",
+      "quality_acceptance": "not_run",
+      "notes": [
+        "Only this demand week changes. Entire-plan weekly absolute change rate is exactly 1/700.",
+        "V2 retains V1 business values, scope, reference objective and gates.",
+        "Public original-demand adoption precedes the complete same-day replacement; immutable file history is required.",
+        "Only materialized demand row ordering changes in the source/reference snapshots. V1 is preserved."
+      ],
+      "preparation_source": {
+        "path": "d019627a21ca1507f9145aac1575c55fa03c8be52838d0f47c85088a8703d909.json.gz",
+        "sha256": "d019627a21ca1507f9145aac1575c55fa03c8be52838d0f47c85088a8703d909",
+        "canonical_bytes": 1366889
+      },
+      "demand_replacement": {
+        "path": "6e672e492c82acbdcadb65e6125e2215727d79275260b4e233412dac0e161f19.json.gz",
+        "sha256": "6e672e492c82acbdcadb65e6125e2215727d79275260b4e233412dac0e161f19",
+        "canonical_bytes": 41954
+      },
+      "predecessor": {
+        "scenario": "r20-near-decrease",
+        "manifest_sha256": "33e765b2cc22a28116d0416f04cc05cd628f5239183160be32a143035d29b0f4",
+        "source_sha256": "a41928ee3b50a073a527b591e5b7ad4262e5593a51f5cd9357cb26254f5cad99",
+        "reference_sha256": "7b0c006151ffec2731b01d5e6c2412c73715d06f65d9f031dbf775bfff61d56c",
+        "action_sha256": "ee0a884e0412d1b02099ba34e93cddbd7ae010e1b4c26c4701c8b3752177a7d9",
+        "import_sha256": "43e29997fb1b4464314a7e37b09585bb81d2f6f91217adff7fa2121e519b6584"
+      },
+      "public_preparation": {
+        "schema_version": 1,
+        "initial_scenario": "r20-loose",
+        "sequence": [
+          "initialize_original_demand",
+          "adopt_exact_original_plan",
+          "replace_complete_same_day_demand_file"
+        ],
+        "materialized_demand_order": [
+          "model_code",
+          "week"
+        ],
+        "requires_original_and_replacement_file_history": true,
+        "status": "not_run"
+      }
+    },
+    {
+      "id": "r20-far-increase-v2",
+      "kind": "local_increase",
+      "source": {
+        "path": "8735ce3fbb6dd56c70337b894109b57075049f332923749a178785b296d2be25.json.gz",
+        "sha256": "8735ce3fbb6dd56c70337b894109b57075049f332923749a178785b296d2be25",
+        "canonical_bytes": 1366889
+      },
+      "reference": {
+        "path": "9fbaef540320218935864b920ed9a213748fc5e1d44a8ddbcc86fca0817122f9.json.gz",
+        "sha256": "9fbaef540320218935864b920ed9a213748fc5e1d44a8ddbcc86fca0817122f9",
+        "canonical_bytes": 1366891
+      },
+      "action": {
+        "path": "7f09efa1c840dfd91a5b5600ba5eb719904eba796517490cc0471487f981dcef.json.gz",
+        "sha256": "7f09efa1c840dfd91a5b5600ba5eb719904eba796517490cc0471487f981dcef",
+        "canonical_bytes": 269
+      },
+      "import": {
+        "path": "0cc8b193b2b36429a422675cb473231801e26355e1e18ab02e2ad070a77a53c2.json.gz",
+        "sha256": "0cc8b193b2b36429a422675cb473231801e26355e1e18ab02e2ad070a77a53c2",
+        "canonical_bytes": 677173
+      },
+      "scope": {
+        "start_date": "2026-12-06",
+        "end_date": "2026-12-06",
+        "line_codes": [
+          "L00"
+        ],
+        "model_codes": [
+          "M00"
+        ]
+      },
+      "tokens": {
+        "source_revision": 1,
+        "input_version": 1,
+        "latest_adoption": 1,
+        "binding": "Logical frozen tokens. Live bindings must be recorded after public preparation; do not silently rewrite a measured run."
+      },
+      "expected": {
+        "totals": {
+          "expected": 420040,
+          "on_time": 420040,
+          "late": 0,
+          "gap": 0,
+          "pending": 0,
+          "unallocated": 0,
+          "outside_window": 0
+        },
+        "objective": [
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "418",
+          "40",
+          "0"
+        ],
+        "capacity_valid": true,
+        "computation_complete": true,
+        "executable": true
+      },
+      "reference_kind": "independent feasible witness; upper bound, not global optimality proof",
+      "quality_acceptance": "not_run",
+      "notes": [
+        "Only this demand week changes. Entire-plan weekly absolute change rate is exactly 1/700.",
+        "V2 retains V1 business values, scope, reference objective and gates.",
+        "Public original-demand adoption precedes the complete same-day replacement; immutable file history is required.",
+        "Only materialized demand row ordering changes in the source/reference snapshots. V1 is preserved."
+      ],
+      "preparation_source": {
+        "path": "d019627a21ca1507f9145aac1575c55fa03c8be52838d0f47c85088a8703d909.json.gz",
+        "sha256": "d019627a21ca1507f9145aac1575c55fa03c8be52838d0f47c85088a8703d909",
+        "canonical_bytes": 1366889
+      },
+      "demand_replacement": {
+        "path": "3865b1775d07cc03e0ebe46e2dd3571732b5d84c5a1c5926e2cd9605fa540c77.json.gz",
+        "sha256": "3865b1775d07cc03e0ebe46e2dd3571732b5d84c5a1c5926e2cd9605fa540c77",
+        "canonical_bytes": 41954
+      },
+      "predecessor": {
+        "scenario": "r20-far-increase",
+        "manifest_sha256": "33e765b2cc22a28116d0416f04cc05cd628f5239183160be32a143035d29b0f4",
+        "source_sha256": "102359d24422b1249f7e29776716f0250a56b70238431b32ead46e0290d1d56b",
+        "reference_sha256": "bab9b1260d85bf94b099b3ad15a2a42a6495e89db88efc617f0665595ae5afb9",
+        "action_sha256": "7f09efa1c840dfd91a5b5600ba5eb719904eba796517490cc0471487f981dcef",
+        "import_sha256": "51ca53b62f641156f81147ce7503c93c486d24cce9c525de70aaf3cab9a54c20"
+      },
+      "public_preparation": {
+        "schema_version": 1,
+        "initial_scenario": "r20-loose",
+        "sequence": [
+          "initialize_original_demand",
+          "adopt_exact_original_plan",
+          "replace_complete_same_day_demand_file"
+        ],
+        "materialized_demand_order": [
+          "model_code",
+          "week"
+        ],
+        "requires_original_and_replacement_file_history": true,
+        "status": "not_run"
+      }
+    },
+    {
+      "id": "r20-far-decrease-v2",
+      "kind": "local_decrease",
+      "source": {
+        "path": "fadab511e556ed866412f7f38d6147c898212e19f61f9422ffcb4c99d2c6b5e9.json.gz",
+        "sha256": "fadab511e556ed866412f7f38d6147c898212e19f61f9422ffcb4c99d2c6b5e9",
+        "canonical_bytes": 1366889
+      },
+      "reference": {
+        "path": "d6e54d74beed8a726dc0d5b0deb318959fd517ee36e98cd6b6676a2afdcc4ad6.json.gz",
+        "sha256": "d6e54d74beed8a726dc0d5b0deb318959fd517ee36e98cd6b6676a2afdcc4ad6",
+        "canonical_bytes": 1366890
+      },
+      "action": {
+        "path": "7f09efa1c840dfd91a5b5600ba5eb719904eba796517490cc0471487f981dcef.json.gz",
+        "sha256": "7f09efa1c840dfd91a5b5600ba5eb719904eba796517490cc0471487f981dcef",
+        "canonical_bytes": 269
+      },
+      "import": {
+        "path": "0cc8b193b2b36429a422675cb473231801e26355e1e18ab02e2ad070a77a53c2.json.gz",
+        "sha256": "0cc8b193b2b36429a422675cb473231801e26355e1e18ab02e2ad070a77a53c2",
+        "canonical_bytes": 677173
+      },
+      "scope": {
+        "start_date": "2026-12-06",
+        "end_date": "2026-12-06",
+        "line_codes": [
+          "L00"
+        ],
+        "model_codes": [
+          "M00"
+        ]
+      },
+      "tokens": {
+        "source_revision": 1,
+        "input_version": 1,
+        "latest_adoption": 1,
+        "binding": "Logical frozen tokens. Live bindings must be recorded after public preparation; do not silently rewrite a measured run."
+      },
+      "expected": {
+        "totals": {
+          "expected": 419960,
+          "on_time": 419960,
+          "late": 0,
+          "gap": 0,
+          "pending": 0,
+          "unallocated": 0,
+          "outside_window": 0
+        },
+        "objective": [
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "418",
+          "40",
+          "0"
+        ],
+        "capacity_valid": true,
+        "computation_complete": true,
+        "executable": true
+      },
+      "reference_kind": "independent feasible witness; upper bound, not global optimality proof",
+      "quality_acceptance": "not_run",
+      "notes": [
+        "Only this demand week changes. Entire-plan weekly absolute change rate is exactly 1/700.",
+        "V2 retains V1 business values, scope, reference objective and gates.",
+        "Public original-demand adoption precedes the complete same-day replacement; immutable file history is required.",
+        "Only materialized demand row ordering changes in the source/reference snapshots. V1 is preserved."
+      ],
+      "preparation_source": {
+        "path": "d019627a21ca1507f9145aac1575c55fa03c8be52838d0f47c85088a8703d909.json.gz",
+        "sha256": "d019627a21ca1507f9145aac1575c55fa03c8be52838d0f47c85088a8703d909",
+        "canonical_bytes": 1366889
+      },
+      "demand_replacement": {
+        "path": "d340a4f82fb4dfe6a0bcd962f8011cbc7e4649d70513437020bd0b5e40beffb8.json.gz",
+        "sha256": "d340a4f82fb4dfe6a0bcd962f8011cbc7e4649d70513437020bd0b5e40beffb8",
+        "canonical_bytes": 41954
+      },
+      "predecessor": {
+        "scenario": "r20-far-decrease",
+        "manifest_sha256": "33e765b2cc22a28116d0416f04cc05cd628f5239183160be32a143035d29b0f4",
+        "source_sha256": "b5dfc494f9e65451bd68024983b2ab878807a19a3b3c00d73849095901338354",
+        "reference_sha256": "19cf4af9738fea4e16e25258b045a0bd221f607c0875b17ce5c176c386ac7808",
+        "action_sha256": "7f09efa1c840dfd91a5b5600ba5eb719904eba796517490cc0471487f981dcef",
+        "import_sha256": "a15d871aa9a88095c12a5f0a56525568e2fb9132da4005bda4414ee6acc50266"
+      },
+      "public_preparation": {
+        "schema_version": 1,
+        "initial_scenario": "r20-loose",
+        "sequence": [
+          "initialize_original_demand",
+          "adopt_exact_original_plan",
+          "replace_complete_same_day_demand_file"
+        ],
+        "materialized_demand_order": [
+          "model_code",
+          "week"
+        ],
+        "requires_original_and_replacement_file_history": true,
+        "status": "not_run"
+      }
+    },
+    {
+      "id": "r40-near-increase-v2",
+      "kind": "local_increase",
+      "source": {
+        "path": "01d2fd023a04d496869ed0b18e4736a63a0f9d87c22c2c5d146a08b54156f711.json.gz",
+        "sha256": "01d2fd023a04d496869ed0b18e4736a63a0f9d87c22c2c5d146a08b54156f711",
+        "canonical_bytes": 2805823
+      },
+      "reference": {
+        "path": "d444b394843a42860ab870fd2ef68b483b335850ea708cfc14ae707d101894f1.json.gz",
+        "sha256": "d444b394843a42860ab870fd2ef68b483b335850ea708cfc14ae707d101894f1",
+        "canonical_bytes": 2805825
+      },
+      "action": {
+        "path": "ee0a884e0412d1b02099ba34e93cddbd7ae010e1b4c26c4701c8b3752177a7d9.json.gz",
+        "sha256": "ee0a884e0412d1b02099ba34e93cddbd7ae010e1b4c26c4701c8b3752177a7d9",
+        "canonical_bytes": 269
+      },
+      "import": {
+        "path": "9000dad587f346632f80540842647107d7c7e895627d50aaa21d30f177766444.json.gz",
+        "sha256": "9000dad587f346632f80540842647107d7c7e895627d50aaa21d30f177766444",
+        "canonical_bytes": 889043
+      },
+      "scope": {
+        "start_date": "2026-10-25",
+        "end_date": "2026-10-25",
+        "line_codes": [
+          "L00"
+        ],
+        "model_codes": [
+          "M00"
+        ]
+      },
+      "tokens": {
+        "source_revision": 1,
+        "input_version": 1,
+        "latest_adoption": 1,
+        "binding": "Logical frozen tokens. Live bindings must be recorded after public preparation; do not silently rewrite a measured run."
+      },
+      "expected": {
+        "totals": {
+          "expected": 420040,
+          "on_time": 420040,
+          "late": 0,
+          "gap": 0,
+          "pending": 0,
+          "unallocated": 0,
+          "outside_window": 0
+        },
+        "objective": [
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "4182",
+          "120",
+          "0"
+        ],
+        "capacity_valid": true,
+        "computation_complete": true,
+        "executable": true
+      },
+      "reference_kind": "independent feasible witness; upper bound, not global optimality proof",
+      "quality_acceptance": "not_run",
+      "notes": [
+        "Only this demand week changes. Entire-plan weekly absolute change rate is exactly 1/700.",
+        "V2 retains V1 business values, scope, reference objective and gates.",
+        "Public original-demand adoption precedes the complete same-day replacement; immutable file history is required.",
+        "Only materialized demand row ordering changes in the source/reference snapshots. V1 is preserved."
+      ],
+      "preparation_source": {
+        "path": "1b498f165ece8a6a84838049593db6d0ea2e113816bdb15f532c7f95b719617c.json.gz",
+        "sha256": "1b498f165ece8a6a84838049593db6d0ea2e113816bdb15f532c7f95b719617c",
+        "canonical_bytes": 2805823
+      },
+      "demand_replacement": {
+        "path": "063b310d3f6a95362a71c43935a88dd4fad8ae093333a680151c43eb20e1f689.json.gz",
+        "sha256": "063b310d3f6a95362a71c43935a88dd4fad8ae093333a680151c43eb20e1f689",
+        "canonical_bytes": 41954
+      },
+      "predecessor": {
+        "scenario": "r40-near-increase",
+        "manifest_sha256": "33e765b2cc22a28116d0416f04cc05cd628f5239183160be32a143035d29b0f4",
+        "source_sha256": "659b46c1bb3e0f965d627921c86e43df508a1925e496c8050b56ea1fdd63a144",
+        "reference_sha256": "858f6de20ce29c507525543bca6eae0132c8883822c71f4d05a1670f52cea641",
+        "action_sha256": "ee0a884e0412d1b02099ba34e93cddbd7ae010e1b4c26c4701c8b3752177a7d9",
+        "import_sha256": "0e1e84d0c55a2c14f1014baa26ef68aca454942be060c71af4cb17e637568243"
+      },
+      "public_preparation": {
+        "schema_version": 1,
+        "initial_scenario": "r40-loose",
+        "sequence": [
+          "initialize_original_demand",
+          "adopt_exact_original_plan",
+          "replace_complete_same_day_demand_file"
+        ],
+        "materialized_demand_order": [
+          "model_code",
+          "week"
+        ],
+        "requires_original_and_replacement_file_history": true,
+        "status": "not_run"
+      }
+    },
+    {
+      "id": "r40-near-decrease-v2",
+      "kind": "local_decrease",
+      "source": {
+        "path": "b6ffa1c60c27e588f8cd044cece693e777b0b5edf562957eb4ccb2094c9e2c39.json.gz",
+        "sha256": "b6ffa1c60c27e588f8cd044cece693e777b0b5edf562957eb4ccb2094c9e2c39",
+        "canonical_bytes": 2805823
+      },
+      "reference": {
+        "path": "c120e442d7fb3a166ee9c3868a207cf1ef2a061ba474acaa18da2eb3f881b201.json.gz",
+        "sha256": "c120e442d7fb3a166ee9c3868a207cf1ef2a061ba474acaa18da2eb3f881b201",
+        "canonical_bytes": 2805824
+      },
+      "action": {
+        "path": "ee0a884e0412d1b02099ba34e93cddbd7ae010e1b4c26c4701c8b3752177a7d9.json.gz",
+        "sha256": "ee0a884e0412d1b02099ba34e93cddbd7ae010e1b4c26c4701c8b3752177a7d9",
+        "canonical_bytes": 269
+      },
+      "import": {
+        "path": "9000dad587f346632f80540842647107d7c7e895627d50aaa21d30f177766444.json.gz",
+        "sha256": "9000dad587f346632f80540842647107d7c7e895627d50aaa21d30f177766444",
+        "canonical_bytes": 889043
+      },
+      "scope": {
+        "start_date": "2026-10-25",
+        "end_date": "2026-10-25",
+        "line_codes": [
+          "L00"
+        ],
+        "model_codes": [
+          "M00"
+        ]
+      },
+      "tokens": {
+        "source_revision": 1,
+        "input_version": 1,
+        "latest_adoption": 1,
+        "binding": "Logical frozen tokens. Live bindings must be recorded after public preparation; do not silently rewrite a measured run."
+      },
+      "expected": {
+        "totals": {
+          "expected": 419960,
+          "on_time": 419960,
+          "late": 0,
+          "gap": 0,
+          "pending": 0,
+          "unallocated": 0,
+          "outside_window": 0
+        },
+        "objective": [
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "4182",
+          "120",
+          "0"
+        ],
+        "capacity_valid": true,
+        "computation_complete": true,
+        "executable": true
+      },
+      "reference_kind": "independent feasible witness; upper bound, not global optimality proof",
+      "quality_acceptance": "not_run",
+      "notes": [
+        "Only this demand week changes. Entire-plan weekly absolute change rate is exactly 1/700.",
+        "V2 retains V1 business values, scope, reference objective and gates.",
+        "Public original-demand adoption precedes the complete same-day replacement; immutable file history is required.",
+        "Only materialized demand row ordering changes in the source/reference snapshots. V1 is preserved."
+      ],
+      "preparation_source": {
+        "path": "1b498f165ece8a6a84838049593db6d0ea2e113816bdb15f532c7f95b719617c.json.gz",
+        "sha256": "1b498f165ece8a6a84838049593db6d0ea2e113816bdb15f532c7f95b719617c",
+        "canonical_bytes": 2805823
+      },
+      "demand_replacement": {
+        "path": "6e672e492c82acbdcadb65e6125e2215727d79275260b4e233412dac0e161f19.json.gz",
+        "sha256": "6e672e492c82acbdcadb65e6125e2215727d79275260b4e233412dac0e161f19",
+        "canonical_bytes": 41954
+      },
+      "predecessor": {
+        "scenario": "r40-near-decrease",
+        "manifest_sha256": "33e765b2cc22a28116d0416f04cc05cd628f5239183160be32a143035d29b0f4",
+        "source_sha256": "9ba487ae988fcd7e9b9cf3ab1e6cfe8589ac5cb442d0300f90121835c1633e26",
+        "reference_sha256": "43117a95089cfe3c2096992873e08dc0a9c58ea35e959fad1342f87460684be6",
+        "action_sha256": "ee0a884e0412d1b02099ba34e93cddbd7ae010e1b4c26c4701c8b3752177a7d9",
+        "import_sha256": "063ad889dced96b051369b6d84e729647f0f0ac93cbfc443d5b371a11de2f628"
+      },
+      "public_preparation": {
+        "schema_version": 1,
+        "initial_scenario": "r40-loose",
+        "sequence": [
+          "initialize_original_demand",
+          "adopt_exact_original_plan",
+          "replace_complete_same_day_demand_file"
+        ],
+        "materialized_demand_order": [
+          "model_code",
+          "week"
+        ],
+        "requires_original_and_replacement_file_history": true,
+        "status": "not_run"
+      }
+    },
+    {
+      "id": "r40-far-increase-v2",
+      "kind": "local_increase",
+      "source": {
+        "path": "2060c82e64aca952a9e2fd6f517f3b07fa01ee9495206b0b31d767ed9ffb0c60.json.gz",
+        "sha256": "2060c82e64aca952a9e2fd6f517f3b07fa01ee9495206b0b31d767ed9ffb0c60",
+        "canonical_bytes": 2805823
+      },
+      "reference": {
+        "path": "ccc07e457a284825c730e4413660e3c233513a067eb45fc1f999dfa5a2b7f018.json.gz",
+        "sha256": "ccc07e457a284825c730e4413660e3c233513a067eb45fc1f999dfa5a2b7f018",
+        "canonical_bytes": 2805825
+      },
+      "action": {
+        "path": "7f09efa1c840dfd91a5b5600ba5eb719904eba796517490cc0471487f981dcef.json.gz",
+        "sha256": "7f09efa1c840dfd91a5b5600ba5eb719904eba796517490cc0471487f981dcef",
+        "canonical_bytes": 269
+      },
+      "import": {
+        "path": "9000dad587f346632f80540842647107d7c7e895627d50aaa21d30f177766444.json.gz",
+        "sha256": "9000dad587f346632f80540842647107d7c7e895627d50aaa21d30f177766444",
+        "canonical_bytes": 889043
+      },
+      "scope": {
+        "start_date": "2026-12-06",
+        "end_date": "2026-12-06",
+        "line_codes": [
+          "L00"
+        ],
+        "model_codes": [
+          "M00"
+        ]
+      },
+      "tokens": {
+        "source_revision": 1,
+        "input_version": 1,
+        "latest_adoption": 1,
+        "binding": "Logical frozen tokens. Live bindings must be recorded after public preparation; do not silently rewrite a measured run."
+      },
+      "expected": {
+        "totals": {
+          "expected": 420040,
+          "on_time": 420040,
+          "late": 0,
+          "gap": 0,
+          "pending": 0,
+          "unallocated": 0,
+          "outside_window": 0
+        },
+        "objective": [
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "4182",
+          "40",
+          "0"
+        ],
+        "capacity_valid": true,
+        "computation_complete": true,
+        "executable": true
+      },
+      "reference_kind": "independent feasible witness; upper bound, not global optimality proof",
+      "quality_acceptance": "not_run",
+      "notes": [
+        "Only this demand week changes. Entire-plan weekly absolute change rate is exactly 1/700.",
+        "V2 retains V1 business values, scope, reference objective and gates.",
+        "Public original-demand adoption precedes the complete same-day replacement; immutable file history is required.",
+        "Only materialized demand row ordering changes in the source/reference snapshots. V1 is preserved."
+      ],
+      "preparation_source": {
+        "path": "1b498f165ece8a6a84838049593db6d0ea2e113816bdb15f532c7f95b719617c.json.gz",
+        "sha256": "1b498f165ece8a6a84838049593db6d0ea2e113816bdb15f532c7f95b719617c",
+        "canonical_bytes": 2805823
+      },
+      "demand_replacement": {
+        "path": "3865b1775d07cc03e0ebe46e2dd3571732b5d84c5a1c5926e2cd9605fa540c77.json.gz",
+        "sha256": "3865b1775d07cc03e0ebe46e2dd3571732b5d84c5a1c5926e2cd9605fa540c77",
+        "canonical_bytes": 41954
+      },
+      "predecessor": {
+        "scenario": "r40-far-increase",
+        "manifest_sha256": "33e765b2cc22a28116d0416f04cc05cd628f5239183160be32a143035d29b0f4",
+        "source_sha256": "e5f3ba20d0ec02cfd91cf947854215ef4a690388d620c3158a192ab12a23b18c",
+        "reference_sha256": "54d25300733e0c8c72ac02ce63927edfb760750dcfe38b04500c14ec5d1450b0",
+        "action_sha256": "7f09efa1c840dfd91a5b5600ba5eb719904eba796517490cc0471487f981dcef",
+        "import_sha256": "2203394fc698b3c88ac8a27d895efba47279e0b7f1a8f55ec35469b9e9647d86"
+      },
+      "public_preparation": {
+        "schema_version": 1,
+        "initial_scenario": "r40-loose",
+        "sequence": [
+          "initialize_original_demand",
+          "adopt_exact_original_plan",
+          "replace_complete_same_day_demand_file"
+        ],
+        "materialized_demand_order": [
+          "model_code",
+          "week"
+        ],
+        "requires_original_and_replacement_file_history": true,
+        "status": "not_run"
+      }
+    },
+    {
+      "id": "r40-far-decrease-v2",
+      "kind": "local_decrease",
+      "source": {
+        "path": "d6223aaaab383b70a34ef85194fd735bbe6ec0d323975ba1b0a82069fc8a7ba3.json.gz",
+        "sha256": "d6223aaaab383b70a34ef85194fd735bbe6ec0d323975ba1b0a82069fc8a7ba3",
+        "canonical_bytes": 2805823
+      },
+      "reference": {
+        "path": "32b6119f138c91e93d23de264009afb0b5c752e54825e17ef7d6a85848ff87fc.json.gz",
+        "sha256": "32b6119f138c91e93d23de264009afb0b5c752e54825e17ef7d6a85848ff87fc",
+        "canonical_bytes": 2805824
+      },
+      "action": {
+        "path": "7f09efa1c840dfd91a5b5600ba5eb719904eba796517490cc0471487f981dcef.json.gz",
+        "sha256": "7f09efa1c840dfd91a5b5600ba5eb719904eba796517490cc0471487f981dcef",
+        "canonical_bytes": 269
+      },
+      "import": {
+        "path": "9000dad587f346632f80540842647107d7c7e895627d50aaa21d30f177766444.json.gz",
+        "sha256": "9000dad587f346632f80540842647107d7c7e895627d50aaa21d30f177766444",
+        "canonical_bytes": 889043
+      },
+      "scope": {
+        "start_date": "2026-12-06",
+        "end_date": "2026-12-06",
+        "line_codes": [
+          "L00"
+        ],
+        "model_codes": [
+          "M00"
+        ]
+      },
+      "tokens": {
+        "source_revision": 1,
+        "input_version": 1,
+        "latest_adoption": 1,
+        "binding": "Logical frozen tokens. Live bindings must be recorded after public preparation; do not silently rewrite a measured run."
+      },
+      "expected": {
+        "totals": {
+          "expected": 419960,
+          "on_time": 419960,
+          "late": 0,
+          "gap": 0,
+          "pending": 0,
+          "unallocated": 0,
+          "outside_window": 0
+        },
+        "objective": [
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "4182",
+          "40",
+          "0"
+        ],
+        "capacity_valid": true,
+        "computation_complete": true,
+        "executable": true
+      },
+      "reference_kind": "independent feasible witness; upper bound, not global optimality proof",
+      "quality_acceptance": "not_run",
+      "notes": [
+        "Only this demand week changes. Entire-plan weekly absolute change rate is exactly 1/700.",
+        "V2 retains V1 business values, scope, reference objective and gates.",
+        "Public original-demand adoption precedes the complete same-day replacement; immutable file history is required.",
+        "Only materialized demand row ordering changes in the source/reference snapshots. V1 is preserved."
+      ],
+      "preparation_source": {
+        "path": "1b498f165ece8a6a84838049593db6d0ea2e113816bdb15f532c7f95b719617c.json.gz",
+        "sha256": "1b498f165ece8a6a84838049593db6d0ea2e113816bdb15f532c7f95b719617c",
+        "canonical_bytes": 2805823
+      },
+      "demand_replacement": {
+        "path": "d340a4f82fb4dfe6a0bcd962f8011cbc7e4649d70513437020bd0b5e40beffb8.json.gz",
+        "sha256": "d340a4f82fb4dfe6a0bcd962f8011cbc7e4649d70513437020bd0b5e40beffb8",
+        "canonical_bytes": 41954
+      },
+      "predecessor": {
+        "scenario": "r40-far-decrease",
+        "manifest_sha256": "33e765b2cc22a28116d0416f04cc05cd628f5239183160be32a143035d29b0f4",
+        "source_sha256": "c8331fd7660a425b3be74b9ce7cf9b5811920ab6b51045642d3a1421a01f7903",
+        "reference_sha256": "a1599c9d4d431eae3c7dbe329f8536e810549b2ac26bfdc5963d3157db27582e",
+        "action_sha256": "7f09efa1c840dfd91a5b5600ba5eb719904eba796517490cc0471487f981dcef",
+        "import_sha256": "8adb4cb3e083e5649eeae1e2ef20b7b09459b268e11a18668b8b41e7b6387623"
+      },
+      "public_preparation": {
+        "schema_version": 1,
+        "initial_scenario": "r40-loose",
+        "sequence": [
+          "initialize_original_demand",
+          "adopt_exact_original_plan",
+          "replace_complete_same_day_demand_file"
+        ],
+        "materialized_demand_order": [
+          "model_code",
+          "week"
+        ],
+        "requires_original_and_replacement_file_history": true,
+        "status": "not_run"
+      }
+    }
+  ]
+}

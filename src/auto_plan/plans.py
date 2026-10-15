@@ -320,8 +320,10 @@ class PlanService:
                               conflicts=sorted(intersection),changes=plan_differences(base['snapshot']['plan'],unit.plan.model_dump(mode='json')))
         try:
             current=unit.get_revision(unit.revision)
+            # Inputs, adopted baseline, association freeze and time are shared
+            # by both replays in this pinned unit; only the plan differs.
             replayed=replay_result(unit.plan,command.operations,OperationContext(
-                self._snapshot(unit,unit.plan,now),command.base_revision,current.get('unallocated',[]),
+                snapshot.model_copy(update={'plan':unit.plan}),command.base_revision,current.get('unallocated',[]),
                 current.get('operation_issues',[]),current.get('lineage',{})|unit.context.lineage,actor=actor,history=unit,latest_adoption=unit.adoption,current_revision=unit.revision,allow_past_input=initial_import))
             merged=replayed.plan
         except ValueError as error: raise PlanProblem(409,str(error)) from None
@@ -330,7 +332,7 @@ class PlanService:
         merged_context=unit.context.model_copy(update=replayed.context_updates)
         if {'execution','reset'}&replayed.context_updates.keys():
             merged_context=merged_context.model_copy(update={'lineage':unit.context.lineage|replayed.lineage})
-        merged_snapshot=self._snapshot(unit,merged,now).model_copy(update=replayed.context_updates)
+        merged_snapshot=snapshot.model_copy(update={'plan':merged,**replayed.context_updates})
         from .reset_operations import refresh_lineage
         replayed.lineage=refresh_lineage(replayed.lineage,merged,merged_snapshot)
         if {'execution','reset'}&replayed.context_updates.keys():

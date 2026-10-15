@@ -66,26 +66,24 @@ def create_app(settings: Settings | None = None, *, store=None, input_store=None
 
     @asynccontextmanager
     async def lifespan(app):
-        if app.state.access_store is None:
-            from .oracle_access import OracleAccessStore
-            app.state.access_store = OracleAccessStore.connect(settings)
-        if app.state.authenticator is None:
-            app.state.authenticator = TestAuthenticator(settings) if settings.test_auth_enabled else CompanyAuthenticator(settings)
+        from .readiness import initialize
+        initialize(app, owned=owns_store)
         try:
-            app.state.access_store.startup()
-            if app.state.job_controller is not None:
-                app.state.job_controller.recover_startup()
-                app.state.job_controller.start()
             yield
         finally:
+            deadline=app.state.readiness.begin_shutdown(app.state.job_controller)
             if app.state.job_controller is not None:
-                app.state.job_controller.shutdown()
+                import time
+                app.state.job_controller.shutdown(timeout=max(0,deadline-time.monotonic()))
             if owns_auth and app.state.authenticator:
                 app.state.authenticator.close()
             if owns_store and app.state.access_store:
-                app.state.access_store.close()
+                app.state.access_store.pool.close(force=True)
 
     app = FastAPI(title="Bonding 生产排程", lifespan=lifespan, docs_url=None, redoc_url=None, openapi_url=f"{settings.base_path}/api/openapi.json")
+    from .readiness import Readiness
+    app.state.readiness = Readiness()
+    app.state.access_ready = False
     app.state.settings = settings
     app.state.access_store = store
     app.state.input_store = input_store
@@ -101,6 +99,14 @@ def create_app(settings: Settings | None = None, *, store=None, input_store=None
         if request.method in {"POST", "PUT", "PATCH", "DELETE"}:
             if request.headers.get("origin") != settings.public_origin or request.headers.get("x-auto-plan-request") != "1":
                 return JSONResponse({"detail": "请求来源无效，请重新打开应用"}, status_code=403)
+        path=request.url.path
+        safe={f"{settings.base_path}/api/health",f"{settings.base_path}/api/ready"}
+        if app.state.access_ready and app.state.readiness.reason_code!='stopping':
+            safe.update(f"{settings.base_path}/api{suffix}" for suffix in ('/auth/login','/auth/logout','/auth/me'))
+        # GET /inputs continues months; candidate views also update retention.
+        # Block the whole business API while startup is untrusted or draining.
+        if not app.state.readiness.ready and path.startswith(f"{settings.base_path}/api/") and path not in safe:
+            return JSONResponse(app.state.readiness.public(),status_code=503)
         response = await call_next(request)
         response.headers["Cache-Control"] = "no-store"
         response.headers["X-Content-Type-Options"] = "nosniff"
@@ -125,7 +131,11 @@ def create_app(settings: Settings | None = None, *, store=None, input_store=None
 
     @api.get("/health")
     def health():
-        return {"status": "ok"}
+        return {"status": "alive"}
+
+    @api.get("/ready")
+    def ready():
+        return JSONResponse(app.state.readiness.public(),status_code=200 if app.state.readiness.ready else 503)
 
     @api.post("/auth/login")
     def login(payload: Login, request: Request):
@@ -170,6 +180,10 @@ def create_app(settings: Settings | None = None, *, store=None, input_store=None
             return app.state.access_store.authorize(principal.user_id, user_id, frozenset(payload.roles), payload.active, app.state.clock())
         except LastAdministrator:
             raise HTTPException(409, "至少保留一个有效管理员") from None
+
+    @api.get("/admin/storage")
+    def storage(principal: Principal = Depends(require_administrator)):
+        return app.state.access_store.storage_report(settings.adoption_space_warning_bytes)
 
     @api.get("/admin/audit")
     def audit(principal: Principal = Depends(require_administrator)):

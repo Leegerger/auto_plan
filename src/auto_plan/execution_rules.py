@@ -49,9 +49,11 @@ def capacity_basis(snapshot):
 
 def confirmed_day_capacity(snapshot,line_code):
     today=production_date(snapshot.time.as_of)
+    candidates=[r for r in snapshot.execution.day_capacities if r.date==today and r.line_code==line_code
+                and r.confirmed_at<=snapshot.time.as_of]
+    if not candidates: return None
     basis=capacity_basis(snapshot)
-    return next((r for r in snapshot.execution.day_capacities if r.date==today and r.line_code==line_code
-                 and r.basis_digest==basis and r.confirmed_at<=snapshot.time.as_of),None)
+    return next((r for r in candidates if r.basis_digest==basis),None)
 
 
 def active_plan(plan,time):

@@ -8,7 +8,7 @@ const error = ref('')
 async function load() {
   error.value = ''
   loading.value = true
-  try { await refreshPrincipal(); if (!principal.value) await router.replace('/login') }
+  try { await api('/ready'); await refreshPrincipal(); if (!principal.value) await router.replace('/login') }
   catch (e) { error.value = e instanceof Error ? e.message : '无法连接应用' }
   finally { loading.value = false }
 }

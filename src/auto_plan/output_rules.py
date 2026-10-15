@@ -109,8 +109,14 @@ def output_evaluation(snapshot, index=None):
                 return date.fromordinal(target)
             target = corrected
 
+    parameters_by_month={}
+    exact_parameters={}
     for (day, model), lines in sorted(combined.items()):
-        parameters = index.critical_parameters(day.strftime('%Y-%m'), model)
+        month=day.strftime('%Y-%m')
+        key=month,model
+        if key not in parameters_by_month:
+            parameters_by_month[key]=index.critical_parameters(month,model)
+        parameters=parameters_by_month[key]
         if any(p['state'] == 'missing' for p in parameters.values()):
             for name, parameter in parameters.items():
                 if parameter['state'] == 'missing' and not any(i.code == 'missing_'+name and i.date == day and i.model_code == model for i in issues):
@@ -119,12 +125,15 @@ def output_evaluation(snapshot, index=None):
         quantity = sum(row.quantity for row in lines)
         line_yield = parameters['line_yield']['percent']
         model_yield = parameters['model_yield']['percent']
-        gross = quantity * Fraction(line_yield) * Fraction(model_yield) / 10000
-        ct = Fraction(parameters['cycle_time']['days'])
-        n, f = ct.numerator // ct.denominator, ct % 1
+        if key not in exact_parameters:
+            ct=Fraction(parameters['cycle_time']['days'])
+            n,f=ct.numerator//ct.denominator,ct%1
+            exact_parameters[key]=(Fraction(line_yield)*Fraction(model_yield)/10000,ct,((n,1-f),(n+1,f)))
+        factor,ct,splits=exact_parameters[key]
+        gross=quantity*factor
         portions = []
         try:
-            for offset, share in [(n, 1-f), (n+1, f)]:
+            for offset, share in splits:
                 if not share:
                     continue
                 value = gross * share
@@ -134,7 +143,7 @@ def output_evaluation(snapshot, index=None):
             issues.append(RuleIssue(code='output_date_range', reason='CT产出日期超出可表示日历范围，尚未完成计算', severity='incomplete', date=day, model_code=model))
             continue
         sources.append(OutputSource(id=f'input:{model}:{day}', kind='input', model_code=model,
-            input_date=day, quantity=quantity, lines=lines, yield_month=day.strftime('%Y-%m'),
+            input_date=day, quantity=quantity, lines=lines, yield_month=month,
             line_yield=line_yield, model_yield=model_yield, cycle_time=rational(ct), portions=portions))
     if snapshot.reset:
         reset = snapshot.reset

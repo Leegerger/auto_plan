@@ -14,13 +14,10 @@ cd ..
 
 配置通过环境变量传入，不把密码写入仓库。必要配置为 `AUTO_PLAN_ORACLE_USER`、`AUTO_PLAN_ORACLE_PASSWORD`、`AUTO_PLAN_ORACLE_DSN`、`AUTO_PLAN_AUTH_CA_FILE` 和 `AUTO_PLAN_INITIAL_ADMIN_ID`。`AUTO_PLAN_PUBLIC_ORIGIN` 默认 `https://fsscm.cminl.oa`，`AUTO_PLAN_BASE_PATH` 默认 `/auto_plan`，代理保留此前缀。`AUTO_PLAN_ORACLE_CLIENT_PATH` 默认 `/opt/oracle/instantclient_21_13`，连接池上限默认 10。
 
-维护者先记录恢复点，再用配置的目标账号显式执行迁移。Oracle DDL 会提交，失败时应检查已完成对象，不能直接重复整份迁移。
+打包、运行配置、显式校验和迁移、启动就绪、信号停止、升级与回退流程见[部署运行手册](docs/deployment.md)。使用 `scripts/build-image.sh RELEASE_ID IMAGE_TAG` 构建包含前端、API 和 worker 的单镜像。维护者先记录恢复点，再显式安装迁移台账并顺序执行 001 至 005，启动不改 schema。
 
 ```bash
-uv run python -m auto_plan.migrate migrations/001_access.sql --expected-user PLAN_TEST
-uv run python -m auto_plan.migrate migrations/002_inputs.sql --expected-user PLAN_TEST
-uv run python -m auto_plan.migrate migrations/003_plans.sql --expected-user PLAN_TEST
-uv run uvicorn auto_plan.app:create_app --factory --host 0.0.0.0 --port 8000
+uv run python -m auto_plan.serve
 ```
 
 生产将 FastAPI 放在配置的 HTTPS Origin 后面，保留原始路径前缀。FastAPI 提供 `frontend/dist` 静态文件，注入运行时前缀，前端支持直接打开深层路由。Cookie 只在 HTTPS 下发送。运行时不迁移数据库；启动会使旧会话失效。初始管理员只有公司验证通过且授权表为空时才建立，其默认角色仅为管理员。

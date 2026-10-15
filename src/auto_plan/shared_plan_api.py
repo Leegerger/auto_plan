@@ -29,7 +29,8 @@ def invoke(action):
 
 @router.get('/plans/current')
 def current(request:Request,principal=Depends(require_viewer)):
-    return invoke(lambda:service(request).current(principal.user_id,request.app.state.clock()))
+    # The service has already converted its complete result to JSON values.
+    return invoke(lambda:JSONResponse(service(request).current(principal.user_id,request.app.state.clock())))
 
 
 @router.get('/plans/compare')
@@ -39,7 +40,7 @@ def compare(request:Request,base_revision:int=Query(ge=0),input_version:int=Quer
 
 @router.get('/plans/revisions/{revision}')
 def revision(revision:int,request:Request,principal=Depends(require_viewer)):
-    return invoke(lambda:service(request).revision(revision,principal.user_id))
+    return invoke(lambda:JSONResponse(service(request).revision(revision,principal.user_id)))
 
 
 @router.get('/plans/history')
@@ -49,7 +50,7 @@ def history(request:Request,before:int|None=Query(default=None,ge=1),limit:int=Q
 
 @router.get('/plans/adoptions/{adoption}')
 def adoption(adoption:int,request:Request,principal=Depends(require_viewer)):
-    return invoke(lambda:service(request).adoption(adoption,principal.user_id))
+    return invoke(lambda:JSONResponse(service(request).adoption(adoption,principal.user_id)))
 
 
 def export_record(record, kind, identity):

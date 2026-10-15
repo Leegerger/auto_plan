@@ -22,11 +22,11 @@ TABLES=[name for name in BUSINESS_IDENTIFIERS if not name.endswith('_IMMUTABLE')
 
 
 class NamespacePool:
-    def __init__(self,pool,prefix):
+    def __init__(self,pool,prefix,identifiers=BUSINESS_IDENTIFIERS):
         if not re.fullmatch(r'AP_TEST_[A-F0-9]{6}',prefix): raise ValueError('Only short random AP_TEST_* prefixes are allowed')
         self.pool=pool; self.prefix=prefix
-        self.names={name:prefix+'_'+name.removeprefix('AP_') for name in BUSINESS_IDENTIFIERS}
-        self.pattern=re.compile(r'\b('+'|'.join(sorted(BUSINESS_IDENTIFIERS,key=len,reverse=True))+r')\b',re.I)
+        self.names={name:prefix+'_'+name.removeprefix('AP_') for name in identifiers}
+        self.pattern=re.compile(r'\b('+'|'.join(sorted(identifiers,key=len,reverse=True))+r')\b',re.I)
     def rewrite(self,statement): return self.pattern.sub(lambda m:self.names[m[0].upper()],statement)
     @contextmanager
     def acquire(self):
@@ -49,7 +49,10 @@ class NamespaceCursor:
     def __init__(self,cursor,namespace): self.cursor=cursor; self.namespace=namespace
     def __getattr__(self,name): return getattr(self.cursor,name)
     def __iter__(self): return iter(self.cursor)
-    def execute(self,statement,*args,**kwargs): return self.cursor.execute(self.namespace.rewrite(statement),*args,**kwargs)
+    def execute(self,statement,*args,**kwargs):
+        if ('USER_OBJECTS' in statement or 'USER_TRIGGERS' in statement) and kwargs.get('name') in self.namespace.names:
+            kwargs=kwargs|{'name':self.namespace.names[kwargs['name']]}
+        return self.cursor.execute(self.namespace.rewrite(statement),*args,**kwargs)
     def executemany(self,statement,*args,**kwargs): return self.cursor.executemany(self.namespace.rewrite(statement),*args,**kwargs)
 
 

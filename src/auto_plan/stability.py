@@ -73,16 +73,24 @@ def compare_stability(snapshot):
             relevant[(key[0]-snapshot.time.window_start).days//7].add(key)
     # Declared coverage establishes zero only for the named dates/lines/models.
     # It never expands to all masters, all fifteen weeks, or unrelated blanks.
-    declared=defaultdict(set)
+    # Seven bits retain each declared production date for a line/model pair.
+    # Overlapping partial declarations union without expanding all daily cells.
+    declared=defaultdict(dict)
     if baseline:
         for coverage in baseline.coverage:
             if not coverage.blanks_are_zero: continue
-            day=max(coverage.start_date,snapshot.time.window_start)
-            while day<=min(coverage.end_date,snapshot.time.window_end):
-                number=(day-snapshot.time.window_start).days//7
+            first=max(coverage.start_date,snapshot.time.window_start)
+            last=min(coverage.end_date,snapshot.time.window_end)
+            if first>last: continue
+            for number in range((first-snapshot.time.window_start).days//7,(last-snapshot.time.window_start).days//7+1):
+                week=snapshot.time.window_start+timedelta(days=number*7)
+                left=(max(first,week)-week).days
+                right=(min(last,week+timedelta(days=6))-week).days
+                mask=((1<<(right-left+1))-1)<<left
                 for line in coverage.line_codes:
-                    for model in coverage.model_codes: declared[number].add((day,line,model))
-                day+=timedelta(days=1)
+                    for model in coverage.model_codes:
+                        pair=line,model
+                        declared[number][pair]=declared[number].get(pair,0)|mask
     weeks=[]; cost=Fraction(0); complete=True
     for number in range(15):
         week=snapshot.time.window_start+timedelta(days=number*7)
@@ -92,7 +100,8 @@ def compare_stability(snapshot):
         old_total=new_total=change=unknown_base=unknown_execution=0
         known_keys=set()
         for key in relevant[number]:
-            if not baseline or (key not in old and key not in declared[number]):
+            covered=bool(declared[number].get((key[1],key[2]),0)&(1<<(key[0]-week).days))
+            if not baseline or (key not in old and not covered):
                 unknown_base+=1; continue
             known_keys.add(key)
             if not execution_known(key):
@@ -102,10 +111,8 @@ def compare_stability(snapshot):
             old_total+=p;new_total+=n;change+=abs(n-p)
         known_baseline=bool(known_keys or declared[number])
         # A partial dated declaration does not establish the rest of its week.
-        declared_pairs={(line,model) for _,line,model in declared[number]}
-        baseline_complete=known_baseline and not unknown_base and bool(declared_pairs) and all(
-            all((week+timedelta(days=d),line,model) in declared[number] for d in range(7))
-            for line,model in declared_pairs)
+        baseline_complete=known_baseline and not unknown_base and bool(declared[number]) and all(
+            mask==127 for mask in declared[number].values())
         rate=Fraction(change,old_total) if old_total else Fraction(0) if known_baseline and not new_total else None
         state='compared'
         if not known_baseline: state='new_plan';rate=None

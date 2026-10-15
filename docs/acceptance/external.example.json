@@ -1,0 +1,42 @@
+{
+  "origin": "https://localhost:8774",
+  "base_path": "/planning",
+  "target": {
+    "kind": "adapter",
+    "disposable": true,
+    "production": false
+  },
+  "fixtures": "docs/acceptance/frozen",
+  "scenario": "r20-loose",
+  "bindings": {
+    "source_revision": 1,
+    "input_version": 1,
+    "latest_adoption": 1
+  },
+  "primary_segment": "S-2027-01-24-M00",
+  "load_segments": [
+    "S-2027-01-24-M02",
+    "S-2027-01-24-M04",
+    "S-2027-01-24-M06",
+    "S-2027-01-24-M08"
+  ],
+  "allow_test_certificate": true,
+  "python": "python",
+  "environment": {
+    "image_digest": null,
+    "source_commit": null,
+    "migration_versions": null,
+    "python": null,
+    "native_libraries": null,
+    "server_hardware": null,
+    "client_hardware": null,
+    "cgroup_cpu_max": null,
+    "cgroup_memory_max": null,
+    "solver_threads": 1,
+    "worker_count": null,
+    "oracle_pool_maximum": null,
+    "oracle_pool_observed_usage": null,
+    "network_proxy_path": null,
+    "peak_cpu_memory": null
+  }
+}
