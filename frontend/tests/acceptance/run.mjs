@@ -40,8 +40,12 @@ const source = asset(scenario.source), action = asset(scenario.action), output =
 mkdirSync(output, { recursive: false })
 const editingProbe = flags['editing-contract-probe'] === 'true'
 const primaryPinProbe = flags['primary-pin-probe'] === 'true'
+const primaryJobProbe = flags['primary-job-pin-probe'] === 'true'
+const outputTextProbe = flags['output-text-probe'] === 'true'
+assert.ok(!outputTextProbe || editingProbe && !primaryJobProbe, 'The output text probe is a separate adapter correctness action.')
 assert.ok(!editingProbe || mode !== 'solo' && config.target.kind === 'adapter', 'The editing-contract probe requires five disposable adapter accounts.')
 assert.ok(!primaryPinProbe || editingProbe, 'The primary-pin probe is part of the explicit adapter correctness workflow.')
+assert.ok(!primaryJobProbe || editingProbe, 'The primary job-pin probe requires the explicit adapter correctness workflow.')
 let inputCompanion, companionApproval
 if (mode !== 'solo') {
   assert.ok(config.input_companion?.path && config.input_companion.sha256, 'New five-editor runs require their frozen maintained-input companion.')
@@ -140,7 +144,9 @@ async function idle(page) { await expect(page.getByRole('button', { name: '预�
 async function settle(page) { return page.evaluate(() => new Promise(done => requestAnimationFrame(() => requestAnimationFrame(() => done(performance.timeOrigin + performance.now()))))) }
 async function arm(page) { await page.evaluate(() => { window.__acceptanceInputEpoch = undefined }) }
 async function clicked(page, entry) {
-  const value = await page.evaluate(() => window.__acceptanceInputEpoch)
+  const observed = await page.evaluate(() => ({epoch:window.__acceptanceInputEpoch,source_review_trace:window.__sourceReviewTrace}))
+  const value=observed.epoch
+  if(observed.source_review_trace)entry.source_review_trace=observed.source_review_trace
   assert.ok(Number.isFinite(value), 'Browser input timestamp is missing.')
   entry.clicked_epoch_ms = value; entry.clicked_ms = value - performance.timeOrigin; entry.measurement_started = true
   if (Number.isFinite(entry.setup_started_ms)) entry.setup_seconds = (entry.clicked_ms - entry.setup_started_ms) / 1000
@@ -513,6 +519,112 @@ async function cleanPrimaryInputPinProbe() {
   evidence.primary_pin_probe.local_cleanup = { attempts, queue_empty: true, original_plan_restored: true }
   persist()
 }
+async function primaryJobPinProbe() {
+  evidence.phase = 'primary_job_pin_probe'
+  const page = pages[0], record = evidence.primary_job_probe = { attempts: [], refreshes: [], clock: { retry_clicked_epoch_ms: [] } }
+  const entry = {}, configure = async () => {
+    for (const [label, value] of [['计算模式', action.request.mode], ['求解策略', action.request.strategy]]) await page.getByLabel(label, { exact: true }).selectOption(value)
+    for (const [label, value] of [['计算范围起日', action.request.scope.start_date], ['计算范围终日', action.request.scope.end_date], ['计算时限', String(action.request.time_limit_seconds)], ['候选数量', String(action.request.max_candidates)]]) await page.getByLabel(label, { exact: true }).fill(value)
+    await page.getByLabel('计算线体', { exact: true }).selectOption(action.request.scope.line_codes)
+    await page.getByLabel('计算机种', { exact: true }).selectOption(action.request.scope.model_codes)
+  }
+  let accepted
+  await configure()
+  for (let number = 0; number < 12; number++) {
+    let reviewedRead
+    if (number) {
+      await expect(queue(page)).toHaveCount(0)
+      await expect(page.getByRole('button', { name: '核实前次操作', exact: true })).toHaveCount(0)
+      await expect(page.getByRole('button', { name: '核实计算提交', exact: true })).toHaveCount(0)
+      const refresh = page.getByRole('button', { name: '重新读取计算来源', exact: true })
+      await expect(refresh).toBeVisible({ timeout: 5000 })
+      const pendingSource = responseFor(page, response => response.url() === api('/jobs/source') && response.request().method() === 'GET')
+      await refresh.click()
+      const received = await pendingSource
+      assert.equal(received.status(), 200, 'The explicit source review did not receive the complete public computation source.')
+      reviewedRead={status:received.status(),body:received.body().then(bytes=>({bytes}),error=>({error}))}
+      const review = page.getByRole('region', { name: '计算来源核对', exact: true })
+      await review.getByRole('checkbox', { name: '已核对本次计算来源', exact: true }).check()
+    }
+    const pendingRequest = requestFor(page, request => request.url() === api('/jobs') && request.method() === 'POST')
+    const pendingResponse = responseFor(page, response => response.url() === api('/jobs') && response.request().method() === 'POST')
+    await arm(page); await page.getByRole('button', { name: '提交计算任务', exact: true }).click(); await clicked(page, entry)
+    if(entry.source_review_trace)record.browser_trace=entry.source_review_trace
+    if (record.clock.origin_epoch_ms === undefined) record.clock.origin_epoch_ms = record.clock.first_clicked_epoch_ms = entry.clicked_epoch_ms
+    else record.clock.retry_clicked_epoch_ms.push(entry.clicked_epoch_ms)
+    const request = await pendingRequest, commandBytes = request.postDataBuffer(), command = JSON.parse(commandBytes)
+    const submission = registerSubmission(entry, command, 'primary_job_pin_probe')
+    const received = await pendingResponse, bytes = await received.body(), response = JSON.parse(bytes)
+    const attempt = { command, response_status: received.status(), response,
+      request_artifact: captureInputBody(commandBytes), response_artifact: captureInputBody(bytes) }
+    record.attempts.push(attempt)
+    const resolution = await json(page, '/jobs/verify', { submission_id: command.submission_id })
+    attempt.resolution = resolution; submission.resolution = resolution; submission.status = resolution.status
+    assert.ok(['ACCEPTED', 'ABORTED_VOID'].includes(resolution.status), 'The original computation UUID remains unknown.')
+    if(number){
+      const captured=await reviewedRead.body
+      if(captured.error)throw captured.error
+      const source=JSON.parse(captured.bytes),trace=entry.source_review_trace
+      const checked=trace.filter(event=>event.stage==='ui_change' && event.control==='已核对本次计算来源' && event.checked && event.epoch_ms<entry.clicked_epoch_ms).at(-1)
+      assert.ok(checked && !checked.disabled,'The source review checkbox was not a real enabled native change.')
+      assert.equal(checked.review.pins,`共享修订 ${source.source_revision} · 输入版本 ${source.input_version} · 最近采用版 ${source.latest_adoption}`)
+      assert.ok(checked.review.time.includes(source.snapshot.time.as_of),'The reviewed source time was not displayed.')
+      const readClick=trace.filter(event=>event.stage==='ui_click' && event.control==='重新读取计算来源' && event.epoch_ms<checked.epoch_ms).at(-1)
+      assert.ok(trace.some(event=>event.stage==='api_json_complete' && event.input_version===source.input_version && event.epoch_ms>readClick.epoch_ms && event.epoch_ms<checked.epoch_ms),'The complete source JSON was not consumed before review.')
+      assert.ok(trace.some(event=>event.stage==='source_two_frames' && event.enabled && event.pins===checked.review.pins && event.epoch_ms>readClick.epoch_ms && event.epoch_ms<=checked.epoch_ms),'The reviewed source was not painted before the native checkbox change.')
+      const visibleNames=[]
+      for(const target of inputCompanion.targets){
+        const before=initialState.snapshot.inputs.masters[target.kind].find(row=>row.code===target.code).name
+        const after=source.snapshot.inputs.masters[target.kind].find(row=>row.code===target.code).name
+        if(before===after)continue
+        assert.ok(checked.review.rows.some(row=>row[0].includes(target.code) && row[0].includes('名称') && row[1]===before && row[2]===after),'A changed business name was not displayed with its actual old/new values.')
+        visibleNames.push({kind:target.kind,code:target.code,before,after})
+      }
+      const reviewed={status:reviewedRead.status,head_revision:source.source_revision,input_version:source.input_version,
+        latest_adoption:source.latest_adoption,reviewed_as_of:source.snapshot.time.as_of,snapshot:source.snapshot,
+        artifact:captureInputBody(captured.bytes),action:'refresh_and_review_complete_computation_source',visible_name_changes:visibleNames,review_event:checked}
+      record.refreshes.push(reviewed)
+      assert.equal(command.base_revision,reviewed.head_revision);assert.equal(command.input_version,reviewed.input_version)
+      assert.equal(command.latest_adoption,reviewed.latest_adoption);assert.equal(command.reviewed_as_of,reviewed.reviewed_as_of)
+      attempt.source_artifact=reviewed.artifact
+    }
+    if (received.status() === 409) { assert.equal(resolution.status, 'ABORTED_VOID'); persist(); continue }
+    assert.equal(received.status(), 200, 'The primary computation was not accepted.')
+    assert.equal(resolution.status, 'ACCEPTED'); assert.equal(resolution.job_id, response.job_id)
+    accepted = attempt; submission.job_id = response.job_id; trackJob(response.job_id, command, 'primary_job_pin_probe'); break
+  }
+  assert.ok(accepted, 'The primary computation did not obtain an accepted current source through explicit retries.')
+  assert.ok(record.refreshes.some(read=>read.visible_name_changes.length>0),'No actual old/new business name change was displayed during source review.')
+  const command = accepted.command, reviewed=record.refreshes.at(-1)
+  assert.ok(reviewed,'An accepted retry must have an independent complete public source review.')
+  resolveInputCompanion(inputCompanion, initialState.snapshot.inputs, reviewed.snapshot.inputs)
+  record.source = {kind:'public_computation_source',status:reviewed.status,artifact:reviewed.artifact,
+    head:{revision:reviewed.head_revision,input_version:reviewed.input_version,latest_adoption:reviewed.latest_adoption},snapshot:reviewed.snapshot}
+  const item = page.getByRole('list', { name: '持久计算任务', exact: true }).locator('li').filter({ hasText: accepted.response.job_id })
+  const button = item.getByRole('button', { name: '查看候选内容', exact: true }).first()
+  await expect(button).toBeVisible({ timeout: 60000 })
+  const pendingView = responseFor(page, response => response.url().startsWith(api('/jobs/' + accepted.response.job_id + '/candidates/')))
+  await button.click(); const viewResponse = await pendingView; assert.equal(viewResponse.status(), 200)
+  const viewBytes = await viewResponse.body(), view = JSON.parse(viewBytes), candidate = view.candidate
+  record.candidate = candidate; record.candidate_view_artifact = captureInputBody(viewBytes)
+  const region = page.getByRole('region', { name: '候选内容', exact: true })
+  await expect(region).toContainText(`原共享修订 ${command.base_revision} · 输入版本 ${command.input_version} · 最近采用版 ${command.latest_adoption}`)
+  await expect(region).toContainText('可执行候选')
+  await region.locator('summary').filter({ hasText: '查看原始候选业务检查' }).click()
+  await assertOutput(page, candidate.evaluation, region)
+  entry.clicked_epoch_ms = record.clock.origin_epoch_ms; entry.clicked_ms = entry.clicked_epoch_ms - performance.timeOrigin
+  await rendered(page, entry)
+  Object.assign(record.clock, { rendered_epoch_ms: entry.browser_after_result_frames_epoch_ms, seconds: entry.browser_after_result_frames_seconds })
+  const evaluation = await json(page, '/plans/evaluate', { snapshot: { ...candidate.snapshot, plan: candidate.plan } })
+  const compared = check('candidate', evaluation, candidate.plan, 'primary-job-pin-probe', { candidate, submitted: command, source: record.source })
+  record.objective = compared.objective
+  await expect.poll(async () => {
+    record.displayed_reload = await readState(page, true); assertAllowed(record.displayed_reload)
+    return record.displayed_reload.head.input_version > command.input_version
+  }, { timeout: 30000 }).toBe(true)
+  record.cleanup = await finishJob(page, accepted.response.job_id)
+  await expect(queue(page)).toHaveCount(0); record.local_queue_empty = true; persist()
+}
 try {
   assert.ok(!inputCompanion || editingProbe, 'Primary load timing/pin/retry qualification is pending; only the explicit adapter editing probe is enabled.')
   assert.ok(!importOnly || mode === 'solo', 'Concurrent initial import is not_run: an empty target has no shared editor state.')
@@ -533,6 +645,46 @@ try {
     evidence.phase = `login_editor_${editor}`; persist()
     const context = await browser.newContext({ ignoreHTTPSErrors: config.allow_test_certificate === true })
     await context.addInitScript(() => { for (const type of ['click', 'change']) window.addEventListener(type, () => { window.__acceptanceInputEpoch = performance.timeOrigin + performance.now() }, true) })
+    if(editor===0 && primaryJobProbe)await context.addInitScript(()=>{
+      const events=window.__sourceReviewTrace=[]
+      const record=(stage,details={})=>events.push({stage,epoch_ms:performance.timeOrigin+performance.now(),...details})
+      const isSource=url=>String(url).endsWith('/api/jobs/source')
+      const originalJson=Response.prototype.json
+      Response.prototype.json=function(...args){
+        const response=this
+        return originalJson.apply(this,args).then(value=>{
+          if(isSource(response.url))record('api_json_complete',{input_version:value.input_version,source_revision:value.source_revision})
+          return value
+        })
+      }
+      new PerformanceObserver(list=>{
+        for(const value of list.getEntries())if(isSource(value.name))record('resource_complete',{
+          start_epoch_ms:performance.timeOrigin+value.startTime,response_start_epoch_ms:performance.timeOrigin+value.responseStart,
+          response_end_epoch_ms:performance.timeOrigin+value.responseEnd,transfer_size:value.transferSize,decoded_body_size:value.decodedBodySize})
+      }).observe({type:'resource',buffered:true})
+      let lastNode,lastKey,lastEnabled
+      new MutationObserver(()=>{
+        const node=document.querySelector('[aria-label="计算来源核对"]')
+        if(!node){lastNode=undefined;return}
+        const key=node.querySelector('p')?.textContent ?? '',input=node.querySelector('[aria-label="已核对本次计算来源"]')
+        const enabled=!!input && !input.disabled
+        if(lastNode===node && lastKey===key && lastEnabled===enabled)return
+        lastNode=node;lastKey=key;lastEnabled=enabled
+        record('source_dom',{pins:key,enabled})
+        if(enabled)requestAnimationFrame(()=>requestAnimationFrame(()=>record('source_two_frames',{
+          pins:key,enabled:input.isConnected && !input.disabled})))
+      }).observe(document,{subtree:true,childList:true,attributes:true,attributeFilter:['disabled']})
+      for(const type of ['click','change'])window.addEventListener(type,event=>{
+        const target=event.target,button=target?.closest?.('button'),name=button?.textContent?.trim()
+        if(name==='重新读取计算来源' || name==='提交计算任务')record('ui_'+type,{control:name})
+        if(target?.getAttribute?.('aria-label')==='已核对本次计算来源'){
+          const review=target.closest('[aria-label="计算来源核对"]'),paragraphs=review?.querySelectorAll('p')
+          record('ui_'+type,{control:'已核对本次计算来源',checked:target.checked,disabled:target.disabled,
+            review:{pins:paragraphs?.[0]?.textContent?.trim() ?? '',time:paragraphs?.[1]?.textContent?.trim() ?? '',
+              rows:Array.from(review?.querySelectorAll('tbody tr') ?? [],row=>Array.from(row.querySelectorAll('td'),cell=>cell.textContent.trim()))}})
+        }
+      },true)
+    })
     const page = await context.newPage(); pages.push(page)
     page.on('response', response => { const url = new URL(response.url()); if (url.pathname.startsWith(config.base_path + '/api/') && !url.pathname.includes('/auth/')) evidence.request_spans.push({ editor, path: url.pathname, status: response.status(), received_ms: performance.now(), request_started_epoch_ms: response.request().timing().startTime }) })
     await page.goto(config.origin + config.base_path + '/login', { timeout: 180000 })
@@ -559,12 +711,26 @@ try {
   }
   if (loads.length) manualRows(source, loads.map(row => row.id))
   assert.equal((await activeJobs(pages[0])).length, 0, 'An unreported active/queued job predates the run.')
+  if(outputTextProbe){
+    evidence.phase='public_output_text_contract';persist()
+    const page=pages[0],pending=responseFor(page,response=>response.url()===api('/plans/preview') && response.request().method()==='POST')
+    await page.getByRole('button',{name:'预览本机修改',exact:true}).click()
+    const received=await pending,bytes=await received.body(),preview=JSON.parse(bytes)
+    assert.equal(received.status(),200,'The public empty-queue preview did not complete.')
+    assert.deepEqual(received.request().postDataJSON().operations,[],'The text probe unexpectedly staged a plan edit.')
+    await idle(page);await assertOutput(page,preview.evaluation)
+    const totals=preview.evaluation.output_totals,first=preview.evaluation.weekly_results[0]
+    evidence.output_text_contract={status:'pass',expected:totals.expected,outside_window:totals.outside_window,unallocated:totals.unallocated,
+      first_week:{model_code:first.model_code,week:first.week,demand:first.demand,on_time:first.on_time,gap:first.gap}}
+    persist()
+  }
   if (inputCompanion) {
     evidence.phase = 'real_input_editor_warmup'; persist()
     inputEditors = startInputEditors()
     await inputEditors.ready
     if (editingProbe) {
       if (primaryPinProbe) await primaryInputPinProbe()
+      if (primaryJobProbe) await primaryJobPinProbe()
       await finishInputEditors()
       if (primaryPinProbe) await cleanPrimaryInputPinProbe()
     }

@@ -1,5 +1,15 @@
 import type { BusinessOperation, Plan } from './useSharedPlan'
 import type { OutputEvaluation } from './outputTypes'
+import type { InputSnapshot } from './inputFields'
+import type { ExecutionContext, ExecutionCoverage, ResetSnapshot } from './executionTypes'
+import type { LockedCell, PlanningPreferences } from './stabilityTypes'
+
+export interface ComputationSource {
+  source_revision:number;input_version:number;latest_adoption:number
+  snapshot:{time:{as_of:string;window_start:string;weeks:number};inputs:InputSnapshot;plan:Plan;
+    execution:ExecutionContext;reset:ResetSnapshot|null;locks:LockedCell[];preferences:PlanningPreferences;
+    baseline:{version:number;plan:Plan;coverage:ExecutionCoverage[]}|null}
+}
 
 export interface SolveRequest {
   scope:{start_date:string;end_date:string;line_codes:string[];model_codes:string[]}

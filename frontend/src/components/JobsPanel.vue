@@ -1,9 +1,11 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
+import { computed, onMounted, onUnmounted, reactive, ref, shallowRef, watch } from 'vue'
 import { api, ApiError, basePath, online, principal } from '../api'
 import type { useSharedPlan } from '../useSharedPlan'
-import type { CandidateView, Job, JobCandidateRef, JobList, SolveRequest, SubmissionResult } from '../jobTypes'
+import type { CandidateView, ComputationSource, Job, JobCandidateRef, JobList, SolveRequest, SubmissionResult } from '../jobTypes'
+import type { InputSnapshot } from '../inputFields'
 import OutputResults from './OutputResults.vue'
+import ComputationSourceReview from './ComputationSourceReview.vue'
 
 const props=defineProps<{shared:ReturnType<typeof useSharedPlan>}>()
 const jobs=ref<Job[]>([]),queueCapacity=ref(0),workerLimit=ref(0)
@@ -16,6 +18,13 @@ const lines=ref<{code:string;name:string}[]>([]),models=ref<{code:string;name:st
 const request=reactive<SolveRequest>({scope:{start_date:'',end_date:'',line_codes:[],model_codes:[]},mode:'local',strategy:'hybrid',time_limit_seconds:20,max_candidates:1,native_threads:1})
 const blocked=computed(()=>props.shared.readonly.value || busy.value || !!outstanding.value || !!storageIssue.value)
 const unsaved=computed(()=>props.shared.operations.value.length>0)
+const computationSource=shallowRef<ComputationSource|null>(null),reviewedInputs=shallowRef<InputSnapshot|null>(null)
+const sourceRequired=ref(false),sourceReviewed=ref(false),fullReviewRequired=ref(false)
+const sourceMismatch=computed(()=>!!computationSource.value && !!props.shared.head.value && (
+  computationSource.value.source_revision!==props.shared.head.value.revision ||
+  computationSource.value.latest_adoption!==props.shared.head.value.latest_adoption ||
+  computationSource.value.snapshot.time.window_start!==props.shared.head.value.time.window_start))
+const sourceBlocked=computed(()=>fullReviewRequired.value || sourceMismatch.value || sourceRequired.value && (!computationSource.value || !sourceReviewed.value))
 const viewOnly=computed(()=>viewed.value?.validity?.state==='view_only')
 const candidateChanges=computed(()=>{
   const operation=viewed.value?.candidate.operation
@@ -35,12 +44,14 @@ let alive=true,pollTimer:ReturnType<typeof setTimeout>|undefined,reading=false
 
 watch(()=>props.shared.head.value,async head=>{
   if(!head)return
+  computationSource.value=null;sourceReviewed.value=false;fullReviewRequired.value=false
   request.scope.start_date ||= head.weeks[0]?.dates[0] ?? ''
   request.scope.end_date ||= head.weeks[0]?.dates[6] ?? ''
   try {
-    const data=await api<{masters:{lines:{code:string;name:string}[];models:{code:string;name:string}[]}}>(`/inputs?version=${head.input_version}`)
-    if(!alive)return
-    lines.value=data.masters.lines;models.value=data.masters.models
+    const data=await api<InputSnapshot>(`/inputs?version=${head.input_version}`)
+    if(!alive || head!==props.shared.head.value)return
+    reviewedInputs.value=data
+    lines.value=data.masters.lines.map(row=>({code:String(row.code),name:String(row.name)}));models.value=data.masters.models.map(row=>({code:String(row.code),name:String(row.name)}))
     if(!request.scope.line_codes.length)request.scope.line_codes=lines.value.map(row=>row.code)
   } catch(e){showError(e)}
 },{immediate:true})
@@ -75,8 +86,14 @@ function accepted(result:SubmissionResult,verified=false){
   clearSubmission()
   message.value=result.status==='ACCEPTED' ? `${verified ? '已核实计算任务已接收' : '计算任务已接收'}：${result.job_id}` : '已核实前次计算提交作废。不会自动重发，请核对后由你重新提交。'
 }
+async function readSource(){
+  if(blocked.value || unsaved.value)return
+  busy.value=true;error.value='';sourceReviewed.value=false;computationSource.value=null;sourceRequired.value=true
+  try{computationSource.value=await api<ComputationSource>('/jobs/source')}
+  catch(e){showError(e)}finally{busy.value=false}
+}
 async function submit(){
-  if(blocked.value || unsaved.value || !props.shared.head.value)return
+  if(blocked.value || unsaved.value || sourceBlocked.value || !props.shared.head.value)return
   error.value='';message.value=''
   if(!request.scope.start_date || !request.scope.end_date || !request.scope.line_codes.length){error.value='请选择计算日期和至少一条线体';return}
   busy.value=true
@@ -86,10 +103,12 @@ async function submit(){
     const pending:PendingSubmission={submission_id:crypto.randomUUID(),kind:'submit'}
     remember(pending)
     const head=props.shared.head.value
-    const result=await api<SubmissionResult>('/jobs',{method:'POST',body:JSON.stringify({submission_id:pending.submission_id,base_revision:head.revision,input_version:head.input_version,latest_adoption:head.latest_adoption,request})})
+    const source=computationSource.value
+    const result=await api<SubmissionResult>('/jobs',{method:'POST',body:JSON.stringify({submission_id:pending.submission_id,base_revision:source?.source_revision ?? head.revision,input_version:source?.input_version ?? head.input_version,latest_adoption:source?.latest_adoption ?? head.latest_adoption,request,reviewed_as_of:source?.snapshot.time.as_of ?? head.time.as_of})})
     accepted(result);await refresh()
   } catch(e){
     showError(e)
+    if(e instanceof ApiError && e.status===409){sourceRequired.value=true;sourceReviewed.value=false;computationSource.value=null;if(e.data.review_required===true)fullReviewRequired.value=true}
     if(e instanceof ApiError && e.status>=400 && e.status<500 && e.status!==408)try{clearSubmission()}catch{storageIssue.value='无法清除已结束的提交编号，请重试核实'}
   } finally {busy.value=false}
 }
@@ -162,6 +181,12 @@ onUnmounted(()=>{alive=false;clearTimeout(pollTimer)})
       <el-button v-if="shared.editor.value" @click="verify" :disabled="busy || !online">核实计算提交</el-button>
     </div>
     <p v-if="unsaved && shared.editor.value" role="status">本机仍有未共享动作，请先共享保存或处理本机动作后再提交计算。</p>
+    <el-button v-if="shared.editor.value" @click="readSource" :disabled="blocked || unsaved || fullReviewRequired">重新读取计算来源</el-button>
+    <p v-if="fullReviewRequired || sourceMismatch" role="alert">共享计划、采用版或生产日期窗口已变化。请先重新载入并核对完整共享计划，再读取计算来源。</p>
+    <p v-if="sourceRequired && !computationSource && !fullReviewRequired" role="status">请重新读取并核对完整计算来源，再明确提交。计算范围和策略仍保留。</p>
+    <ComputationSourceReview v-if="computationSource" :source="computationSource" :inputs="reviewedInputs" :context="shared.head.value?.context ?? null">
+      <label><input type="checkbox" v-model="sourceReviewed" :disabled="blocked || sourceMismatch || fullReviewRequired" aria-label="已核对本次计算来源" />已核对本次计算来源</label>
+    </ComputationSourceReview>
     <form v-if="shared.editor.value" @submit.prevent="submit">
       <fieldset :disabled="blocked || unsaved" class="job-request">
         <legend>提交已保存的共享计划</legend>
@@ -175,7 +200,7 @@ onUnmounted(()=>{alive=false;clearTimeout(pollTimer)})
         <label>候选数量 <input type="number" v-model.number="request.max_candidates" min="1" max="3" step="1" aria-label="候选数量" required /></label>
         <p>每个任务使用单线程求解。</p>
       </fieldset>
-      <el-button native-type="submit" type="primary" :disabled="blocked || unsaved">提交计算任务</el-button>
+      <el-button native-type="submit" type="primary" :disabled="blocked || unsaved || sourceBlocked">提交计算任务</el-button>
     </form>
     <ul aria-label="持久计算任务" class="job-list">
       <li v-for="job in jobs" :key="job.job_id">

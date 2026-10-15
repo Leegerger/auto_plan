@@ -16,6 +16,8 @@ import { INPUT_CONTENT_DIGEST_ALGORITHM, inputContentDigest, resolveInputCompani
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../../..')
 const enabled = process.env.AUTO_PLAN_INPUT_EDITORS_BROWSER === '1'
 const primaryPinProbe = process.env.AUTO_PLAN_INPUT_PRIMARY_PIN_PROBE === '1'
+const primaryJobProbe = process.env.AUTO_PLAN_INPUT_PRIMARY_JOB_PROBE === '1'
+const outputTextProbe = process.env.AUTO_PLAN_INPUT_OUTPUT_TEXT_PROBE === '1'
 const sha = value => createHash('sha256').update(value).digest('hex')
 
 function fixture(directory) {
@@ -55,18 +57,26 @@ function fixture(directory) {
     writeFileSync(resolve(directory, name + '.json.gz'), gzipSync(payload))
     return { path: name + '.json.gz', sha256: sha(payload) }
   }
-  const scenario = { id: 'input-editors-adapter-v1', kind: 'browser_editing_contract',
+  const scope = { start_date: '2026-10-12', end_date: '2027-01-24', line_codes: lines, model_codes: models }
+  const scenario = { id: primaryJobProbe ? 'input-editors-job-adapter-v1' : 'input-editors-adapter-v1', kind: 'browser_editing_contract',
     source: freeze('source', source), reference: freeze('reference', source),
-    action: freeze('action', { request: { mode: 'all_replan', scope: { start_date: '2026-10-12', end_date: '2027-01-24', line_codes: lines, model_codes: models },
-      strategy: 'hybrid', time_limit_seconds: 90, max_candidates: 1, native_threads: 1 } }),
+    action: freeze('action', { request: { mode: 'all_replan', scope,
+      strategy: 'hybrid', time_limit_seconds: primaryJobProbe ? 5 : 90, max_candidates: 1, native_threads: 1 } }),
     expected: { objective: Array(33).fill('0') },
     predecessor: { manifest_sha256: sha(predecessorManifest), source_sha256: original.source.sha256 },
     acceptance: 'not_run', purpose: 'Five-model public editing regression; not a fixed-scale acceptance family.' }
+  if (primaryJobProbe) {
+    scenario.scope = scope
+    scenario.expected = { capacity_valid: true, computation_complete: true, executable: true,
+      totals: { expected: 52500, on_time: 52500, late: 0, gap: 0, pending: 0, unallocated: 0, outside_window: 0 },
+      objective: Array(33).fill('0') }
+    scenario.purpose = 'Five-model public computation and accepted-pin regression; no fixed-scale timing alias.'
+  }
   const manifest = { schema_version: 1, scenarios: [scenario], gates_seconds: originalManifest.gates_seconds,
     reference_confirmation: { status: 'not_run', reason: 'Correctness adapter; no user quality or timing acceptance.' } }
   const predecessorBytes = Buffer.from(JSON.stringify(manifest))
   writeFileSync(resolve(directory, 'predecessor-manifest.json'), predecessorBytes)
-  const successor = { ...structuredClone(scenario), id: 'input-editors-adapter-v1-input-names-v1',
+  const successor = { ...structuredClone(scenario), id: scenario.id + '-input-names-v1',
     predecessor: { scenario: scenario.id, manifest: { path: 'predecessor-manifest.json', sha256: sha(predecessorBytes) } } }
   return { initial: source.inputs, scenario: successor,
     manifest: { ...manifest, scenarios: [successor] }, predecessorBytes }
@@ -87,7 +97,7 @@ function healthy(url) {
   })
 }
 
-test(primaryPinProbe ? 'a primary preview retains its accepted input pin and original retry clock while editors continue' : 'four browser editors commit existing names through the Inputs workflow',
+test(outputTextProbe ? 'the public shared output displays literal totals and weekly quantities' : primaryJobProbe ? 'a primary computation retains original UUID outcomes and its accepted input pin while editors continue' : primaryPinProbe ? 'a primary preview retains its accepted input pin and original retry clock while editors continue' : 'four browser editors commit existing names through the Inputs workflow',
   { skip: !enabled && 'Set AUTO_PLAN_INPUT_EDITORS_BROWSER=1 for the owned HTTPS adapter.', timeout: 180000 }, async () => {
     const python = process.env.AUTO_PLAN_INPUT_EDITORS_PYTHON
     assert.ok(python, 'Provide the already installed test Python interpreter.')
@@ -136,7 +146,8 @@ test(primaryPinProbe ? 'a primary preview retains its accepted input pin and ori
     const log = openSync(resolve(output, 'runner.log'), 'w')
     const child = spawn(process.execPath, [resolve(root, 'frontend/tests/acceptance/run.mjs'), '--config', childConfigPath,
       '--output', resolve(output, 'run'), '--mode', 'five_automated_editors_one_computation', '--operations', 'all_replan',
-      '--editing-contract-probe', 'true', ...(primaryPinProbe ? ['--primary-pin-probe', 'true'] : [])], { cwd: root, detached: true, stdio: ['pipe', log, log],
+      '--editing-contract-probe', 'true', ...(primaryPinProbe ? ['--primary-pin-probe', 'true'] : []),
+      ...(primaryJobProbe ? ['--primary-job-pin-probe', 'true'] : []), ...(outputTextProbe ? ['--output-text-probe','true'] : [])], { cwd: root, detached: true, stdio: ['pipe', log, log],
       env })
     writeFileSync(resolve(output, 'owned-processes.json'), JSON.stringify({ controller_pid: process.pid,
       server_pid: server.pid, server_pgid: server.pid, runner_pid: child.pid, runner_pgid: child.pid }) + '\n')
@@ -147,7 +158,6 @@ test(primaryPinProbe ? 'a primary preview retains its accepted input pin and ori
     const reportPath = resolve(output, 'run/report.json')
     let report
     const assertNoLegacy = value => {
-      assert.notEqual(value?.preflight?.status, 'fail', 'The adapter preflight failed before the editing behavior: ' + output)
       const legacy = value?.request_spans?.find(row => row.editor > 0 && row.path.endsWith('/plans/preview'))
       assert.ok(!legacy, 'A background editor used the legacy Plan preview instead of changing its assigned existing input name: ' + output)
     }
@@ -166,14 +176,17 @@ test(primaryPinProbe ? 'a primary preview retains its accepted input pin and ori
         readFileSync(resolve(output, 'runner.log'), 'utf8') + '\nArtifacts: ' + output)
       report = JSON.parse(readFileSync(reportPath))
       assertNoLegacy(report)
+      assert.notEqual(report?.preflight?.status, 'fail', 'The workflow failed after runner cleanup; retained report identifies its actual phase: ' + output)
       assert.equal(signal, null); assert.equal(code, 0, 'The editor probe failed; retained artifacts: ' + output)
       assert.equal(report.acceptance, 'not_run')
       assert.deepEqual(report.repeats, [], 'A focused editing probe must not fabricate timed repeats.')
+      if(outputTextProbe)assert.deepEqual(report.output_text_contract,{status:'pass',expected:52500,outside_window:0,unallocated:0,
+        first_week:{model_code:'M00',week:'2026-10-12',demand:700,on_time:700,gap:0}})
       assert.equal(report.input_editing_contract?.status, 'pass')
       assert.equal(report.input_companion.approval.kind, 'manifest_successor')
       assert.equal(report.input_companion.approval.manifest_sha256, sha(readFileSync(resolve(fixtures, 'manifest.json'))))
       assert.equal(report.input_companion.approval.predecessor_manifest_sha256, sha(predecessorBytes))
-      assert.equal(report.input_companion.approval.predecessor_scenario, 'input-editors-adapter-v1')
+      assert.equal(report.input_companion.approval.predecessor_scenario, primaryJobProbe ? 'input-editors-job-adapter-v1' : 'input-editors-adapter-v1')
       assert.ok(report.helper_sha256['scripts/acceptance/input_companion.py'])
       assert.deepEqual([...new Set(report.editor_actions.filter(row => row.commit?.kind === 'modified_input_name').map(row => row.editor))].sort(), [1, 2, 3, 4])
       assert.ok(report.editor_actions.some(row => row.response_status === 409), 'The synchronized first public previews must exercise actual optimistic conflict/reload.')
@@ -218,6 +231,50 @@ test(primaryPinProbe ? 'a primary preview retains its accepted input pin and ori
         assert.equal(changed.quantity, 99)
         assert.equal(pin.local_cleanup.queue_empty, true)
         assert.equal(pin.local_cleanup.original_plan_restored, true)
+      }
+      if (primaryJobProbe) {
+        assert.ok(report.submissions.some(row => row.purpose === 'primary_job_pin_probe'),
+          'The primary must actually submit a computation while four real editors continue, not finish as an editing-only probe: ' + output)
+        const job = report.primary_job_probe
+        assert.ok(job.attempts.some(row => row.response_status === 409), 'The stale primary UI must really exercise a rejected job submission.')
+        assert.ok(job.attempts.some(row => row.response_status === 200), 'The primary must really obtain one accepted computation.')
+        for (const attempt of job.attempts) {
+          assert.deepEqual(captured(attempt.request_artifact), attempt.command)
+          assert.deepEqual(captured(attempt.response_artifact), attempt.response)
+          assert.equal(attempt.resolution.submission_id, attempt.command.submission_id)
+          assert.ok(['ACCEPTED', 'ABORTED_VOID'].includes(attempt.resolution.status), 'Every original job UUID must settle before a fresh explicit retry.')
+        }
+        const accepted = job.attempts.filter(row => row.resolution.status === 'ACCEPTED')
+        assert.equal(accepted.length, 1, 'The workflow must own exactly one accepted computation.')
+        assert.equal(job.candidate.source_revision, accepted[0].command.base_revision)
+        assert.equal(job.candidate.input_version, accepted[0].command.input_version)
+        assert.equal(job.candidate.snapshot.inputs.input_version, accepted[0].command.input_version)
+        assert.equal(job.candidate.latest_adoption, accepted[0].command.latest_adoption)
+        const sourceBody=captured(job.source.artifact)
+        assert.equal(job.source.kind,'public_computation_source');assert.equal(job.source.status,200)
+        assert.deepEqual(sourceBody.snapshot,job.source.snapshot)
+        assert.equal(sourceBody.source_revision,accepted[0].command.base_revision)
+        assert.equal(sourceBody.input_version,accepted[0].command.input_version)
+        assert.equal(sourceBody.latest_adoption,accepted[0].command.latest_adoption)
+        assert.equal(sourceBody.snapshot.time.as_of,accepted[0].command.reviewed_as_of)
+        assert.deepEqual(job.candidate.snapshot,sourceBody.snapshot)
+        assert.equal(job.source.head.revision, accepted[0].command.base_revision)
+        assert.equal(job.source.head.latest_adoption, accepted[0].command.latest_adoption)
+        assert.ok(job.source.head.input_version >= accepted[0].command.input_version)
+        resolveInputCompanion(companion, initial, job.source.snapshot.inputs)
+        assert.ok(job.displayed_reload.head.input_version > accepted[0].command.input_version)
+        assert.deepEqual(job.objective, Array(33).fill('0'))
+        for (const key of ['capacity_valid', 'computation_complete', 'executable']) assert.equal(job.candidate.evaluation[key], true)
+        assert.equal(job.candidate.evaluation.output_totals.expected, 52500)
+        assert.equal(job.candidate.evaluation.output_totals.on_time, 52500)
+        assert.equal(job.candidate.evaluation.output_totals.gap, 0)
+        assert.equal(job.clock.origin_epoch_ms, job.clock.first_clicked_epoch_ms)
+        assert.ok(job.clock.retry_clicked_epoch_ms.length >= 1)
+        assert.ok(job.clock.retry_clicked_epoch_ms.every(value => value > job.clock.origin_epoch_ms))
+        assert.ok(job.clock.rendered_epoch_ms > job.clock.retry_clicked_epoch_ms.at(-1))
+        assert.equal(job.clock.seconds, (job.clock.rendered_epoch_ms - job.clock.origin_epoch_ms) / 1000)
+        assert.ok(['completed', 'stopped', 'interrupted', 'failed'].includes(job.cleanup.state))
+        assert.equal(job.local_queue_empty, true)
       }
       assert.equal(inputContentDigest(report.input_editing_contract.restored_inputs), inputContentDigest(initial))
       assert.equal(report.input_editing_contract.cleanup, 'complete')

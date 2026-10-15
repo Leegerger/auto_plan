@@ -1,6 +1,7 @@
 """Compare an observed public response with a frozen reference without numeric string ordering."""
 import argparse
 import json
+import hashlib
 from pathlib import Path
 import sys
 ROOT = Path(__file__).resolve().parents[2]
@@ -46,6 +47,15 @@ if __name__ == '__main__':
             vector = assert_candidate(evaluation, scenario, source, plan)
             assert args.proof is not None, 'Candidate frozen provenance is required.'
             proof = json.loads(args.proof.read_text())
+            if proof['source'].get('kind')=='public_computation_source':
+                state=proof['source']
+                assert state['status']==200,'Computation source needs a successful complete public read.'
+                raw=(args.proof.parent/state['artifact']['path']).read_bytes()
+                assert hashlib.sha256(raw).hexdigest()==state['artifact']['sha256'],'Public computation source body bytes differ.'
+                body=json.loads(raw)
+                assert body['snapshot']==state['snapshot'],'Public computation source snapshot differs from captured bytes.'
+                assert state['head']=={'revision':body['source_revision'],'input_version':body['input_version'],'latest_adoption':body['latest_adoption']},'Computation source tokens differ from captured bytes.'
+                assert proof['submitted']['reviewed_as_of']==body['snapshot']['time']['as_of'],'Submitted review time differs from the complete source read.'
             source = approved_source(args.fixtures, manifest, scenario, source, proof['candidate']['snapshot']['inputs'])
             assert_provenance(proof, source, load(args.fixtures, scenario['action']), evaluation)
     print(json.dumps({'status': 'pass', 'objective': vector}))
