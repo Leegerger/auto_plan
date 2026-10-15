@@ -47,6 +47,15 @@ class OraclePlanUnit:
         self.inputs,self.context,self.key=inputs,context,key
         self.plan=Plan.model_validate(self.get_revision(self.revision)['snapshot']['plan'])
 
+    def get_candidate(self,job_id,candidate_id,payload_sha,now):
+        from .oracle_jobs import retained_candidate
+        cache=getattr(self,'_candidate_cache',{})
+        key=(job_id,candidate_id,payload_sha)
+        if key not in cache:
+            cache[key]=retained_candidate(self.cursor,job_id,candidate_id,payload_sha,now,lock=self.key is not None)[0]
+            self._candidate_cache=cache
+        return cache[key]
+
     def get_inputs(self,version): return self.input_store._read(self.cursor,version)
 
     def get_context(self,version): return self.store.context_in_transaction(self.cursor,version)

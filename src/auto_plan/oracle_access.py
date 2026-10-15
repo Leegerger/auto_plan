@@ -8,6 +8,7 @@ from .access import Principal, AuthorizationDenied, LastAdministrator, StoreUnav
 class OracleAccessStore:
     def __init__(self, pool):
         self.pool = pool
+        self.job_revocation = None
 
     @classmethod
     def connect(cls, settings):
@@ -119,6 +120,8 @@ class OracleAccessStore:
             cursor.execute("SELECT COUNT(*) FROM AP_AUTHORIZATION WHERE ACTIVE=1 AND ADMINISTRATOR=1 AND USER_ID<>:user_id", user_id=user_id)
             if cursor.fetchone()[0] == 0 and not (active and "administrator" in roles):
                 raise LastAdministrator
+            if self.job_revocation and (not active or "editor" not in roles):
+                self.job_revocation(cursor, user_id, now)
             values = dict(user_id=user_id, viewer=int("viewer" in roles), editor=int("editor" in roles), administrator=int("administrator" in roles), active=int(active))
             cursor.execute("MERGE INTO AP_AUTHORIZATION a USING (SELECT :user_id USER_ID FROM DUAL) s ON (a.USER_ID=s.USER_ID) WHEN MATCHED THEN UPDATE SET a.VIEWER=:viewer, a.EDITOR=:editor, a.ADMINISTRATOR=:administrator, a.ACTIVE=:active WHEN NOT MATCHED THEN INSERT (USER_ID, VIEWER, EDITOR, ADMINISTRATOR, ACTIVE) VALUES (:user_id, :viewer, :editor, :administrator, :active)", values)
             if not active or not roles:

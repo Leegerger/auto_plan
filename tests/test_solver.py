@@ -1,9 +1,19 @@
 """Candidate business API cases, expected quantities worked independently."""
-from tests.test_plan_transactions import shared_client
+from tests.test_plan_transactions import shared_client as shared_plan_client
+from tests.job_http_support import calculate
 from auto_plan.input_models import InputSnapshot
 import json
 from pathlib import Path
 import pytest
+
+
+@pytest.fixture
+def shared_client(shared_plan_client):
+    from tests.test_jobs import install_controller
+    client,plans,inputs=shared_plan_client
+    controller=install_controller(client,plans)
+    try: yield client,plans,inputs
+    finally: controller.shutdown()
 
 
 def setup(inputs, demands, capacity=10, **extra):
@@ -16,7 +26,7 @@ def setup(inputs, demands, capacity=10, **extra):
 
 
 def solve(client, **extra):
-    return client.post('/auto_plan/api/plans/candidates/preview', json={
+    return calculate(client, {
         'base_revision': 0, 'input_version': 1, 'latest_adoption': 0,
         'request': {'scope': {'start_date': '2026-10-15', 'end_date': '2026-10-15',
                               'line_codes': ['L']}, **extra}})
@@ -46,7 +56,7 @@ def test_demand_reduction_removes_useless_input_even_against_adopted_baseline(sh
     setup(inputs, [])
     plan = {'segments': [row(quantity=10) | {'hours': '24'}]}
     assert post(client, 'adopt', command({'kind': 'replace_plan', 'plan': plan}) | {'pending': False}).status_code == 200
-    response = client.post('/auto_plan/api/plans/candidates/preview', json={
+    response = calculate(client, {
         'base_revision': 1, 'input_version': 1, 'latest_adoption': 1,
         'request': {'scope': {'start_date': '2026-10-15', 'end_date': '2026-10-15', 'line_codes': ['L']}}})
     assert response.status_code == 200, response.text
@@ -104,7 +114,7 @@ def test_locked_aggregate_allows_order_repair_and_lock_zero_forbids_insertion(sh
     plans.adoption = 1
     plans.adoptions[1] = {'snapshot': {'plan': adopted.model_dump(mode='json')}, 'coverage': [{'start_date': '2026-10-12', 'end_date': '2027-01-24', 'line_codes': ['L'], 'model_codes': ['M', 'N'], 'blanks_are_zero': True}]}
     plans.context = PlanningContext(locks=[{'date': '2026-10-15', 'line_code': 'L', 'model_code': model, 'quantity': 1} for model in ('M', 'N')])
-    response = client.post('/auto_plan/api/plans/candidates/preview', json={
+    response = calculate(client, {
         'base_revision': 0, 'input_version': 1, 'latest_adoption': 1,
         'request': {'scope': {'start_date': '2026-10-15', 'end_date': '2026-10-15', 'line_codes': ['L']}}})
     assert response.status_code == 200, response.text
@@ -183,7 +193,7 @@ def test_new_week_uses_idle_capacity_and_preserves_existing_rows_and_switches(sh
                    {'model_code': 'P', 'week': '2026-10-12', 'quantity': 2}], capacity=1000)
     existing = row(quantity=2) | {'hours': '1', 'order': 5}
     assert post(client, 'save', command({'kind': 'patch_plan', 'segments': [existing]})).status_code == 200
-    response = client.post('/auto_plan/api/plans/candidates/preview', json={
+    response = calculate(client, {
         'base_revision': 1, 'input_version': 1, 'latest_adoption': 0,
         'request': {'mode': 'new_week', 'scope': {'start_date': '2026-10-15', 'end_date': '2026-10-16', 'line_codes': ['L']}}})
     assert response.status_code == 200, response.text
@@ -255,7 +265,7 @@ def test_outside_rows_order_and_zero_duration_switch_are_preserved_exactly(share
     saved = post(client, 'save', command({'kind': 'replace_plan', 'plan': old}))
     assert saved.status_code == 200, saved.text
     source = client.get('/auto_plan/api/plans/current').json()['plan']
-    response = client.post('/auto_plan/api/plans/candidates/preview', json={
+    response = calculate(client, {
         'base_revision': 1, 'input_version': 1, 'latest_adoption': 0,
         'request': {'scope': {'start_date': '2026-10-15', 'end_date': '2026-10-15', 'line_codes': ['L'], 'model_codes': ['M']}}})
     assert response.status_code == 200, response.text
@@ -271,7 +281,7 @@ def test_unknown_initial_recipe_allows_matching_outside_work_without_changing_it
                    {'model_code': 'N', 'week': '2026-10-12', 'quantity': 1}], capacity=2000)
     outside = row('outside', 'N', day='2026-10-16', quantity=1) | {'order': 7}
     assert post(client, 'save', command({'kind': 'patch_plan', 'segments': [outside]})).status_code == 200
-    response = client.post('/auto_plan/api/plans/candidates/preview', json={
+    response = calculate(client, {
         'base_revision': 1, 'input_version': 1, 'latest_adoption': 0,
         'request': {'scope': {'start_date': '2026-10-15', 'end_date': '2026-10-15', 'line_codes': ['L'], 'model_codes': ['M']}}})
     assert response.status_code == 200, response.text
@@ -365,7 +375,7 @@ def test_current_day_candidate_declares_exact_residual_proof_and_preserves_actua
     confirmed = post(client, 'save', current_command(client, confirmation))
     assert confirmed.status_code == 200, confirmed.text
     current = client.get('/auto_plan/api/plans/current').json()
-    response = client.post('/auto_plan/api/plans/candidates/preview', json={
+    response = calculate(client, {
         'base_revision': current['revision'], 'input_version': current['input_version'], 'latest_adoption': 0,
         'request': {'scope': {'start_date': '2026-10-14', 'end_date': '2026-10-14', 'line_codes': ['L']}}})
     assert response.status_code == 200, response.text
@@ -451,7 +461,7 @@ def test_future_native_quantity_repair_preserves_confirmed_today_proof(shared_cl
         row('m', quantity=1300) | {'hours': '78/5'}, row('n', 'N', quantity=700) | {'order': 1, 'hours': '42/5'}]}) | {'pending': False})
     assert changed.status_code == 200, changed.text
     source = client.get('/auto_plan/api/plans/current').json()
-    response = client.post('/auto_plan/api/plans/candidates/preview', json={
+    response = calculate(client, {
         'base_revision': source['revision'], 'input_version': source['input_version'], 'latest_adoption': source['latest_adoption'],
         'request': {'strategy': strategy, 'scope': {'start_date': '2026-10-14', 'end_date': '2026-10-15', 'line_codes': ['L']}}})
     assert response.status_code == 200, response.text

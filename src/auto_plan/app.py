@@ -59,7 +59,7 @@ class Authorization(BaseModel):
     active: bool = True
 
 
-def create_app(settings: Settings | None = None, *, store=None, input_store=None, plan_store=None, demand_store=None, authenticator=None, clock=None, routers=()):
+def create_app(settings: Settings | None = None, *, store=None, input_store=None, plan_store=None, demand_store=None, authenticator=None, clock=None, job_store=None, job_controller=None, routers=()):
     settings = settings or Settings()
     owns_store = store is None
     owns_auth = authenticator is None
@@ -73,8 +73,13 @@ def create_app(settings: Settings | None = None, *, store=None, input_store=None
             app.state.authenticator = TestAuthenticator(settings) if settings.test_auth_enabled else CompanyAuthenticator(settings)
         try:
             app.state.access_store.startup()
+            if app.state.job_controller is not None:
+                app.state.job_controller.recover_startup()
+                app.state.job_controller.start()
             yield
         finally:
+            if app.state.job_controller is not None:
+                app.state.job_controller.shutdown()
             if owns_auth and app.state.authenticator:
                 app.state.authenticator.close()
             if owns_store and app.state.access_store:
@@ -86,6 +91,8 @@ def create_app(settings: Settings | None = None, *, store=None, input_store=None
     app.state.input_store = input_store
     app.state.plan_store = plan_store
     app.state.demand_store = demand_store
+    app.state.job_store = job_store
+    app.state.job_controller = job_controller
     app.state.authenticator = authenticator
     app.state.clock = clock or (lambda: datetime.now(timezone.utc))
 
@@ -177,6 +184,8 @@ def create_app(settings: Settings | None = None, *, store=None, input_store=None
     app.include_router(plan_router, prefix=f"{settings.base_path}/api")
     from .shared_plan_api import router as shared_plan_router
     app.include_router(shared_plan_router, prefix=f"{settings.base_path}/api")
+    from .job_api import router as job_router
+    app.include_router(job_router, prefix=f"{settings.base_path}/api")
     from .solver_api import router as solver_router
     app.include_router(solver_router, prefix=f"{settings.base_path}/api")
     for router in routers:

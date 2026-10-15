@@ -11,13 +11,14 @@ import oracledb
 from auto_plan.migrate import statements
 
 BUSINESS_IDENTIFIERS=(
+    'AP_JOB_HEAD','AP_JOB','AP_JOB_KEY','AP_JOB_CANDIDATE','AP_JOB_QUEUE','AP_JOB_CANDIDATE_EXPIRY',
     'AP_DEMAND_FILE','AP_DEMAND_KEY','AP_DEMAND_FILE_IMMUTABLE',
     'AP_INPUT_HEAD','AP_INPUT_REVISION','AP_INPUT_REVISION_IMMUTABLE',
     'AP_PLAN_HEAD','AP_PLAN_CONTEXT','AP_PLAN_SNAPSHOT','AP_PLAN_REVISION',
     'AP_PLAN_EFFECT','AP_PLAN_ADOPTION','AP_ADOPTED_CELL','AP_PLAN_KEY','AP_PLAN_AUDIT',
     'AP_PLAN_CONTEXT_IMMUTABLE','AP_PLAN_SNAPSHOT_IMMUTABLE','AP_PLAN_REVISION_IMMUTABLE',
     'AP_PLAN_EFFECT_IMMUTABLE','AP_PLAN_ADOPTION_IMMUTABLE','AP_ADOPTED_CELL_IMMUTABLE','AP_PLAN_AUDIT_IMMUTABLE')
-TABLES=[name for name in BUSINESS_IDENTIFIERS if not name.endswith('_IMMUTABLE')]
+TABLES=[name for name in BUSINESS_IDENTIFIERS if not name.endswith('_IMMUTABLE') and name not in {'AP_JOB_QUEUE','AP_JOB_CANDIDATE_EXPIRY'}]
 
 
 class NamespacePool:
@@ -63,7 +64,7 @@ def disposable_business_namespace(pool,prefix):
     try:
         with namespace.acquire() as connection:
             with connection.cursor() as cursor:
-                for filename in ('002_inputs.sql','003_plans.sql','004_demands.sql'):
+                for filename in ('002_inputs.sql','003_plans.sql','004_demands.sql','005_jobs.sql'):
                     for statement in statements((root/'migrations'/filename).read_text()): cursor.execute(statement)
             connection.commit()
         yield namespace

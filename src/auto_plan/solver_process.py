@@ -55,6 +55,9 @@ def run(data, should_stop):
         stop_at = None
         try:
             while child.poll() is None:
+                if os.fstat(output.fileno()).st_size > 1024 * 1024 or os.fstat(errors.fileno()).st_size > 65536:
+                    child.kill(); child.wait()
+                    return {'status': 'failed', 'error': 'Native output exceeded bounded transport'}
                 if should_stop() or time.monotonic() - start >= seconds:
                     stopped = True
                     if stop_at is None:

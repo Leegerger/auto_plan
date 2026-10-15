@@ -20,6 +20,8 @@ class Settings(BaseSettings):
     auth_sys_id: str = "FS_MOD-SCM_PORTAL"
     test_auth_enabled: bool = False
     test_auth_password: SecretStr = SecretStr("")
+    job_queue_capacity: int = 20
+    job_workers: int | None = None
     frontend_dist: Path = Path("frontend/dist")
 
     @field_validator("base_path")
@@ -38,11 +40,25 @@ class Settings(BaseSettings):
             raise ValueError("public_origin must be an HTTPS origin without a path")
         return value
 
+    @field_validator("job_queue_capacity")
+    @classmethod
+    def valid_queue(cls, value):
+        if value < 1 or value > 10000:
+            raise ValueError("job_queue_capacity must be 1..10000")
+        return value
+
+    @field_validator("job_workers")
+    @classmethod
+    def valid_workers(cls, value):
+        if value is not None and value < 0:
+            raise ValueError("job_workers cannot be negative")
+        return value
+
     @field_validator("oracle_pool_max")
     @classmethod
     def valid_pool(cls, value):
-        if value < 1:
-            raise ValueError("oracle_pool_max must be positive")
+        if not 1 <= value <= 10:
+            raise ValueError("oracle_pool_max must be 1..10")
         return value
 
     @model_validator(mode="after")
