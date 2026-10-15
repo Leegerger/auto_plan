@@ -11,9 +11,10 @@ import Authorizations from './views/Authorizations.vue'
 import Inputs from './views/Inputs.vue'
 import PlanPreview from './views/PlanPreview.vue'
 import SharedPlans from './views/SharedPlans.vue'
+import Initialization from './views/Initialization.vue'
 import { basePath } from './api'
 const router = createRouter({ history: createWebHistory(`${basePath}/`), routes: [
   { path: '/login', component: Login }, { path: '/', component: Home },
-  { path: '/admin', component: Authorizations }, { path: '/inputs', component: Inputs }, { path: '/plans/preview', component: PlanPreview }, { path: '/plans/shared', component: SharedPlans }, { path: '/:pathMatch(.*)*', redirect: '/' },
+  { path: '/initialize', component: Initialization }, { path: '/admin', component: Authorizations }, { path: '/inputs', component: Inputs }, { path: '/plans/preview', component: PlanPreview }, { path: '/plans/shared', component: SharedPlans }, { path: '/:pathMatch(.*)*', redirect: '/' },
 ] })
 createApp(App).use(router).use(ElementPlus, { locale: zhCn }).mount('#app')

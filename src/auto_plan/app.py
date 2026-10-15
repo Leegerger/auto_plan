@@ -59,7 +59,7 @@ class Authorization(BaseModel):
     active: bool = True
 
 
-def create_app(settings: Settings | None = None, *, store=None, input_store=None, plan_store=None, authenticator=None, clock=None, routers=()):
+def create_app(settings: Settings | None = None, *, store=None, input_store=None, plan_store=None, demand_store=None, authenticator=None, clock=None, routers=()):
     settings = settings or Settings()
     owns_store = store is None
     owns_auth = authenticator is None
@@ -85,6 +85,7 @@ def create_app(settings: Settings | None = None, *, store=None, input_store=None
     app.state.access_store = store
     app.state.input_store = input_store
     app.state.plan_store = plan_store
+    app.state.demand_store = demand_store
     app.state.authenticator = authenticator
     app.state.clock = clock or (lambda: datetime.now(timezone.utc))
 
@@ -167,6 +168,8 @@ def create_app(settings: Settings | None = None, *, store=None, input_store=None
     def audit(principal: Principal = Depends(require_administrator)):
         return app.state.access_store.audit(principal.user_id)
 
+    from .initialization_api import router as initialization_router
+    api.include_router(initialization_router)
     app.include_router(api)
     from .input_api import router as input_router
     app.include_router(input_router, prefix=f"{settings.base_path}/api")

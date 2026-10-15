@@ -11,6 +11,7 @@ import oracledb
 from auto_plan.migrate import statements
 
 BUSINESS_IDENTIFIERS=(
+    'AP_DEMAND_FILE','AP_DEMAND_KEY','AP_DEMAND_FILE_IMMUTABLE',
     'AP_INPUT_HEAD','AP_INPUT_REVISION','AP_INPUT_REVISION_IMMUTABLE',
     'AP_PLAN_HEAD','AP_PLAN_CONTEXT','AP_PLAN_SNAPSHOT','AP_PLAN_REVISION',
     'AP_PLAN_EFFECT','AP_PLAN_ADOPTION','AP_ADOPTED_CELL','AP_PLAN_KEY','AP_PLAN_AUDIT',
@@ -62,7 +63,7 @@ def disposable_business_namespace(pool,prefix):
     try:
         with namespace.acquire() as connection:
             with connection.cursor() as cursor:
-                for filename in ('002_inputs.sql','003_plans.sql'):
+                for filename in ('002_inputs.sql','003_plans.sql','004_demands.sql'):
                     for statement in statements((root/'migrations'/filename).read_text()): cursor.execute(statement)
             connection.commit()
         yield namespace
