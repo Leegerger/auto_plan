@@ -177,6 +177,16 @@ def result_effect_keys(before, after, snapshot):
     return keys
 
 
+def context_effect_keys(context,updates):
+    keys=set()
+    if 'locks' in updates:
+        before={(r.date.isoformat(),r.line_code,r.model_code):r.quantity for r in context.locks}
+        after={(r.date.isoformat(),r.line_code,r.model_code):r.quantity for r in updates['locks']}
+        for key in before.keys()|after.keys():
+            if before.get(key)!=after.get(key): keys.add(('CELL',*key))
+    return keys
+
+
 def protect(before, after, snapshot):
     old,new=cells(before),cells(after)
     failures=[]
@@ -243,6 +253,7 @@ class PlanService:
             proposed=original_result.plan
         except ValueError as error: raise PlanProblem(422,str(error)) from None
         effects=set(map(tuple,effect_keys(base_plan,proposed,snapshot)))
+        effects|=context_effect_keys(unit.context,original_result.context_updates)
         effects|=result_effect_keys(base,{'unallocated':original_result.unallocated,'operation_issues':original_result.issues},snapshot)
         changed=unit.effects_since(command.base_revision)
         intersection=effects&changed
@@ -256,7 +267,8 @@ class PlanService:
                 current.get('operation_issues',[]),current.get('lineage',{})))
             merged=replayed.plan
         except ValueError as error: raise PlanProblem(409,str(error)) from None
-        merged_snapshot=self._snapshot(unit,merged,now)
+        merged_context=unit.context.model_copy(update=replayed.context_updates)
+        merged_snapshot=self._snapshot(unit,merged,now).model_copy(update=replayed.context_updates)
         effects|=set(map(tuple,effect_keys(unit.plan,merged,merged_snapshot)))
         effects|=result_effect_keys(current,{'unallocated':replayed.unallocated,'operation_issues':replayed.issues},merged_snapshot)
         if effects&changed:
@@ -264,6 +276,8 @@ class PlanService:
         protect(unit.plan,merged,merged_snapshot)
         result=evaluate(merged_snapshot)
         return {'revision':unit.revision,'input_version':unit.inputs.input_version,'latest_adoption':unit.adoption,
+                'context':merged_context.model_dump(mode='json'),
+                'context_changes':differences(unit.context.model_dump(mode='json'),merged_context.model_dump(mode='json')),
                 'plan':merged.model_dump(mode='json'),'snapshot':merged_snapshot.model_dump(mode='json'),'hour_display':plan_hour_display(merged),
                 'evaluation':result.model_dump(mode='json'),'effects':[list(k) for k in sorted(effects)],
                 'changes':plan_differences(unit.plan.model_dump(mode='json'),merged.model_dump(mode='json')),
@@ -285,6 +299,10 @@ class PlanService:
                 raise PlanProblem(422,'存在硬冲突、未完成计算或必要确认，不能采用',evaluation=prepared['evaluation'])
             if kind=='save' and not command.pending and (not prepared['evaluation']['executable'] or prepared['adoption_blocked']):
                 raise PlanProblem(422,'请明确保存为待处理草稿',evaluation=prepared['evaluation'])
+            if prepared['context_changes']:
+                unit.write_context(PlanningContext.model_validate(prepared['context']),actor,now)
+                prepared['input_version']=unit.inputs.input_version
+                prepared['snapshot']['inputs']['input_version']=unit.inputs.input_version
             return unit.append(prepared,command.operations,actor,now,kind,command.pending if kind=='save' else False)
         return self.store.submit(command,actor,now,kind,action)
 

@@ -4,13 +4,14 @@ import { api, ApiError, principal, basePath, online } from './api'
 import type { OutputEvaluation } from './outputTypes'
 import { draftLease, draftStorage, validatedDraft } from './localDrafts'
 import type { LocalRecord, Outstanding, RecoveryRecord } from './localDrafts'
+import type { PlanningContext } from './stabilityTypes'
 export interface Segment { id: string; date: string; line_code: string; model_code: string; order: number; quantity: number; hours: string }
 export interface BusinessOperation {kind:string; action_id?:string; [key:string]:unknown}
 export interface Plan {segments:Segment[]; switches:{id:string;line_code:string;from_recipe:string;to_recipe:string;allocations:{date:string;order:number;hours:string;idle_hours:string}[]}[];ordinary_idle:{date:string;line_code:string;hours:string}[]}
 export interface Unallocated {id:string;model_code:string;quantity:number;reason:string; [key:string]:unknown}
 interface HourDisplay {segments:Record<string,{exact:string;display:string}>;switches:Record<string,{hours:{exact:string;display:string};idle_hours:{exact:string;display:string}}[]>}
-interface Head {hour_display:HourDisplay; pending: boolean; kind: string; revision: number; input_version: number; latest_adoption: number; plan: Plan; evaluation: OutputEvaluation; unallocated:Unallocated[]; operation_issues:Record<string,unknown>[]; weeks:{number:number;label:string;start_date:string;dates:string[]}[];context:{locks:{date:string;line_code:string;model_code:string;quantity:number}[]} }
-interface PreviewResult {hour_display:HourDisplay;plan:Plan;evaluation:OutputEvaluation;changes:Record<string,unknown>[];effects:unknown[][];unallocated:Unallocated[];operation_issues:Record<string,unknown>[]}
+interface Head {hour_display:HourDisplay; pending: boolean; kind: string; revision: number; input_version: number; latest_adoption: number; plan: Plan; evaluation: OutputEvaluation; unallocated:Unallocated[]; operation_issues:Record<string,unknown>[]; weeks:{number:number;label:string;start_date:string;dates:string[]}[];context:PlanningContext }
+interface PreviewResult {context:PlanningContext;context_changes:Record<string,unknown>[];hour_display:HourDisplay;plan:Plan;evaluation:OutputEvaluation;changes:Record<string,unknown>[];effects:unknown[][];unallocated:Unallocated[];operation_issues:Record<string,unknown>[]}
 export interface Draft {data_version:number;base_revision:number;input_version:number;latest_adoption:number;operations:BusinessOperation[];selected_actions?:string[]}
 interface Command { base_revision: number; input_version: number; latest_adoption: number; operations: BusinessOperation[]; operation_id: string; pending: boolean }
 type Stored = Outstanding
