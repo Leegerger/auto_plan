@@ -1,6 +1,7 @@
 """Facts and original-source weekly resets through the agreed business API."""
 from copy import deepcopy
 from datetime import date
+import pytest
 from tests.test_plan_transactions import shared_client, post, command, patch, row
 
 
@@ -79,6 +80,32 @@ def test_reset_participants_exclude_retired_unused_models_and_include_source_and
     assert post(client,'save',current_command(client,execution)).status_code==200
     assert head(client)['reset_participants']['current']=={'source_adoption':1,'model_codes':['M','N']}
     assert head(client)['reset_participants']['correction'] is None
+
+
+@pytest.mark.parametrize('later_unresolved',[False,True])
+def test_rollover_keeps_unambiguous_actual_last_recipe_after_a_historical_switch(shared_client,later_unresolved):
+    client,plans,_=shared_client
+    from datetime import datetime, timezone
+    from auto_plan.plan_models import ExecutionCoverage
+    plans.context=plans.context.model_copy(update={'coverage':[ExecutionCoverage(start_date='2026-10-12',end_date='2026-10-25',line_codes=['L','B'],model_codes=['M','N','P'],blanks_are_zero=True)]})
+    source={'initial_states':[{'line_code':'L','recipe_code':'R'}],
+        'segments':[row('old-r',day='2026-10-15'),row('actual-s','P','2026-10-17'),row('future-s','P','2026-10-20')],
+        'switches':[{'id':'historical-r-s','line_code':'L','from_recipe':'R','to_recipe':'S','allocations':[{'date':'2026-10-16','order':0,'hours':'0.95'}]}]}
+    if later_unresolved:
+        source['segments'].append(row('unresolved-r',day='2026-10-18')|{'order':1})
+        source['switches'] += [
+            {'id':'unconfirmed-s-r','line_code':'L','from_recipe':'S','to_recipe':'R','allocations':[{'date':'2026-10-18','order':0,'hours':'2'}]},
+            {'id':'next-r-s','line_code':'L','from_recipe':'R','to_recipe':'S','allocations':[{'date':'2026-10-19','order':0,'hours':'0.95'}]}]
+    assert post(client,'adopt',current_command(client,{'kind':'replace_plan','plan':source})).status_code==200
+    client.app.state.clock=lambda:datetime(2026,10,19,tzinfo=timezone.utc)
+    assert client.post('/auto_plan/api/auth/login',json={'username':'EDITOR','password':'company-secret'}).status_code==200
+    execution={'kind':'record_execution','rows':[fact(100,'P','2026-10-17')],
+        'coverage':[{'start_date':'2026-10-19','end_date':'2026-10-19','line_codes':['L','B'],'model_codes':['M','N','P'],'blanks_are_zero':True}],'cutoff':'2026-10-19T08:00:00+08:00'}
+    snapshot=reset_snapshot(0)|{'production_week':'2026-10-19','cutoff':'2026-10-19T08:00:00+08:00'}
+    checked=preview(client,execution,reset_operation(snapshot=snapshot,scope={'start_date':'2026-10-19','end_date':'2027-01-31','line_codes':['L','B'],'model_codes':[]}))
+    assert checked.status_code==200,checked.text
+    assert checked.json()['plan']['initial_states']==[{'line_code':'L','recipe_code':None if later_unresolved else 'S'}]
+    assert checked.json()['evaluation']['capacity_valid'] is (not later_unresolved)
 
 
 def test_cumulative_facts_replace_omissions_survive_and_segment_associations_are_audited(shared_client):

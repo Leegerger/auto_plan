@@ -75,10 +75,19 @@ def apply_candidate(plan,command,context):
     validate_change(plan,proposed,candidate.request,context)
     from .solver import patch_operation
     applied_patch=patch_operation(plan,proposed)
-    return ReplayResult(proposed,lineage={'candidate_application':{
+    lineage={'candidate_application':{
         'job_id':str(command.job_id),'candidate_id':str(command.candidate_id),'payload_sha':command.payload_sha,
         'source_revision':candidate.source_revision,'input_version':candidate.input_version,'selection':command.selection,
-        'applied_patch':applied_patch}})
+        'applied_patch':applied_patch}}
+    if command.selection is None:
+        from .plan_models import ExecutionCoverage
+        scope=candidate.request.scope
+        models=scope.model_codes or sorted({r.code for r in context.inputs.masters.models if r.active}|{r.model_code for r in proposed.segments})
+        coverage=ExecutionCoverage(start_date=scope.start_date,end_date=scope.end_date,line_codes=scope.line_codes,model_codes=models,blanks_are_zero=True)
+        prior=[ExecutionCoverage.model_validate(row) for row in context.lineage.get('planned_coverage',[])]
+        declared={row.model_dump_json():row.model_dump(mode='json') for row in prior+[coverage] if row.end_date>=context.time.window_start}
+        lineage['planned_coverage']=list(declared.values())
+    return ReplayResult(proposed,lineage=lineage)
 
 
 register_operation('apply_candidate',ApplyCandidate,apply_candidate)

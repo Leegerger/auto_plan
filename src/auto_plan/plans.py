@@ -374,11 +374,12 @@ class PlanService:
     def _adopted_coverage(self,unit,prepared):
         from .production_time import production_week
         old=unit.get_adoption(unit.adoption)['coverage'] if unit.adoption else []
-        coverage=[ExecutionCoverage.model_validate(row) for row in old+prepared['coverage']]
+        coverage=[ExecutionCoverage.model_validate(row) for row in old+prepared['coverage']+prepared['lineage'].get('planned_coverage',[])]
         plan=Plan.model_validate(prepared['plan'])
         time=EvaluationTime.model_validate(prepared['snapshot']['time'])
-        lines=sorted({r.code for r in unit.inputs.masters.lines if r.active}|{r.line_code for r in plan.segments})
-        models=sorted({r.code for r in unit.inputs.masters.models if r.active}|{r.model_code for r in plan.segments})
+        facts=prepared['snapshot']['execution']['facts']
+        lines=sorted({r.code for r in unit.inputs.masters.lines if r.active}|{r.line_code for r in plan.segments}|{r['line_code'] for r in facts})
+        models=sorted({r.code for r in unit.inputs.masters.models if r.active}|{r.model_code for r in plan.segments}|{r['model_code'] for r in facts})
         # Imported partial coverage stays partial. Only a newly planned week
         # without an imported boundary gains explicit adopted blank-zero cells.
         for week in sorted({production_week(r.date) for r in plan.segments if r.quantity and time.window_start<=r.date<=time.window_end}):

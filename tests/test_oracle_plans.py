@@ -63,12 +63,25 @@ class FaultCursor:
 
 
 @pytest.fixture(scope='module')
-def real_app():
+def real_namespace():
+    from tests.oracle_namespace import disposable_business_namespace
     settings=Settings(initial_admin_id='T24ADMIN')
     assert settings.oracle_user.upper()=='PLAN_TEST'
     access=OracleAccessStore.connect(settings)
-    faults=FaultPool(access.pool); plans=OraclePlanStore(faults)
-    app=create_app(settings,store=access,plan_store=plans,authenticator=CompanyAuthentication(),clock=lambda:NOW)
+    try:
+        with disposable_business_namespace(access.pool,'AP_TEST_'+uuid4().hex[:6].upper()) as namespace:
+            yield access,namespace
+    finally:
+        access.close()
+
+
+@pytest.fixture(scope='module')
+def real_app(real_namespace):
+    settings=Settings(initial_admin_id='T24ADMIN')
+    assert settings.oracle_user.upper()=='PLAN_TEST'
+    access,namespace=real_namespace
+    faults=FaultPool(namespace); plans=OraclePlanStore(faults)
+    app=create_app(settings,store=access,input_store=plans.input_store,plan_store=plans,authenticator=CompanyAuthentication(),clock=lambda:NOW)
     with TestClient(app,base_url=settings.public_origin) as client:
         client.headers.update({'Origin':settings.public_origin,'X-Auto-Plan-Request':'1'})
         assert client.post('/auto_plan/api/auth/login',json={'username':'T24ADMIN','password':'company-secret'}).status_code==200
@@ -86,7 +99,6 @@ def real_app():
         response=client.post('/auto_plan/api/inputs/apply',json={'base_version':current['input_version'],'changes':changes})
         assert response.status_code==200,response.text
         yield client,access,plans,faults,model,other,line,line2
-    access.close()
 
 
 def current(client):
@@ -106,7 +118,7 @@ def seed(real_app):
 
 
 def test_real_adoption_race_same_key_replay_and_frozen_adopted_cells(real_app):
-    client,access,_,_,model,_,line,_=real_app
+    client,_,plans,_,model,_,line,_=real_app
     seed(real_app)
     first=body(client); second=first|{'operation_id':str(uuid4())}
     with ThreadPoolExecutor(2) as pool:
@@ -119,7 +131,7 @@ def test_real_adoption_race_same_key_replay_and_frozen_adopted_cells(real_app):
     history=client.get(f"/auto_plan/api/plans/adoptions/{winner['latest_adoption']}").json()
     assert history['snapshot']['plan']['segments'][0]['model_code']==model
     # Trigger behavior is database-specific evidence; API offers no mutation route.
-    with access.pool.acquire() as connection:
+    with plans.pool.acquire() as connection:
         with connection.cursor() as cursor:
             for table,column,identity in [('AP_PLAN_ADOPTION','ADOPTION_NO',winner['latest_adoption']),('AP_ADOPTED_CELL','ADOPTION_NO',winner['latest_adoption']),('AP_PLAN_AUDIT','REVISION_NO',winner['revision']),('AP_PLAN_SNAPSHOT','SHA256',None)]:
                 if identity is None:
@@ -203,9 +215,9 @@ def test_real_void_before_save_and_commit_acknowledgement_loss_do_not_duplicate(
 
 
 def test_real_head_wait10_rolls_back_without_key_or_revision(real_app):
-    client,access,_,_,_,_,_,_=real_app
+    client,_,plans,_,_,_,_,_=real_app
     seed(real_app); request=body(client); before=current(client)['revision']
-    with access.pool.acquire() as blocker:
+    with plans.pool.acquire() as blocker:
         with blocker.cursor() as cursor:
             cursor.execute('SELECT ID FROM AP_PLAN_HEAD WHERE ID=1 FOR UPDATE WAIT 10')
             started=monotonic(); response=post(client,'save',request); elapsed=monotonic()-started
@@ -219,7 +231,7 @@ def test_real_head_wait10_rolls_back_without_key_or_revision(real_app):
 def test_real_context_inherits_through_parameter_revision_and_input_guard_blocks_save(real_app):
     client,access,plans,_,model,_,line,_=real_app
     seed(real_app)
-    with access.pool.acquire() as connection:
+    with plans.pool.acquire() as connection:
         with connection.cursor() as cursor:
             plans.head(cursor,True)
             context=PlanningContext.model_validate({'locks':[{'date':'2026-10-16','line_code':line,'model_code':model,'quantity':0}],'lineage':{'initial_coverage':'confirmed','external_reset_week':'2026-10-12'}})
@@ -231,7 +243,7 @@ def test_real_context_inherits_through_parameter_revision_and_input_guard_blocks
     assert changed.status_code==200,changed.text
     assert current(client)['context']==context_before
     stale=body(client)
-    with access.pool.acquire() as blocker:
+    with plans.pool.acquire() as blocker:
         with blocker.cursor() as cursor:
             cursor.execute('SELECT CURRENT_VERSION FROM AP_INPUT_HEAD WHERE ID=1 FOR UPDATE WAIT 10')
             with ThreadPoolExecutor(1) as pool:
@@ -243,7 +255,7 @@ def test_real_context_inherits_through_parameter_revision_and_input_guard_blocks
     assert rejected.status_code==409
     assert rejected.json()['input_version']>stale['input_version']
     # Restore context through another guarded version; no old immutable row is modified.
-    with access.pool.acquire() as connection:
+    with plans.pool.acquire() as connection:
         with connection.cursor() as cursor:
             plans.head(cursor,True); plans.write_context_in_transaction(cursor,'T29EDITOR',NOW,PlanningContext())
         connection.commit()
@@ -305,7 +317,7 @@ def test_real_quota_dependency_conflicts_across_lines_and_dates(real_app):
     # already public guarded InputStore contract for this real transaction test.
     from auto_plan.input_models import InputSnapshot
     from auto_plan.oracle_inputs import OracleInputStore
-    inputs=OracleInputStore(access.pool)
+    inputs=OracleInputStore(plans.pool)
     def demand(current):
         value=current.model_dump(mode='json')
         value['business']['demands']=[r for r in value['business']['demands'] if r['model_code']!=model]+[{'model_code':model,'week':'2026-10-19','quantity':500}]
