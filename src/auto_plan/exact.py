@@ -1,6 +1,7 @@
 """Lossless rational time values; display strings never participate in arithmetic."""
 import re
 from fractions import Fraction
+from functools import lru_cache
 from typing import Annotated
 from pydantic import BeforeValidator
 from .input_models import InputRow
@@ -25,7 +26,13 @@ class Hours(InputRow):
 
 
 def hours(value: Fraction | str | int) -> Hours:
-    number = Fraction(value)
+    return _hours(Fraction(value))
+
+
+@lru_cache(maxsize=1024)
+def _hours(number: Fraction) -> Hours:
+    # Hours is frozen and contains only immutable strings; result collections
+    # and evaluated plans are never cached here.
     if 0 < number < Fraction(1, 10000):
         display = '<0.0001'
     else:

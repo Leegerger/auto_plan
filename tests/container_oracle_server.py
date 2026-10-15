@@ -3,9 +3,10 @@
 The production image/entrypoint has no namespace or clock bypass. This explicit
 adapter supplies the already agreed database and clock testing boundaries.
 """
-import os,re,logging,sys
+import os,re,logging,sys,json
 from datetime import datetime
 from pathlib import Path
+from threading import Event,Thread
 import uvicorn
 from auto_plan.app import create_app
 from auto_plan.oracle_access import OracleAccessStore
@@ -36,8 +37,21 @@ if as_of.tzinfo is None:raise SystemExit('Aware fixed test time required')
 app=create_app(settings,store=access,input_store=OracleInputStore(access.pool),plan_store=plans,
     demand_store=OracleDemandStore(plans),clock=lambda:as_of)
 configure_jobs(app)
+sampling_stop=Event()
+def sample_pool():
+    observed={'interval_seconds':.25,'samples':0,'maximum_busy':0,'maximum_opened':0,
+              'configured_maximum':access.pool.pool.max}
+    while not sampling_stop.is_set():
+        observed['samples']+=1
+        observed['maximum_busy']=max(observed['maximum_busy'],access.pool.pool.busy)
+        observed['maximum_opened']=max(observed['maximum_opened'],access.pool.pool.opened)
+        path=Path('/tmp/oracle-pool-observations.json')
+        temporary=path.with_suffix('.tmp');temporary.write_text(json.dumps(observed));temporary.replace(path)
+        sampling_stop.wait(.25)
+sampler=Thread(target=sample_pool,daemon=True);sampler.start()
 try:
     Server(uvicorn.Config(app,host='0.0.0.0',port=8000,log_level='info',access_log=False,log_config=None,
         ssl_keyfile='/test-tls/key.pem',ssl_certfile='/test-tls/cert.pem')).run()
 finally:
+    sampling_stop.set();sampler.join(timeout=.5)
     access.pool.pool.close(force=True)

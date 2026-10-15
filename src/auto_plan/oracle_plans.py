@@ -2,6 +2,7 @@
 import hashlib
 import json
 import zlib
+from collections import OrderedDict
 from itertools import islice
 from datetime import date
 import oracledb
@@ -45,6 +46,9 @@ class OraclePlanUnit:
         self.store,self.cursor,self.input_store=store,cursor,store.input_store
         self.revision,self.adoption=head
         self.inputs,self.context,self.key=inputs,context,key
+        # Only this authorized, head-pinned transaction owns these immutable
+        # documents. Bound history/reset walks rather than retaining all history.
+        self._records=OrderedDict()
         self.plan=Plan.model_validate(self.get_revision(self.revision)['snapshot']['plan'])
 
     def get_candidate(self,job_id,candidate_id,payload_sha,now):
@@ -61,10 +65,18 @@ class OraclePlanUnit:
     def get_context(self,version): return self.store.context_in_transaction(self.cursor,version)
 
     def _record(self,table,column,identity):
+        key=table,column,identity
+        if key in self._records:
+            self._records.move_to_end(key)
+            return self._records[key][1]
         self.cursor.execute(f'SELECT S.SNAPSHOT_BLOB,S.SHA256 FROM {table} R JOIN AP_PLAN_SNAPSHOT S ON S.SHA256=R.SNAPSHOT_SHA WHERE R.{column}=:identity',identity=identity)
         row=self.cursor.fetchone()
         if not row: raise KeyError(identity)
-        return decode(row[0],row[1])
+        record=next((record for sha,record in self._records.values() if sha==row[1]),None)
+        if record is None: record=decode(row[0],row[1])
+        self._records[key]=row[1],record
+        if len(self._records)>8: self._records.popitem(last=False)
+        return record
 
     def get_revision(self,identity):
         return zero_revision() if identity==0 else self._record('AP_PLAN_REVISION','REVISION_NO',identity)

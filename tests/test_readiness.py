@@ -71,7 +71,7 @@ def test_sigterm_deadline_survives_a_blocked_external_cleanup(tmp_path):
         stdout,stderr=process.communicate(timeout=32)
         elapsed=time.monotonic()-started
         assert (tmp_path/'cleanup').exists()
-        assert elapsed<31
+        assert elapsed<=30
         assert process.returncode==0
         assert 'shutdown deadline guard' in stdout
     finally:

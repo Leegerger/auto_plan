@@ -1,5 +1,6 @@
 """Accepted hand calculations through the public frozen business evaluator."""
 from copy import deepcopy
+import pytest
 from tests.test_plan_preview import snapshot, segment, preview
 from tests.test_inputs import inputs_client
 
@@ -66,6 +67,23 @@ def test_new_plan_zero_baseline_and_partial_coverage_remain_distinct(inputs_clie
     result=preview(inputs_client,data)['stability']
     assert (result['weeks'][0]['state'],result['weeks'][0]['rate'],result['weighted_cost'])==('partial','1/10','150')
     assert '覆盖不完整' in result['weeks'][0]['rate_display']
+
+
+@pytest.mark.parametrize('ranges,complete,state',[
+    ([('2026-10-12','2026-10-14',['M']),('2026-10-14','2026-10-18',['M'])],True,'compared'),
+    ([('2026-10-12','2026-10-13',['M']),('2026-10-15','2026-10-18',['M'])],False,'partial'),
+    ([('2026-10-12','2026-10-18',['M']),('2026-10-12','2026-10-12',['N'])],False,'partial'),
+    ([('2026-10-11','2026-10-14',['M']),('2026-10-15','2026-10-20',['M'])],True,'compared'),
+])
+def test_dated_baseline_coverage_unions_overlap_but_keeps_gaps_and_named_pairs(inputs_client,ranges,complete,state):
+    old=[segment('a',0,'M',100,'4','2026-10-14')]
+    data=comparable(old,[old[0]|{'quantity':90}])
+    data['baseline']['coverage']=[{'start_date':start,'end_date':end,'line_codes':['L'],
+                                  'model_codes':models,'blanks_are_zero':True} for start,end,models in ranges]
+    result=preview(inputs_client,data)['stability']
+    week=result['weeks'][0]
+    assert (week['baseline_complete'],week['state'],week['rate'])==(complete,state,'1/10')
+    assert (week['old_remaining'],week['new_remaining'],result['weighted_cost'])==(100,90,'30')
 
 
 def test_pairwise_order_uses_all_interleaved_relations_and_shared_remaining_models(inputs_client):
