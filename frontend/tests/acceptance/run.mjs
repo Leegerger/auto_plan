@@ -60,8 +60,18 @@ assert.equal(new Set(accounts.map(row => row.username.trim().toUpperCase())).siz
 const headers = { Origin: config.origin, 'X-Auto-Plan-Request': '1', 'Cache-Control': 'no-cache' }, api = path => config.origin + config.base_path + '/api' + path
 let browser, stopped = false, blocked = null, initialState, primaryPlans = [], loadPromises = [], saveAdmissionHeld = false, inFlightSaves = 0
 const pages = [], createdJobs = new Map()
+const importCaptureSessions = new WeakMap()
 function responseFor(page, predicate, options) { const pending = page.waitForResponse(predicate, options); pending.catch(() => {}); return pending }
 function requestFor(page, predicate, options) { const pending = page.waitForRequest(predicate, options); pending.catch(() => {}); return pending }
+async function retainImportResponse(page, entry) {
+  let session = importCaptureSessions.get(page)
+  if (!session) { session = await page.context().newCDPSession(page); importCaptureSessions.set(page, session) }
+  // Configure after navigation. Chromium otherwise evicts this complete body
+  // before Playwright can read it, although the application already consumed it.
+  const options = { maxTotalBufferSize: 128 * 1024 * 1024, maxResourceBufferSize: 64 * 1024 * 1024, enableDurableMessages: true }
+  await session.send('Network.enable', options)
+  entry.response_capture = { protocol: 'Chromium Network.enable', phase: 'before upload input', ...options }
+}
 async function holdSaveAdmission(entry) {
   saveAdmissionHeld = true; entry.save_admission_hold_started_ms = performance.now()
   try { await expect.poll(() => inFlightSaves, { timeout: 30000 }).toBe(0) } catch (error) { saveAdmissionHeld = false; throw error }
@@ -442,6 +452,8 @@ try {
         else if (importOnly) {
           await page.goto(config.origin + config.base_path + '/initialize'); const before = await readState(page)
           assertState(before, initialState); assert.ok(before.head.revision === 0 && before.head.latest_adoption === 0, 'Import target changed before upload.')
+          await expect(page.getByRole('heading', { name: '首次接入与需求变更', exact: true })).toBeVisible()
+          await retainImportResponse(page, entry)
           const response = responseFor(page, r => r.url().startsWith(api('/initialization/excel/preview')), { timeout: 180000 })
           await arm(page); await page.getByLabel('上传标准工作簿并预览', { exact: true }).setInputFiles(workbook); await clicked(page, entry)
           const received = await response; assert.ok(received.ok(), 'Workbook preview request failed.'); const prepared = await received.json()
