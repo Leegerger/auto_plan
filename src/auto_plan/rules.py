@@ -3,6 +3,7 @@ from collections import defaultdict
 from fractions import Fraction
 from .exact import hours
 from .input_lookup import InputIndex
+from .recipe_states import analyze_recipe_states
 from .plan_models import (EvaluationSnapshot, EvaluationResult, RuleIssue, RecipeCapacity,
                           DayEvaluation, InitialStateEvaluation, SwitchEvaluation)
 
@@ -39,7 +40,6 @@ def evaluate(snapshot: EvaluationSnapshot) -> EvaluationResult:
                     problem('unknown_master', f'输入快照{kind}引用不存在的编码')
 
     groups = defaultdict(lambda: defaultdict(list))
-    events = defaultdict(list)
     daily_switch = defaultdict(Fraction)
     daily_idle_use = defaultdict(Fraction)
     idle_budget = {}
@@ -67,7 +67,6 @@ def evaluate(snapshot: EvaluationSnapshot) -> EvaluationResult:
             continue
         recipe = index.models[segment.model_code].recipe_code
         groups[(segment.date, segment.line_code)][recipe].append(segment)
-        events[segment.line_code].append((segment.date, segment.order, 'production', segment, None))
     switch_results = []
     for switch in snapshot.plan.switches:
         if switch.id in identifiers:
@@ -86,49 +85,18 @@ def evaluate(snapshot: EvaluationSnapshot) -> EvaluationResult:
         if duration['state'] == 'default_missing':
             problem('missing_switch_duration', '已知不同 Recipe 缺切机参数，按12小时计算，待补充', switch=switch, severity='warning')
         ordered = sorted(switch.allocations, key=lambda a: (a.date, a.order))
-        for position, allocation in enumerate(ordered):
+        for allocation in ordered:
             key = (allocation.date, switch.line_code)
             daily_switch[key] += Fraction(allocation.hours)
             daily_idle_use[key] += Fraction(allocation.idle_hours)
             if Fraction(allocation.idle_hours) > Fraction(allocation.hours):
                 problem('idle_exceeds_allocation', '普通空闲抵扣不得超过该日实际切机占用', switch=switch, day=allocation.date)
-            events[switch.line_code].append((allocation.date, allocation.order, 'switch', switch, position))
         switch_results.append(SwitchEvaluation(id=switch.id, line_code=switch.line_code,
             from_recipe=switch.from_recipe, to_recipe=switch.to_recipe, duration_state=duration['state'],
             total_hours=hours(total), allocated_hours=hours(allocated), idle_hours=hours(idle), extra_hours=hours(max(total - idle, 0))))
 
-    endings = {}
-    all_lines = set(events) | set(initial_states) | {line for _, line in idle_budget}
-    for line in sorted(all_lines):
-        state = initial_states.get(line)
-        pending = None
-        seen_orders = set()
-        for day, order, kind, item, position in sorted(events[line], key=lambda event: (event[0], event[1], event[2])):
-            if (day, order) in seen_orders:
-                problem('duplicate_order', '同日线体生产与切机的顺序编号必须唯一', day=day, line=line)
-            seen_orders.add((day, order))
-            if kind == 'production':
-                if item.quantity or Fraction(item.hours):
-                    recipe = index.models[item.model_code].recipe_code
-                    if pending is not None:
-                        problem('unfinished_switch', '跨日切机尚未完成，不能穿插生产', segment=item, recipe=recipe)
-                    if state is not None and state != recipe:
-                        problem('recipe_sequence', '生产前 Recipe 与线体状态不符，需要按有向关系完成切机', segment=item, recipe=recipe)
-                    if state is None:
-                        state = recipe
-            else:
-                if position == 0:
-                    if pending is not None:
-                        problem('unfinished_switch', '上一切机尚未完成，不能穿插另一切机', switch=item, day=day)
-                    if state != item.from_recipe:
-                        problem('recipe_sequence', '切机原 Recipe 与保留的线体状态不符', switch=item, day=day)
-                    pending = item.id
-                elif pending != item.id:
-                    problem('switch_sequence', '同一切机的分配必须按顺序完成，不得穿插其他事件', switch=item, day=day)
-                if position == len(item.allocations) - 1:
-                    state = item.to_recipe
-                    pending = None
-            endings[(day, line)] = state
+    states = analyze_recipe_states(snapshot.plan, index, problem)
+    endings, all_lines = states.endings, states.lines
 
     result_days = []
     all_days = set(groups) | set(daily_switch) | set(idle_budget)
@@ -174,7 +142,7 @@ def evaluate(snapshot: EvaluationSnapshot) -> EvaluationResult:
                for line in sorted(all_lines)]
     valid = not any(i.severity == 'error' for i in issues)
     from .output_rules import output_evaluation
-    output = output_evaluation(snapshot)
+    output = output_evaluation(snapshot, index)
     issues.extend(output.pop('issues'))
     complete = not any(i.severity == 'incomplete' for i in issues)
     return EvaluationResult(time=snapshot.time, capacity_valid=valid, computation_complete=complete, executable=not any(i.severity == 'error' for i in issues) and complete,
