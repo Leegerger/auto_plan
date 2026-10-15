@@ -9,7 +9,7 @@ export interface Unallocated {id:string;model_code:string;quantity:number;reason
 interface HourDisplay {segments:Record<string,{exact:string;display:string}>;switches:Record<string,{hours:{exact:string;display:string};idle_hours:{exact:string;display:string}}[]>}
 interface Head {hour_display:HourDisplay; pending: boolean; kind: string; revision: number; input_version: number; latest_adoption: number; plan: Plan; evaluation: OutputEvaluation; unallocated:Unallocated[]; operation_issues:Record<string,unknown>[]; weeks:{number:number;label:string;start_date:string;dates:string[]}[];context:{locks:{date:string;line_code:string;model_code:string;quantity:number}[]} }
 interface PreviewResult {hour_display:HourDisplay;plan:Plan;evaluation:OutputEvaluation;changes:Record<string,unknown>[];effects:unknown[][];unallocated:Unallocated[];operation_issues:Record<string,unknown>[]}
-interface Draft {data_version:number;base_revision:number;input_version:number;latest_adoption:number;operations:BusinessOperation[];selected_actions?:string[]}
+export interface Draft {data_version:number;base_revision:number;input_version:number;latest_adoption:number;operations:BusinessOperation[];selected_actions?:string[]}
 interface Command { base_revision: number; input_version: number; latest_adoption: number; operations: BusinessOperation[]; operation_id: string; pending: boolean }
 interface Stored { command: Command; kind: 'save' | 'adopt'; remaining_operations?:BusinessOperation[] }
 interface Result { status: 'COMMITTED' | 'ABORTED_VOID'; revision?: number; latest_adoption?: number }

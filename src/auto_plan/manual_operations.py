@@ -79,7 +79,11 @@ def bounded_certificate(plan,context,scope):
         try:
             certificate=construct_hour_certificate(context.inputs,sources,[InitialRecipeState(line_code=line,recipe_code=incoming)],window_start=scope.start_date)
         except CertificateError as error:
-            raise CapacityWitnessError('；'.join(f'{i.date or ""} {i.line_code or ""} {i.reason}' for i in error.issues)) from None
+            # Pending drafts may contain an unrelated impossible day. Try the
+            # actual changed block while keeping every other event exact.
+            certificate=_local_certificate(output,original,context,index,scope,line,incoming,inside)
+            if certificate is None:
+                raise CapacityWitnessError('；'.join(f'{i.date or ""} {i.line_code or ""} {i.reason}' for i in error.issues)) from None
         outgoing=_state_before(certificate,index,line,scope.end_date+timedelta(days=1))
         old_outgoing=_state_before(original,index,line,scope.end_date+timedelta(days=1))
         outside_later=any(r.line_code==line and r.date>scope.end_date and r.quantity for r in original.segments) or any(s.line_code==line and any(a.date>scope.end_date for a in s.allocations) for s in original.switches)
@@ -102,12 +106,42 @@ def bounded_certificate(plan,context,scope):
         switches=[s for s in output.switches if not(s.line_code==line and all(scope.start_date<=a.date<=scope.end_date for a in s.allocations))]
         for switch in certificate.switches:
             signature=f'{line}:{switch.from_recipe}:{switch.to_recipe}:'+','.join(f'{a.date}:{a.order}' for a in switch.allocations)
-            switches.append(switch.model_copy(update={'id':derived_id(context,signature)}))
+            switches.append(switch if switch in original.switches else switch.model_copy(update={'id':derived_id(context,signature)}))
         idle=[r for r in output.ordinary_idle if not(r.line_code==line and scope.start_date<=r.date<=scope.end_date) or (r.line_code==line and r.date in preserved_days)]
         output=output.model_copy(update={'segments':segments,'switches':switches,'ordinary_idle':idle})
     output=output.model_copy(update={'segments':sorted(output.segments,key=lambda r:(r.date,r.line_code,r.order,r.id))})
     _authorize_change(original,output,scope,context)
     return output
+
+
+def _local_certificate(output,original,context,index,scope,line,incoming,inside):
+    old={r.id:r for r in original.segments if r.line_code==line}
+    new={r.id:r for r in output.segments if r.line_code==line}
+    changed=[row.date for identity in old.keys()|new.keys() if old.get(identity)!=new.get(identity)
+             for row in (old.get(identity),new.get(identity)) if row]
+    if not changed: return None
+    first,last=min(changed),max(changed)
+    if first==scope.start_date and last==scope.end_date: return None
+    for switch in original.switches:
+        if switch.line_code==line and any(first<=a.date<=last for a in switch.allocations) and any(not first<=a.date<=last for a in switch.allocations): return None
+    sources=[SourceSegment.model_validate(r.model_dump(exclude={'hours'})) for r in inside if first<=r.date<=last]
+    try:
+        local=construct_hour_certificate(context.inputs,sources,[InitialRecipeState(line_code=line,recipe_code=_state_before(original,index,line,first))],window_start=first)
+    except CertificateError: return None
+    preserved=[s for s in original.switches if s.line_code==line and all(scope.start_date<=a.date<=scope.end_date for a in s.allocations) and not any(first<=a.date<=last for a in s.allocations)]
+    certificate=local.model_copy(update={'segments':[r for r in inside if not first<=r.date<=last]+local.segments,
+        'switches':preserved+local.switches,'initial_states':[InitialRecipeState(line_code=line,recipe_code=incoming)]})
+    combined=output.model_copy(update={'segments':[r for r in output.segments if not(r.line_code==line and scope.start_date<=r.date<=scope.end_date)]+certificate.segments,
+        'switches':[s for s in output.switches if not(s.line_code==line and all(scope.start_date<=a.date<=scope.end_date for a in s.allocations))]+certificate.switches})
+    def recipe_problems(plan):
+        problems=set()
+        def problem(code,reason,**where):
+            row=where.get('segment');switch=where.get('switch')
+            problems.add((code,str(where.get('day') or (row.date if row else '')),where.get('line') or (row.line_code if row else switch.line_code if switch else ''),row.id if row else ''))
+        analyze_recipe_states(plan,index,problem)
+        return problems
+    if recipe_problems(combined)-recipe_problems(original): return None
+    return certificate
 
 
 def _preserve_fixed_models(certificate,inside,index,scope,line):

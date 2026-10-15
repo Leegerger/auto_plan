@@ -194,3 +194,16 @@ def test_append_reports_boundary_expansion_without_rewriting_outside_recipe_work
     assert result.status_code==422,result.text
     assert '扩大范围' in result.json()['detail']
     assert client.get('/auto_plan/api/plans/current').json()['plan']==old
+
+
+def test_append_keeps_unrelated_pending_capacity_conflict_and_places_valid_day(shared_client):
+    client,_,_=shared_client
+    pending=row('pending','N',day='2026-10-16',quantity=1200)|{'hours':'24'}
+    assert post(client,'save',command({'kind':'patch_plan','segments':[pending]})).status_code==200
+    action={'kind':'append_fill','model_code':'M','quantity':100,'line_code':'L','start_date':'2026-10-15','end_date':'2026-10-15','scope':scope()}
+    result=preview(client,action,base=1)
+    assert result.status_code==200,result.text
+    assert result.json()['unallocated']==[]
+    assert next(r for r in result.json()['plan']['segments'] if r['id']=='pending')==pending
+    assert result.json()['evaluation']['capacity_valid'] is False
+    assert any(r['quantity']==100 and r['date']=='2026-10-15' for r in result.json()['plan']['segments'])
