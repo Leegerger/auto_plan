@@ -3633,7 +3633,11 @@
         "node": "v24.13.0",
         "platform": "linux"
       },
-      "timing_note": "v1 includes automation preparation before click; v2 uses browser input events. Both retain failures; neither is deployed constrained-resource SLA evidence."
+      "timing_note": "v1 includes automation preparation before click; v2 uses browser input events. Both retain failures; neither is deployed constrained-resource SLA evidence.",
+      "navigation_evidence": {
+        "status": "withdrawn",
+        "reason": "Nominal week/day passes could start on the already displayed target. Raw observations are retained; they do not establish a distinct transition or constrained timing. The new navigation regression checks function only."
+      }
     },
     {
       "directory": "acceptance-browser-adapter-v2",
@@ -3702,7 +3706,11 @@
         "node": "v24.13.0",
         "platform": "linux"
       },
-      "timing_note": "v1 includes automation preparation before click; v2 uses browser input events. Both retain failures; neither is deployed constrained-resource SLA evidence."
+      "timing_note": "v1 includes automation preparation before click; v2 uses browser input events. Both retain failures; neither is deployed constrained-resource SLA evidence.",
+      "navigation_evidence": {
+        "status": "withdrawn",
+        "reason": "Nominal week/day passes could start on the already displayed target. Raw observations are retained; they do not establish a distinct transition or constrained timing. The new navigation regression checks function only."
+      }
     }
   ],
   "pending": [

@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { prepareWeekNavigation, navigateWeek, prepareDayNavigation, navigateDay } from './navigation.mjs'
+import { prepareWeekNavigation, navigateWeek, prepareDayNavigation, navigateDay, assertSelected, unselectSegment } from './navigation.mjs'
 
 test('acceptance navigation starts from another week and another populated day', async ({ page }) => {
   test.skip(process.env.AUTO_PLAN_BROWSER_TRANSACTIONS_FIXTURE !== '1', 'Requires the explicit shared-plan adapter fixture')
@@ -35,8 +35,6 @@ test('acceptance navigation starts from another week and another populated day',
   await navigateDay(page, day)
   const selected = page.getByLabel('选择生产段 navigation-target', { exact: true })
   await selected.check()
-  await expect(selected).toBeChecked()
-  await selected.uncheck()
-  await expect(selected).not.toBeChecked()
-  await expect(page.getByText('已选 0 段：', { exact: true })).toBeVisible()
+  await assertSelected(page, rows[0])
+  await unselectSegment(page, rows[0])
 })
