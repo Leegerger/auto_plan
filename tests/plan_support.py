@@ -14,6 +14,7 @@ def zero_revision():
 class MemoryPlanStore:
     def __init__(self,inputs):
         self.input_store=inputs; self.lock=RLock(); self.revision=0; self.adoption=0
+        self.cursor=self
         self.plan=Plan(); self.context=PlanningContext(); self.revisions={0:zero_revision()}; self.adoptions={}; self.keys={}
     @property
     def inputs(self): return self.input_store.read()
@@ -48,3 +49,10 @@ class MemoryPlanStore:
             if key not in self.keys: self.keys[key]={'actor':actor,'result':{'status':'ABORTED_VOID','operation_id':key}}
             if self.keys[key]['actor']!=actor: raise PlanProblem(409,'操作编号已使用')
             return deepcopy(self.keys[key]['result'])
+
+    def initialize_in_transaction(self,cursor,actor,now,inputs,context,plan,lineage,operation_id):
+        from auto_plan.plans import PlanService, PlanCommand
+        saved=self.input_store.update(actor,now,lambda current:inputs.model_copy(update={'input_version':current.input_version+1}))
+        self.context=context.model_copy(update={'lineage':lineage})
+        prepared=PlanService(self)._prepare(self,PlanCommand(base_revision=0,input_version=saved.input_version,latest_adoption=0,operations=[{'kind':'replace_plan','plan':plan.model_dump(mode='json')}]),now)
+        return self.append(prepared,[],actor,now,'initialize',True)

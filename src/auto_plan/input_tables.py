@@ -50,15 +50,15 @@ def workbook_bytes(snapshot=None):
     return out.getvalue()
 
 
-def paste_rows(kind, text):
-    if kind not in HEADERS:
+def paste_rows(kind, text, headers=HEADERS):
+    if kind not in headers:
         return {}, [error(kind, 1, 'sheet', '未知资料类别')]
     reader = csv.reader(StringIO(text), delimiter='\t')
     try:
         rows = list(reader)
     except csv.Error:
         return {}, [error(kind, 1, 'table', '粘贴内容不是有效制表符表格')]
-    if not rows or tuple(rows[0]) != HEADERS[kind]:
+    if not rows or tuple(rows[0]) != headers[kind]:
         return {}, [error(kind, 1, 'headers', '首行列名与标准模板不一致')]
     result, errors = [], []
     if len(rows) > MAX_ROWS + 1:
@@ -66,14 +66,14 @@ def paste_rows(kind, text):
     for index, values in enumerate(rows[1:], 2):
         if not any(value.strip() for value in values):
             continue
-        if len(values) != len(HEADERS[kind]):
+        if len(values) != len(headers[kind]):
             errors.append(error(kind, index, 'columns', '列数与标准模板不一致'))
             continue
-        result.append(dict(zip(HEADERS[kind], values)) | {'_row': index})
+        result.append(dict(zip(headers[kind], values)) | {'_row': index})
     return {kind: result}, errors
 
 
-def excel_rows(content):
+def excel_rows(content, headers=HEADERS):
     try:
         with ZipFile(BytesIO(content)) as archive:
             if len(archive.infolist()) > 200 or sum(entry.file_size for entry in archive.infolist()) > 64 * 1024 * 1024:
@@ -87,7 +87,7 @@ def excel_rows(content):
             kind = sheet.title
             if kind == '_version':
                 continue
-            if kind not in HEADERS:
+            if kind not in headers:
                 errors.append(error(kind, 1, 'sheet', '未知工作表，请使用标准模板'))
                 continue
             iterator = sheet.iter_rows()
@@ -96,7 +96,7 @@ def excel_rows(content):
             # Formatting an empty extra column cannot alter the input schema.
             while header_values and header_values[-1] is None:
                 header_values = header_values[:-1]
-            if header_values != HEADERS[kind]:
+            if header_values != headers[kind]:
                 errors.append(error(kind, 1, 'headers', '列名或顺序与标准模板不一致'))
                 continue
             changes[kind] = []
@@ -107,7 +107,7 @@ def excel_rows(content):
                 if count > MAX_ROWS:
                     return {}, [error(kind, index, 'table', '单批最多100000行')]
                 values = {}
-                for header, cell in zip(HEADERS[kind], cells):
+                for header, cell in zip(headers[kind], cells):
                     value = cell.value
                     if cell.data_type == 'f':
                         errors.append(error(kind, index, header, '不接受公式，请填写明确值'))
@@ -122,7 +122,7 @@ def excel_rows(content):
                             number *= 100
                         value = format(number.normalize(), 'f')
                     values[header] = value
-                if any(cell.value is not None for cell in cells[len(HEADERS[kind]):]):
+                if any(cell.value is not None for cell in cells[len(headers[kind]):]):
                     errors.append(error(kind, index, 'columns', '存在模板以外的列值'))
                 changes[kind].append(values | {'_row': index})
         return changes, errors
