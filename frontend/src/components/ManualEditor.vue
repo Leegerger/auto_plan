@@ -4,6 +4,7 @@ import { api } from '../api'
 import type { BusinessOperation } from '../useSharedPlan'
 import { useSharedPlan } from '../useSharedPlan'
 import ExactHours from './ExactHours.vue'
+import QuantityChange from './QuantityChange.vue'
 const props=defineProps<{shared:ReturnType<typeof useSharedPlan>}>()
 const {head,rows,plan,hourDisplay,readonly,appendOperation,check,unallocated}=props.shared
 const options=ref<{models:{code:string;name:string}[];lines:{code:string;name:string}[]}>({models:[],lines:[]})
@@ -78,6 +79,7 @@ async function discard(id:string){appendOperation({kind:'discard_unallocated',re
           <el-button native-type="submit" type="primary" :disabled="readonly">加入完整动作并预览</el-button>
         </fieldset>
       </form>
+      <QuantityChange :shared="shared" :selected="selected" :scope="scope" />
       <h3>保留的未分配投入</h3><p>余额不会自动换线、延日或舍弃；它与需求缺口分别保留。</p><table class="input-table" aria-label="未分配投入"><thead><tr><th>机种</th><th>数量</th><th>原因</th><th>处理</th></tr></thead><tbody><tr v-for="value in unallocated" :key="value.id"><td>{{value.model_code}}</td><td>{{value.quantity}}</td><td>{{value.reason}}</td><td><el-button :disabled="readonly" @click="continueInput(value)">继续选线</el-button><el-button :disabled="readonly" @click="discard(value.id)">明确舍弃</el-button></td></tr></tbody></table>
     </template>
   </section>
