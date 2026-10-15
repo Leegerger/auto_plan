@@ -6,7 +6,7 @@ import hashlib
 import json
 from pydantic import Field, model_validator, TypeAdapter
 from .input_models import InputRow, Code
-from .plan_models import Plan, ProductionSegment, RecipeSwitch, InitialRecipeState, OrdinaryIdle
+from .plan_models import Plan, ProductionSegment, RecipeSwitch, InitialRecipeState, OrdinaryIdle, CurrentDayWitness
 
 
 class ReplacePlan(InputRow):
@@ -15,6 +15,7 @@ class ReplacePlan(InputRow):
 
 
 class PatchPlan(InputRow):
+    current_day_witnesses: list[CurrentDayWitness] = Field(default_factory=list)
     kind: Literal['patch_plan']
     segments: list[ProductionSegment] = Field(default_factory=list)
     remove_segments: list[Code] = Field(default_factory=list)
@@ -57,6 +58,7 @@ def patch(plan, command, context):
         values.update({identity(row): row for row in new})
         return list(values.values())
     return Plan(
+        current_day_witnesses=merged(plan.current_day_witnesses,command.current_day_witnesses,set(),lambda r:(r.date,r.line_code)),
         segments=merged(plan.segments, command.segments, set(command.remove_segments), lambda row: row.id),
         switches=merged(plan.switches, command.switches, set(command.remove_switches), lambda row: row.id),
         initial_states=merged(plan.initial_states, command.initial_states, set(), lambda row: row.line_code),
@@ -76,6 +78,11 @@ class OperationContext:
     issues: list[dict] = field(default_factory=list)
     lineage: dict = field(default_factory=dict)
     action_id: str = ''
+    actor: str = ''
+    history: object = None
+    latest_adoption: int = 0
+    current_revision: int = 0
+    allow_past_input: bool = False
 
     def __getattr__(self,name):
         return getattr(self.snapshot,name)
@@ -104,15 +111,15 @@ def replay_result(plan, operations, context):
         if 'action_id' in raw: TypeAdapter(Code).validate_python(raw['action_id'])
         action=raw.get('action_id') or hashlib.sha256(f'{inherited.source_revision}:{ordinal}:{content}'.encode()).hexdigest()[:32]
         operation_context=OperationContext(inherited.snapshot.model_copy(update={'plan':result.plan,**result.context_updates}),
-            inherited.source_revision,deepcopy(result.unallocated),deepcopy(result.issues),deepcopy(result.lineage),action)
+            inherited.source_revision,deepcopy(result.unallocated),deepcopy(result.issues),deepcopy(result.lineage),action,inherited.actor,inherited.history,inherited.latest_adoption,inherited.current_revision,inherited.allow_past_input)
         model, apply = OPERATIONS[raw['kind']]
         value = apply(result.plan, model.model_validate({key:value for key,value in raw.items() if key!='action_id'}), operation_context)
         candidate=Plan.model_validate(value.plan if isinstance(value,ReplayResult) else value)
         if candidate!=result.plan:
             from .plans import protect
-            protect(result.plan,candidate,operation_context.snapshot)
+            protect(result.plan,candidate,operation_context.snapshot,allow_past_input=inherited.allow_past_input)
         if isinstance(value, ReplayResult):
-            if set(value.context_updates)-{'locks','preferences'}:
+            if set(value.context_updates)-{'locks','preferences','execution','reset'}:
                 raise ValueError('未知计划上下文变更')
             result.context_updates.update(value.context_updates)
             result.plan=candidate
@@ -143,3 +150,7 @@ def replay(plan, operations, context):
 from . import manual_operations  # noqa: E402,F401
 from . import quantity_operations  # noqa: E402,F401
 from . import lock_operations  # noqa: E402,F401
+
+from . import execution_operations  # noqa: E402,F401
+
+from . import reset_operations  # noqa: E402,F401

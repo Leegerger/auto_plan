@@ -44,6 +44,11 @@ class CapacityWitnessError(ValueError):
 
 
 def bounded_certificate(plan,context,scope):
+    from .execution_rules import execution_certificate
+    return execution_certificate(plan,context,scope)
+
+
+def _bounded_certificate(plan,context,scope):
     """Rebuild only authorized lines/dates; preserve all outside rows verbatim.
 
     Crossing switches and outgoing state mismatches require explicit expansion.
@@ -224,7 +229,13 @@ def append_fill(plan,command,context):
     recipe=index.models[command.model_code].recipe_code
     day=command.start_date
     allowed=False
+    from .production_time import production_date
+    from .execution_rules import confirmed_day_capacity
+    today=production_date(context.time.as_of)
     while day<=command.end_date and remaining:
+        if day<today or day==today and confirmed_day_capacity(context,command.line_code) is None:
+            allowed=True
+            day+=timedelta(days=1);continue
         capacity=index.capacity(day.strftime('%Y-%m'),recipe,command.line_code)
         if capacity['state']!='known' or not capacity['pieces']:
             day+=timedelta(days=1); continue

@@ -45,7 +45,24 @@ class OrdinaryIdle(InputRow):
     hours: Exact
 
 
+class RecipeHours(InputRow):
+    recipe_code: Code
+    hours: Exact
+
+
+class CurrentDayWitness(InputRow):
+    date: ProductionDate
+    line_code: Code
+    basis_digest: str
+    plan_digest: str
+    segments: list[ProductionSegment] = Field(default_factory=list)
+    switches: list[RecipeSwitch] = Field(default_factory=list)
+    prior_recipe_hours: list[RecipeHours] = Field(default_factory=list)
+    prior_switch_hours: Exact = '0'
+
+
 class Plan(InputRow):
+    current_day_witnesses: list[CurrentDayWitness] = Field(default_factory=list)
     segments: list[ProductionSegment] = Field(default_factory=list)
     switches: list[RecipeSwitch] = Field(default_factory=list)
     initial_states: list[InitialRecipeState] = Field(default_factory=list)
@@ -74,9 +91,35 @@ class ExecutionCoverage(InputRow):
         return value
 
 
+class ExecutionAssociation(InputRow):
+    segment_id: Code
+    quantity: Pieces
+
+
+class ExecutionAudit(InputRow):
+    action_id: str
+    actor: str
+    recorded_at: datetime
+    reason: str | None = None
+    changes: list[dict] = Field(default_factory=list)
+
+
+class CurrentDayCapacity(InputRow):
+    date: ProductionDate
+    line_code: Code
+    remaining_hours: Exact
+    current_recipe: Code
+    confirmed_at: datetime
+    basis_digest: str
+
+
 class ExecutionContext(InputRow):
     facts: list[PlanCell] = Field(default_factory=list)
     coverage: list[ExecutionCoverage] = Field(default_factory=list)
+    associations: list[ExecutionAssociation] = Field(default_factory=list)
+    association_cells: list[PlanCell] = Field(default_factory=list)
+    audit: list[ExecutionAudit] = Field(default_factory=list)
+    day_capacities: list[CurrentDayCapacity] = Field(default_factory=list)
     cutoff: datetime | None = None
 
     @field_validator('cutoff')
@@ -229,7 +272,7 @@ class RecipeCapacity(InputRow):
 class DayEvaluation(InputRow):
     date: ProductionDate
     line_code: Code
-    available_hours: Pieces
+    available_hours: Pieces | Exact
     production_hours: Hours
     switch_hours: Hours
     ordinary_idle_hours: Hours

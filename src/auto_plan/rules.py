@@ -53,26 +53,29 @@ def evaluate(snapshot: EvaluationSnapshot) -> EvaluationResult:
         if snapshot.time.window_start<=lock.date<=snapshot.time.window_end and planned[key]!=lock.quantity:
             issues.append(RuleIssue(code='locked_cell',reason=f'锁定汇总数量{lock.quantity}片，当前安排{planned[key]}片，须先显式解锁',date=lock.date,line_code=lock.line_code,model_code=lock.model_code))
 
+    from .execution_rules import capacity_plan as execution_capacity_plan, confirmed_day_capacity
+    from .production_time import production_date
+    capacity_plan=execution_capacity_plan(snapshot,issues)
     groups = defaultdict(lambda: defaultdict(list))
     daily_switch = defaultdict(Fraction)
     daily_idle_use = defaultdict(Fraction)
     idle_budget = {}
     initial_states = {}
     identifiers = set()
-    for initial in snapshot.plan.initial_states:
+    for initial in capacity_plan.initial_states:
         if initial.line_code in initial_states:
             problem('duplicate_initial_state', '线体起始 Recipe 重复', line=initial.line_code)
         initial_states[initial.line_code] = initial.recipe_code
         if initial.line_code not in index.lines or initial.recipe_code is not None and initial.recipe_code not in index.recipes:
             problem('unknown_master', '起始状态引用不存在的线体或 Recipe', line=initial.line_code)
-    for idle in snapshot.plan.ordinary_idle:
+    for idle in capacity_plan.ordinary_idle:
         key = (idle.date, idle.line_code)
         if key in idle_budget:
             problem('duplicate_idle_budget', '同日线体普通空闲重复，不能重复抵扣', day=idle.date, line=idle.line_code)
         idle_budget[key] = Fraction(idle.hours)
         if idle.line_code not in index.lines:
             problem('unknown_master', '普通空闲引用不存在的线体', day=idle.date, line=idle.line_code)
-    for segment in snapshot.plan.segments:
+    for segment in capacity_plan.segments:
         if segment.id in identifiers:
             problem('duplicate_id', '生产段或切机标识重复', segment=segment)
         identifiers.add(segment.id)
@@ -82,7 +85,7 @@ def evaluate(snapshot: EvaluationSnapshot) -> EvaluationResult:
         recipe = index.models[segment.model_code].recipe_code
         groups[(segment.date, segment.line_code)][recipe].append(segment)
     switch_results = []
-    for switch in snapshot.plan.switches:
+    for switch in capacity_plan.switches:
         if switch.id in identifiers:
             problem('duplicate_id', '生产段或切机标识重复', switch=switch)
         identifiers.add(switch.id)
@@ -109,13 +112,16 @@ def evaluate(snapshot: EvaluationSnapshot) -> EvaluationResult:
             from_recipe=switch.from_recipe, to_recipe=switch.to_recipe, duration_state=duration['state'],
             total_hours=hours(total), allocated_hours=hours(allocated), idle_hours=hours(idle), extra_hours=hours(max(total - idle, 0))))
 
-    states = analyze_recipe_states(snapshot.plan, index, problem)
+    states = analyze_recipe_states(capacity_plan, index, problem)
     endings, all_lines = states.endings, states.lines
 
     result_days = []
     all_days = set(groups) | set(daily_switch) | set(idle_budget)
     for day, line in sorted(all_days):
         availability = index.day(day, line)
+        confirmation=confirmed_day_capacity(snapshot,line) if day==production_date(snapshot.time.as_of) else None
+        if confirmation is not None:
+            availability=availability|{'available_hours':confirmation.remaining_hours}
         recipes = []
         total_hours = Fraction(0)
         for recipe, segments in sorted(groups[(day, line)].items()):
@@ -143,11 +149,11 @@ def evaluate(snapshot: EvaluationSnapshot) -> EvaluationResult:
         switch_hours = daily_switch[(day, line)]
         used_idle = daily_idle_use[(day, line)]
         reserved_idle = idle_budget.get((day, line), Fraction(0))
-        if total_hours + switch_hours > availability['available_hours']:
+        if total_hours + switch_hours > Fraction(availability['available_hours']):
             problem('day_capacity', '生产与切机占用超过日可用工时', day=day, line=line)
         if used_idle > reserved_idle:
             problem('idle_reuse', '切机使用的普通空闲超过该日唯一空闲预算，不能重复使用', day=day, line=line)
-        if total_hours + reserved_idle > availability['available_hours']:
+        if total_hours + reserved_idle > Fraction(availability['available_hours']):
             problem('idle_production_overlap', '普通空闲不能重复用于生产或来自不可用时段', day=day, line=line)
         result_days.append(DayEvaluation(date=day, line_code=line, **availability, production_hours=hours(total_hours),
             switch_hours=hours(switch_hours), ordinary_idle_hours=hours(reserved_idle), used_idle_hours=hours(used_idle),
