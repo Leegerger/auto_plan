@@ -100,12 +100,13 @@ def fixture_factory(mode,path,processes):
     return create
 
 
-def test_malformed_worker_frame_preserves_only_prior_complete_candidate(shared_client,tmp_path):
+@pytest.mark.parametrize('mode',['partial','oversized','bad_manifest'])
+def test_malformed_worker_frame_preserves_only_prior_complete_candidate(shared_client,tmp_path,mode):
     from tests.test_solver import setup
     client,plans,inputs=shared_client
     setup(inputs,[{'model_code':'M','week':'2026-10-12','quantity':1}])
     processes=[]
-    controller=install_controller(client,plans,process_factory=fixture_factory('partial',tmp_path/'owned.json',processes))
+    controller=install_controller(client,plans,process_factory=fixture_factory(mode,tmp_path/'owned.json',processes))
     try:
         identity=client.post('/auto_plan/api/jobs',json=submission()).json()['job_id']
         job=wait_job(client,identity)

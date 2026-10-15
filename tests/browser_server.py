@@ -76,5 +76,11 @@ if __name__ == '__main__':
             PlanService(plans).submit(SubmitPlan(base_revision=0,input_version=1,latest_adoption=0,operation_id=uuid4(),operations=[{'kind':'replace_plan','plan':{'segments':rows}}]),'RESET_EDITOR',now,'adopt')
             options['plan_store']=plans;options['clock']=lambda:now
             access.users['RESET_EDITOR']={'user_id':'RESET_EDITOR','roles':['editor'],'active':True}
+        if 'plan_store' in options:
+            from tests.jobs_support import MemoryJobStore
+            from auto_plan.job_process import JobController
+            jobs=MemoryJobStore(options['plan_store'],access)
+            options['job_store']=jobs
+            options['job_controller']=JobController(jobs,workers=1,clock=options['clock'])
         app = create_app(settings, store=access, input_store=inputs, authenticator=CompanyAuthentication(), **options)
         uvicorn.run(app, host='127.0.0.1', port=port, ssl_keyfile=str(key), ssl_certfile=str(cert), access_log=False)

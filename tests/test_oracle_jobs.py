@@ -222,3 +222,98 @@ def test_queue_full_rolls_back_admission_and_verify_waits_for_inflight_winner(du
     assert accepted.json()==verified.json()
     assert len(client.get('/auto_plan/api/jobs').json()['jobs'])==3
     faults.after_execute=None
+
+
+def test_acknowledged_commit_survives_pool_release_failure(durable_jobs):
+    from contextlib import contextmanager
+    client,jobs,_,_=durable_jobs
+    class ReleaseFaultPool:
+        def __init__(self,pool): self.pool=pool;self.once=True
+        @contextmanager
+        def acquire(self):
+            with self.pool.acquire() as connection:
+                yield connection
+                if self.once:
+                    self.once=False
+                    raise oracledb.OperationalError('Simulated pool cleanup acknowledgement failure')
+    jobs.pool=ReleaseFaultPool(jobs.pool)
+    body=payload(client)
+    accepted=client.post('/auto_plan/api/jobs',json=body)
+    assert accepted.status_code==200,accepted.text
+    assert accepted.json()['status']=='ACCEPTED'
+    assert client.post('/auto_plan/api/jobs/verify',json={'submission_id':body['submission_id']}).json()==accepted.json()
+    assert len(client.get('/auto_plan/api/jobs').json()['jobs'])==1
+
+
+def test_failed_precommit_rollback_acknowledgement_stays_unknown_until_void(durable_jobs):
+    from contextlib import contextmanager
+    from tests.test_oracle_plans import FaultPool,FaultConnection
+    client,jobs,_,_=durable_jobs
+    original=jobs.pool
+    class RollbackFaultConnection(FaultConnection):
+        def rollback(self):
+            self.connection.rollback()
+            raise oracledb.OperationalError('Simulated rollback acknowledgement failure')
+    class RollbackFaultPool(FaultPool):
+        @contextmanager
+        def acquire(self):
+            with self.pool.acquire() as connection:
+                yield RollbackFaultConnection(connection,self)
+    faults=RollbackFaultPool(original)
+    def fail_after_insert(statement,values):
+        if 'INSERT INTO AP_JOB (' in statement:
+            raise oracledb.OperationalError('Simulated precommit statement acknowledgement loss')
+    faults.after_execute=fail_after_insert;jobs.pool=faults
+    body=payload(client)
+    response=client.post('/auto_plan/api/jobs',json=body)
+    assert response.status_code==503 and response.json()['state']=='unknown'
+    jobs.pool=original
+    verified=client.post('/auto_plan/api/jobs/verify',json={'submission_id':body['submission_id']})
+    assert verified.status_code==200 and verified.json()['status']=='ABORTED_VOID'
+    assert client.get('/auto_plan/api/jobs').json()['jobs']==[]
+
+
+def test_claim_acknowledgement_loss_and_terminal_retry_keep_one_owned_run(durable_jobs):
+    from auto_plan.jobs import JobUnknown
+    from tests.test_oracle_plans import FaultPool
+    client,jobs,_,_=durable_jobs
+    jobs.recover_startup(NOW)
+    accepted=client.post('/auto_plan/api/jobs',json=payload(client)).json()
+    faults=FaultPool(jobs.pool);jobs.pool=faults;faults.commit_fault='after'
+    run=jobs.claim(NOW)
+    assert run['job_id']==accepted['job_id']
+    assert client.get('/auto_plan/api/jobs/'+run['job_id']).json()['state']=='running'
+    result={'solve_status':'no_candidate'}
+    faults.commit_fault='after'
+    with pytest.raises(JobUnknown):
+        jobs.finish(run['job_id'],run['run_id'],run['generation'],'completed',result,[],NOW)
+    assert jobs.finish(run['job_id'],run['run_id'],run['generation'],'completed',result,[],NOW) is True
+    assert client.get('/auto_plan/api/jobs/'+run['job_id']).json()['state']=='completed'
+    assert len(client.get('/auto_plan/api/jobs').json()['jobs'])==1
+
+
+def test_publication_ack_loss_then_terminal_fence_preserves_only_durable_candidate(durable_jobs):
+    from auto_plan.jobs import JobUnknown
+    from auto_plan.plans import PlanProblem
+    from auto_plan.solver import solve
+    from tests.test_initialization import initial_payload
+    from tests.test_oracle_plans import FaultPool
+    client,jobs,_,_=durable_jobs
+    initial=initial_payload();initial['segments']=[];initial['demands'][0]['quantity']=5;initial['reset']['models'][0]['net_balance']=0
+    assert client.post('/auto_plan/api/initialization/apply',json=initial|{'operation_id':str(uuid4())}).status_code==200
+    jobs.recover_startup(NOW)
+    identity=client.post('/auto_plan/api/jobs',json=payload(client)).json()['job_id']
+    run=jobs.claim(NOW)
+    candidate=solve(run['frozen']).candidates[0]
+    assert sum(row.quantity for row in candidate.plan.segments)==5
+    faults=FaultPool(jobs.pool);jobs.pool=faults;faults.commit_fault='after'
+    with pytest.raises(JobUnknown): jobs.publish(identity,run['run_id'],run['generation'],candidate,NOW)
+    assert jobs.finish(identity,run['run_id'],run['generation'],'interrupted',{'reason':'stop_deadline'},[],NOW)
+    job=client.get('/auto_plan/api/jobs/'+identity).json()
+    assert job['state']=='interrupted' and len(job['candidates'])==1
+    with pytest.raises(PlanProblem) as late:
+        jobs.publish(identity,run['run_id'],run['generation'],candidate,NOW)
+    assert late.value.status==409
+    reference=job['candidates'][0]
+    viewed=client.get(f"/auto_plan/api/jobs/{identity}/candidates/{reference['candidate_id']}")
+    assert sum(row['quantity'] for row in viewed.json()['candidate']['plan']['segments'])==5

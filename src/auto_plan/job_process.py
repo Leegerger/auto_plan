@@ -15,7 +15,7 @@ from threading import Event, Lock, Thread
 import time
 from .access import StoreUnavailable
 from .jobs import JobUnknown
-from .plans import PlanProblem
+from .plans import PlanProblem, PlanBusy
 from .job_codec import document, PAYLOAD_LIMIT, METADATA_LIMIT
 from .solver_process import compute_environment
 
@@ -139,6 +139,7 @@ class JobController:
         self.process_factory=process_factory or ComputeProcess
         self.accepting=False
         self.runs={}
+        self.pending_terminal={}
         self.lock=Lock()
         self.closing=Event()
         self.thread=None
@@ -188,6 +189,7 @@ class JobController:
     def _dispatch(self):
         last_cleanup=0
         while not self.closing.is_set():
+            self._reconcile_terminal()
             with self.lock: count=len(self.runs)
             if self.accepting and count<self.workers:
                 try:
@@ -210,12 +212,21 @@ class JobController:
                             continue
                         Thread(target=self._control,args=(run,),daemon=True).start()
                         Thread(target=self._consume,args=(run,),daemon=True).start()
-                except (StoreUnavailable,JobUnknown,PlanProblem): pass
+                except (StoreUnavailable,JobUnknown,PlanBusy,PlanProblem): pass
             if time.monotonic()-last_cleanup>=3600:
                 try: self.store.cleanup(self.clock())
-                except (StoreUnavailable,JobUnknown,PlanProblem): pass
+                except (StoreUnavailable,JobUnknown,PlanBusy,PlanProblem): pass
                 last_cleanup=time.monotonic()
             self.closing.wait(.1)
+
+    def _reconcile_terminal(self):
+        with self.lock: pending=list(self.pending_terminal.items())
+        for identity,transition in pending:
+            try:
+                self.store.finish(*transition)
+            except (StoreUnavailable,JobUnknown,PlanBusy): continue
+            except PlanProblem: pass  # A durable terminal/generation fence won.
+            with self.lock: self.pending_terminal.pop(identity,None)
 
     def _control(self,run):
         claim=run.claim
@@ -226,13 +237,14 @@ class JobController:
                     run.fenced=True;run.process.signal_kill();return
                 if control.get('stop_requested_at'):
                     self.signal_stop(claim['job_id'],control['stop_requested_at'])
-            except (StoreUnavailable,JobUnknown,PlanProblem): pass
+            except (StoreUnavailable,JobUnknown,PlanBusy,PlanProblem): pass
             run.finished.wait(.25)
 
     def _consume(self,run):
         claim=run.claim
         identity,token,generation=claim['job_id'],claim['run_id'],claim['generation']
         state='failed';result={'reason':'worker_exited_without_result'};manifest=[]
+        published=set()
         try:
             while True:
                 if run.fenced:
@@ -250,12 +262,15 @@ class JobController:
                     except JobUnknown:
                         # Replaying full SHA-bound content on the owned row is safe.
                         if not run.fenced: self.store.publish(identity,token,generation,candidate,self.clock())
+                    from .job_codec import digest
+                    published.add(digest(candidate.model_dump(mode='json')))
                 elif kind=='result':
                     metadata=event['result']
                     from .solver_models import SolveResult
                     SolveResult.model_validate(metadata|{'candidates':[]})
-                    manifest=event['manifest']
-                    if not isinstance(manifest,list) or len(manifest)>claim['frozen'].request.max_candidates or any(not isinstance(s,str) or len(s)!=64 for s in manifest): raise ValueError('Invalid result manifest')
+                    offered=event['manifest']
+                    if not isinstance(offered,list) or len(offered)>claim['frozen'].request.max_candidates or any(not isinstance(s,str) or len(s)!=64 for s in offered) or set(offered)-published: raise ValueError('Invalid result manifest')
+                    manifest=offered
                     state='stopped' if run.stop_deadline is not None or metadata['status']=='stopped' else 'completed'
                     result=metadata|{'solve_status':metadata['status']}
                     break
@@ -267,14 +282,24 @@ class JobController:
                     break
         except (ValueError,KeyError,TypeError):
             state='failed';result={'reason':'invalid_worker_output'}
-        except (StoreUnavailable,JobUnknown,PlanProblem):
+        except (StoreUnavailable,JobUnknown,PlanBusy,PlanProblem):
             # Unknown database state stays durable running until recovery.
             return
         finally:
             if run.interrupted: state='interrupted';result={'reason':'stop_deadline'}
             run.process.close()
-            try: self.store.finish(identity,token,generation,state,result,manifest,self.clock())
-            except (StoreUnavailable,JobUnknown,PlanProblem,ValueError): pass
+            transition=(identity,token,generation,state,result,manifest,self.clock())
+            try:
+                self.store.finish(*transition)
+            except ValueError:
+                transition=(identity,token,generation,'failed',{'reason':'invalid_worker_output'},[],self.clock())
+                try: self.store.finish(*transition)
+                except (StoreUnavailable,JobUnknown,PlanBusy):
+                    with self.lock: self.pending_terminal[identity]=transition
+                except PlanProblem: pass
+            except (StoreUnavailable,JobUnknown,PlanBusy):
+                with self.lock: self.pending_terminal[identity]=transition
+            except PlanProblem: pass
             run.finished.set()
             with self.lock: self.runs.pop(identity,None)
 
@@ -300,4 +325,4 @@ class JobController:
     def _record_shutdown(self,run):
         try:
             self.store.request_shutdown(run.claim['job_id'],run.claim['run_id'],run.claim['generation'],self.clock())
-        except (StoreUnavailable,JobUnknown,PlanProblem): pass
+        except (StoreUnavailable,JobUnknown,PlanBusy,PlanProblem): pass

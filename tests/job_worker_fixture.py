@@ -22,6 +22,10 @@ if mode!='empty_stall':
     result=solve(frozen)
     for candidate in result.candidates:
         emit({'kind':'candidate','candidate':candidate.model_dump(mode='json')})
+if mode=='bad_manifest':
+    emit({'kind':'result','result':{'status':'feasible','elapsed_seconds':0,'global_optimal':False},'manifest':['b'*64]})
+    descendant.terminate();descendant.wait()
+    raise SystemExit(0)
 if mode=='partial':
     sys.stdout.buffer.write(struct.pack('!I',500)+b'{"kind":"candidate"')
     sys.stdout.buffer.flush()

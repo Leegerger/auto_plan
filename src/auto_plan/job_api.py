@@ -12,6 +12,9 @@ router = APIRouter()
 def store(request):
     app = request.app
     if getattr(app.state, 'job_store', None) is None:
+        if not hasattr(app.state.access_store,'pool'):
+            from .access import StoreUnavailable
+            raise StoreUnavailable
         from .oracle_jobs import OracleJobStore
         from .job_process import worker_allocation
         app.state.job_store = OracleJobStore(app.state.access_store.pool,

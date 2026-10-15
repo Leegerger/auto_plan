@@ -34,25 +34,43 @@ class OracleJobStore:
         self.queue_capacity,self.worker_limit=queue_capacity,worker_limit
         self.plans=OraclePlanStore(pool)
         self.generation=None
+        self.pending_claim=None
 
     def transaction(self,action,*,uncertain=False):
-        committing=False
+        commit_attempted=False
+        commit_acknowledged=False
+        rollback_acknowledged=False
+        result=None
         try:
             with self.pool.acquire() as connection:
                 connection.call_timeout=2000
                 try:
                     with connection.cursor() as cursor:
                         result=action(cursor)
-                    committing=True
+                    commit_attempted=True
                     connection.commit()
+                    commit_acknowledged=True
                     return result
                 except BaseException:
-                    # A failed cleanup never proves the earlier commit failed.
-                    try: connection.rollback()
-                    except oracledb.Error: pass
+                    if not commit_acknowledged:
+                        try:
+                            connection.rollback()
+                            rollback_acknowledged=True
+                        except oracledb.Error:
+                            # Discard an unusable production connection. A failed
+                            # rollback never resolves the earlier transaction.
+                            discard=getattr(self.pool,'drop',None)
+                            if discard:
+                                try: discard(connection)
+                                except oracledb.Error: pass
+                            raise JobUnknown from None
                     raise
         except oracledb.Error as error:
-            if committing or uncertain: raise JobUnknown from None
+            if commit_acknowledged:
+                # A pool-release failure cannot erase an acknowledged commit.
+                return result
+            if commit_attempted or uncertain or not rollback_acknowledged:
+                raise JobUnknown from None
             if code(error) in (30006,54): raise PlanBusy from None
             raise StoreUnavailable from None
 
@@ -215,6 +233,8 @@ class OracleJobStore:
         return self.generation
 
     def claim(self,now):
+        if self.pending_claim is not None:
+            return self._resolve_claim()
         def action(cursor):
             _,generation=self.head(cursor)
             if generation!=self.generation or not generation: return None
@@ -236,8 +256,25 @@ class OracleJobStore:
             frozen=FrozenSolveInput.model_validate(decode(blob,sha))
             run=str(uuid4())
             cursor.execute("UPDATE AP_JOB SET STATE='running',GENERATION=:generation,RUN_ID=:run,STARTED_AT=:now WHERE JOB_ID=:job",generation=generation,run=run,now=now,job=identity)
-            return {'job_id':identity,'run_id':run,'generation':generation,'frozen':frozen}
-        return self.transaction(action)
+            self.pending_claim={'job_id':identity,'run_id':run,'generation':generation,'frozen':frozen}
+            return self.pending_claim
+        try:
+            result=self.transaction(action)
+            self.pending_claim=None
+            return result
+        except JobUnknown:
+            if self.pending_claim is None: raise
+            return self._resolve_claim()
+
+    def _resolve_claim(self):
+        pending=self.pending_claim
+        def action(cursor):
+            cursor.execute('SELECT STATE,RUN_ID,GENERATION FROM AP_JOB WHERE JOB_ID=:job',job=pending['job_id'])
+            row=cursor.fetchone()
+            return pending if row and tuple(row)==('running',pending['run_id'],pending['generation']) else None
+        result=self.transaction(action,uncertain=True)
+        self.pending_claim=None
+        return result
 
     def control(self,identity,run,generation,now):
         def action(cursor):
@@ -306,6 +343,13 @@ class OracleJobStore:
     def finish(self,identity,run,generation,state,result,manifest,now):
         if state not in TERMINAL: raise ValueError('Invalid terminal state')
         def action(cursor):
+            self.head(cursor)
+            cursor.execute('SELECT STATE,RUN_ID,GENERATION,RESULT_BLOB FROM AP_JOB WHERE JOB_ID=:job FOR UPDATE WAIT 10',job=identity)
+            previous=cursor.fetchone()
+            if previous and previous[0] in TERMINAL:
+                if previous[:3]==(state,run,generation) and previous[3] is not None and decode(previous[3])==result:
+                    return True
+                raise PlanProblem(409,'任务已结束，不能覆盖其持久结果')
             frozen=self._owned(cursor,identity,run,generation)
             if len(manifest)>frozen.request.max_candidates: raise ValueError('Too many offered candidates')
             if manifest:
@@ -368,4 +412,4 @@ class OracleJobStore:
                     if (candidate.snapshot,candidate.request,candidate.source_revision,candidate.input_version,candidate.latest_adoption)!=(frozen.snapshot,frozen.request,frozen.source_revision,frozen.input_version,frozen.latest_adoption): raise StoreUnavailable
             return True
         try: return self.transaction(action)
-        except ValueError: raise StoreUnavailable from None
+        except (ValueError,JobUnknown): raise StoreUnavailable from None

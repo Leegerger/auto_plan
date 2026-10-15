@@ -123,12 +123,14 @@ class MemoryJobStore:
         content=self.get_candidate(identity,cid,row[2],now)
         self.candidates[cid]=(*row[:3],now)
         return {'job_id':identity,'candidate_id':cid,'payload_sha':row[2],'candidate':content.model_dump(mode='json'),
+            'validity':{'state':'requires_recheck' if self.plans.inputs.input_version==content.input_version else 'view_only','current_input_version':self.plans.inputs.input_version},
             'proposal':{'base_revision':content.source_revision,'input_version':content.input_version,'latest_adoption':content.latest_adoption,
                 'operations':[{'kind':'apply_candidate','job_id':identity,'candidate_id':cid,'payload_sha':row[2]}]}}
 
     def finish(self,identity,run,generation,state,result,manifest,now):
         with self.lock:
             job=self.jobs[identity]
+            if job['state']==state and job.get('result')==result: return True
             if job['state']!='running' or job['run_id']!=run or generation!=self.generation: raise PlanProblem(409,'任务已中断')
             job.update(state=state,result=deepcopy(result))
             if manifest:
