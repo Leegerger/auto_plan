@@ -28,8 +28,7 @@ def rate_display(covered, demand):
         return str(value.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)) + '%'
 
 
-def output_evaluation(snapshot, index=None):
-    index = index if index is not None else InputIndex(snapshot.inputs)
+def _reconcile(snapshot, index):
     issues = []
     cells = []
     plan = defaultdict(int)
@@ -82,6 +81,11 @@ def output_evaluation(snapshot, index=None):
         cells.append(ReconciledCell(date=day, line_code=line, model_code=model,
             quantity=(actual or 0) + remaining, planned=planned, actual=actual,
             remaining=remaining, expired=expired, known=known))
+    return issues, cells
+
+
+def _output_from_cells(snapshot, cells, index):
+    issues = []
     combined = defaultdict(list)
     for cell in cells:
         if cell.quantity:
@@ -340,3 +344,13 @@ def output_evaluation(snapshot, index=None):
         on_time_rate_display=rate_display(sum(w.on_time for w in weekly), demand_total) if complete else '计算未完成')
     return {'issues': issues, 'reconciled_cells': cells, 'output_sources': sources,
             'excluded_demands': excluded_demands, 'attributions': attributions, 'weekly_results': weekly, 'confirmation_usage': usages, 'output_totals': total}
+
+
+def output_evaluation(snapshot, index=None, *, output_cache=None):
+    index = index if index is not None else InputIndex(snapshot.inputs)
+    issues, cells = _reconcile(snapshot, index)
+    output = (output_cache.evaluate(snapshot, index, cells, _output_from_cells)
+              if output_cache is not None and not issues
+              else _output_from_cells(snapshot, cells, index))
+    output['issues'] = issues + output['issues']
+    return output

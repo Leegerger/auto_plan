@@ -8,7 +8,7 @@ from .plan_models import (EvaluationSnapshot, EvaluationResult, RuleIssue, Recip
                           DayEvaluation, InitialStateEvaluation, SwitchEvaluation)
 
 
-def evaluate(snapshot: EvaluationSnapshot) -> EvaluationResult:
+def evaluate(snapshot: EvaluationSnapshot, *, output_cache=None) -> EvaluationResult:
     index = InputIndex(snapshot.inputs)
     issues: list[RuleIssue] = []
 
@@ -169,7 +169,7 @@ def evaluate(snapshot: EvaluationSnapshot) -> EvaluationResult:
                for line in sorted(all_lines)]
     valid = not any(i.severity == 'error' for i in issues)
     from .output_rules import output_evaluation
-    output = output_evaluation(snapshot, index)
+    output = output_evaluation(snapshot, index, output_cache=output_cache if not issues else None)
     issues.extend(output.pop('issues'))
     from .stability import compare_stability
     stability=compare_stability(snapshot)
