@@ -15,7 +15,18 @@ const mapping=reactive<Record<string,string>>({}), optionError=ref(''), capacity
 const fillLines=ref<{code:string;name:string}[]>([]), fillDays=ref<{date:string;line_code:string;quantity:number}[]>([])
 const currentWeek=computed(()=>head.value?.weeks?.find(value=>value.number===week.value))
 const displayLines=computed(()=>[...options.value.lines,...[...new Set(rows.value.map(row=>row.line_code))].filter(code=>!options.value.lines.some(row=>row.code===code)).map(code=>({code,name:'历史引用'}))])
-const daily=computed(()=>rows.value.filter(row=>row.date===day.value && row.line_code===line.value).sort((a,b)=>a.order-b.order))
+const cells=computed(()=>{
+  const grouped=new Map<string,typeof rows.value>()
+  for(const row of rows.value){
+    const key=`${row.date}/${row.line_code}`
+    const values=grouped.get(key)
+    if(values) values.push(row)
+    else grouped.set(key,[row])
+  }
+  for(const values of grouped.values()) values.sort((a,b)=>a.order-b.order)
+  return grouped
+})
+const daily=computed(()=>cell(day.value,line.value))
 const chosen=computed(()=>rows.value.filter(row=>selected.value.includes(row.id)))
 const sourceLines=computed(()=>[...new Set(chosen.value.map(row=>row.line_code))])
 const evaluation=computed(()=>props.shared.preview.value ?? head.value?.evaluation)
@@ -26,7 +37,7 @@ const kinds:Record<string,string>={append_fill:'追加填量',swap_segments:'交
 watch(head,value=>{ if (!value || scope.start_date) return; const first=value.weeks[0]!; scope.start_date=first.dates[0]!;scope.end_date=first.dates[6]!;form.start_date=scope.start_date;form.end_date=scope.end_date;form.target_date=scope.start_date;day.value=scope.start_date })
 watch(sourceLines,values=>values.forEach(value=>{mapping[value] ??=value}))
 onMounted(async()=>{try {options.value=await api('/inputs/options');scope.line_codes=options.value.lines.map(value=>value.code);line.value=options.value.lines[0]?.code ?? '';form.target_line=line.value} catch(e){optionError.value=e instanceof Error ? e.message : '无法读取主资料'}})
-function cell(date:string,code:string){return rows.value.filter(row=>row.date===date && row.line_code===code).sort((a,b)=>a.order-b.order)}
+function cell(date:string,code:string){return cells.value.get(`${date}/${code}`) ?? []}
 function open(date:string,code:string){day.value=date;line.value=code}
 function choose(id:string){selected.value=selected.value.includes(id) ? selected.value.filter(value=>value!==id) : [...selected.value,id]}
 async function capacities(){

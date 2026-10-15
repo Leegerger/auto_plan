@@ -36,5 +36,8 @@ if as_of.tzinfo is None:raise SystemExit('Aware fixed test time required')
 app=create_app(settings,store=access,input_store=OracleInputStore(access.pool),plan_store=plans,
     demand_store=OracleDemandStore(plans),clock=lambda:as_of)
 configure_jobs(app)
-Server(uvicorn.Config(app,host='0.0.0.0',port=8000,log_level='info',access_log=False,log_config=None,
-    ssl_keyfile='/test-tls/key.pem',ssl_certfile='/test-tls/cert.pem')).run()
+try:
+    Server(uvicorn.Config(app,host='0.0.0.0',port=8000,log_level='info',access_log=False,log_config=None,
+        ssl_keyfile='/test-tls/key.pem',ssl_certfile='/test-tls/cert.pem')).run()
+finally:
+    access.pool.pool.close(force=True)

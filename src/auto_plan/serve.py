@@ -2,7 +2,7 @@
 import asyncio
 import logging
 import os
-from threading import Event, Thread
+from threading import Thread
 import sys
 import time
 import uvicorn
@@ -15,7 +15,6 @@ class Server(uvicorn.Server):
         super().__init__(config)
         self.shutdown_deadline=None
         self.shutdown_started=None
-        self.shutdown_complete=Event()
 
     def application(self):
         app=getattr(self.config,'loaded_app',None)
@@ -38,7 +37,10 @@ class Server(uvicorn.Server):
         return self.shutdown_deadline
 
     def enforce_deadline(self):
-        if self.shutdown_complete.wait(max(0,self.shutdown_deadline-time.monotonic()-.1)): return
+        # Reserve the last two seconds of the same deadline for group reaping
+        # and container finalization, including synchronous blocked cleanup.
+        # Stay armed through asyncio runner and interpreter finalization.
+        time.sleep(max(0,self.shutdown_deadline-time.monotonic()-2))
         app=self.application()
         controller=getattr(app.state,'job_controller',None) if app else None
         # Do not wait on a DB thread/lock. Each child owns an isolated process group.
@@ -46,8 +48,8 @@ class Server(uvicorn.Server):
             for run in list(controller.runs.values()):
                 run.process.signal_kill()
             for run in list(controller.runs.values()):
-                run.process.reap(self.shutdown_deadline-.01)
-        print('ERROR auto_plan.runtime shutdown deadline reached elapsed_seconds=%.6f; startup will recover interrupted jobs' % (time.monotonic()-self.shutdown_started),flush=True)
+                run.process.reap(self.shutdown_deadline-1)
+        print('ERROR auto_plan.runtime shutdown deadline guard elapsed_seconds=%.6f; startup will recover interrupted jobs' % (time.monotonic()-self.shutdown_started),flush=True)
         os._exit(0)
 
     def handle_exit(self,sig,frame):
@@ -63,7 +65,6 @@ class Server(uvicorn.Server):
             logging.getLogger('auto_plan.runtime').error('shutdown drain deadline reached')
         else:
             logging.getLogger('auto_plan.runtime').info('shutdown completed elapsed_seconds=%.6f',time.monotonic()-self.shutdown_started)
-            self.shutdown_complete.set()
 
 
 def main():
