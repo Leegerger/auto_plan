@@ -11,7 +11,7 @@ from auto_plan.oracle_inputs import OracleInputStore
 from auto_plan.oracle_plans import OraclePlanStore
 from tests.oracle_namespace import disposable_business_namespace
 from tests.support import CompanyAuthentication
-from tests.test_plan_preview import snapshot
+from tests.test_initialization import initial_payload
 
 pytestmark = [pytest.mark.oracle, pytest.mark.skipif(os.getenv('AUTO_PLAN_TEST_ORACLE') != '1', reason='Opt-in PLAN_TEST AP_* only')]
 NOW = datetime(2026, 10, 14, tzinfo=timezone.utc)
@@ -31,10 +31,11 @@ def test_real_shared_freeze_candidate_patch_and_changed_context_guard():
                 assert client.post('/auto_plan/api/auth/login', json={'username': 'T24ADMIN', 'password': 'company-secret'}).status_code == 200
                 assert client.put('/auto_plan/api/admin/authorizations/T36EDITOR', json={'roles': ['editor']}).status_code == 200
                 assert client.post('/auto_plan/api/auth/login', json={'username': 'T36EDITOR', 'password': 'company-secret'}).status_code == 200
-                data = snapshot()['inputs']
-                data['business'] = {'demands': [{'model_code': 'M', 'week': '2026-10-12', 'quantity': 5}]}
-                changes = {key: value for section in data.values() for key, value in section.items()}
-                seeded = client.post('/auto_plan/api/inputs/apply', json={'base_version': 0, 'changes': changes})
+                initial = initial_payload()
+                initial['segments'] = []
+                initial['demands'][0]['quantity'] = 5
+                initial['reset']['models'][0]['net_balance'] = 0
+                seeded = client.post('/auto_plan/api/initialization/apply', json=initial | {'operation_id': str(uuid4())})
                 assert seeded.status_code == 200, seeded.text
                 def head():
                     response = client.get('/auto_plan/api/plans/current')
@@ -50,13 +51,13 @@ def test_real_shared_freeze_candidate_patch_and_changed_context_guard():
                 candidate = response.json()['candidates'][0]
                 assert candidate['objective'][:30] == ['0'] * 30
                 assert candidate['input_version'] == source['input_version']
-                assert head()['revision'] == 0 and head()['latest_adoption'] == 0
+                assert head()['revision'] == 1 and head()['latest_adoption'] == 0
                 # A patch replays on the server; it is not persisted by preview.
                 saved = client.post('/auto_plan/api/plans/save', json=source | {
                     'operation_id': str(uuid4()), 'pending': False, 'operations': [candidate['operation']]})
                 assert saved.status_code == 200, saved.text
                 current = head()
-                assert current['revision'] == 1 and current['latest_adoption'] == 0
+                assert current['revision'] == 2 and current['latest_adoption'] == 0
                 assert current['plan'] == candidate['plan']
                 locked = client.post('/auto_plan/api/plans/save', json=guard() | {'operation_id': str(uuid4()), 'pending': False,
                     'operations': [{'kind': 'lock_cells', 'cells': [{'date': '2026-10-15', 'line_code': 'L', 'model_code': 'M', 'quantity': 5}]}]})

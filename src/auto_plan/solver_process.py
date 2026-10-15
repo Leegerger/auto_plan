@@ -19,6 +19,14 @@ def cpu_threads(requested):
     return max(1, min(requested, max(1, available - 1)))
 
 
+def compute_environment(threads=1):
+    """Construct a native/compute environment without inherited app secrets."""
+    return {'PATH': os.defpath, 'LANG': 'C.UTF-8', 'LC_ALL': 'C.UTF-8',
+        'PYTHONPATH': str(Path(__file__).resolve().parents[1]),
+        'PYTHONHASHSEED': '0', 'PYTHONUNBUFFERED': '1', 'PYTHONDONTWRITEBYTECODE': '1',
+        'OMP_NUM_THREADS': str(threads), 'OPENBLAS_NUM_THREADS': str(threads)}
+
+
 def select(route, objectives, seconds, threads, should_stop):
     """One route child per call; stop does not depend on a solver incumbent."""
     return run({'route': route, 'objectives': objectives, 'seconds': seconds,
@@ -41,7 +49,7 @@ def run(data, should_stop):
         source.write(payload)
         source.seek(0)
         child = subprocess.Popen([sys.executable, '-m', 'auto_plan.solver_native'], stdin=source,
-            stdout=output, stderr=errors, close_fds=True)
+            stdout=output, stderr=errors, close_fds=True, env=compute_environment(data['threads']))
         start = time.monotonic()
         stopped = False
         stop_at = None

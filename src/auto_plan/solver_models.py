@@ -40,6 +40,13 @@ class FrozenSolveInput(InputRow):
         return self
 
 
+class NativeLayerBound(InputRow):
+    layer: int = Field(strict=True, ge=0, le=32)
+    native_value: Exact
+    reported_optimal: bool
+    exact_lower_bound: Exact | None = None
+
+
 class StageBound(InputRow):
     stage: str
     neighborhood: str
@@ -48,6 +55,8 @@ class StageBound(InputRow):
     lower_bound: list[Exact] | None = None
     global_proof: bool = False
     detail: str
+    route: str | None = None
+    native_layers: list[NativeLayerBound] = Field(default_factory=list)
 
 
 class Candidate(InputRow):

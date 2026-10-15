@@ -1,0 +1,409 @@
+{
+  "diagnostic": "CPU only, synthetic future start; no container/browser/Oracle SLA acceptance",
+  "dimensions": {
+    "lines": 18,
+    "models": 40,
+    "recipes": 20,
+    "days": 105
+  },
+  "empty": false,
+  "mode": "new_week",
+  "status": "feasible",
+  "seconds": 70.6159005984664,
+  "objectives": [
+    [
+      "0",
+      "0",
+      "0",
+      "0",
+      "0",
+      "0",
+      "0",
+      "0",
+      "0",
+      "0",
+      "0",
+      "0",
+      "0",
+      "0",
+      "0",
+      "0",
+      "0",
+      "0",
+      "0",
+      "0",
+      "0",
+      "0",
+      "0",
+      "0",
+      "0",
+      "0",
+      "0",
+      "0",
+      "0",
+      "0",
+      "4032",
+      "0",
+      "0"
+    ]
+  ],
+  "executable": [
+    true
+  ],
+  "events": [
+    {
+      "kind": "stage",
+      "seconds": 0.18391777202486992,
+      "stage": "eligible_start",
+      "status": "heuristic"
+    },
+    {
+      "kind": "candidate",
+      "seconds": 3.144140213727951,
+      "objective": [
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "28000",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "28000",
+        "3902",
+        "0",
+        "0"
+      ]
+    },
+    {
+      "kind": "stage",
+      "seconds": 3.157439060509205,
+      "stage": "order_before_quantity",
+      "status": "heuristic"
+    },
+    {
+      "kind": "stage",
+      "seconds": 13.689399279654026,
+      "stage": "cumulative_constructor",
+      "status": "heuristic"
+    },
+    {
+      "kind": "candidate",
+      "seconds": 18.141781359910965,
+      "objective": [
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "4032",
+        "0",
+        "0"
+      ]
+    },
+    {
+      "kind": "stage",
+      "seconds": 18.155520409345627,
+      "stage": "order_after_quantity",
+      "status": "heuristic"
+    },
+    {
+      "kind": "stage",
+      "seconds": 18.165237046778202,
+      "stage": "local_hybrid",
+      "status": "bounded_search_skipped"
+    },
+    {
+      "kind": "stage",
+      "seconds": 18.170246589928865,
+      "stage": "recipe_block:R00",
+      "status": "bounded_search_skipped"
+    },
+    {
+      "kind": "stage",
+      "seconds": 20.912399489432573,
+      "stage": "native_recipe:R00",
+      "status": "restricted_model"
+    },
+    {
+      "kind": "stage",
+      "seconds": 20.91736477613449,
+      "stage": "recipe_block:R01",
+      "status": "bounded_search_skipped"
+    },
+    {
+      "kind": "stage",
+      "seconds": 23.750165302306414,
+      "stage": "native_recipe:R01",
+      "status": "restricted_model"
+    },
+    {
+      "kind": "stage",
+      "seconds": 23.754890877753496,
+      "stage": "recipe_block:R02",
+      "status": "bounded_search_skipped"
+    },
+    {
+      "kind": "stage",
+      "seconds": 26.146481543779373,
+      "stage": "native_recipe:R02",
+      "status": "restricted_model"
+    },
+    {
+      "kind": "stage",
+      "seconds": 26.15145980194211,
+      "stage": "recipe_block:R03",
+      "status": "bounded_search_skipped"
+    },
+    {
+      "kind": "stage",
+      "seconds": 28.987511303275824,
+      "stage": "native_recipe:R03",
+      "status": "restricted_model"
+    },
+    {
+      "kind": "stage",
+      "seconds": 28.991861641407013,
+      "stage": "recipe_block:R04",
+      "status": "bounded_search_skipped"
+    },
+    {
+      "kind": "stage",
+      "seconds": 31.296528931707144,
+      "stage": "native_recipe:R04",
+      "status": "restricted_model"
+    },
+    {
+      "kind": "stage",
+      "seconds": 31.301353108137846,
+      "stage": "recipe_block:R05",
+      "status": "bounded_search_skipped"
+    },
+    {
+      "kind": "stage",
+      "seconds": 33.895077250897884,
+      "stage": "native_recipe:R05",
+      "status": "restricted_model"
+    },
+    {
+      "kind": "stage",
+      "seconds": 33.900635082274675,
+      "stage": "recipe_block:R06",
+      "status": "bounded_search_skipped"
+    },
+    {
+      "kind": "stage",
+      "seconds": 36.39680112153292,
+      "stage": "native_recipe:R06",
+      "status": "restricted_model"
+    },
+    {
+      "kind": "stage",
+      "seconds": 36.401916950941086,
+      "stage": "recipe_block:R07",
+      "status": "bounded_search_skipped"
+    },
+    {
+      "kind": "stage",
+      "seconds": 39.32729507982731,
+      "stage": "native_recipe:R07",
+      "status": "restricted_model"
+    },
+    {
+      "kind": "stage",
+      "seconds": 39.33203976228833,
+      "stage": "recipe_block:R08",
+      "status": "bounded_search_skipped"
+    },
+    {
+      "kind": "stage",
+      "seconds": 41.85088308900595,
+      "stage": "native_recipe:R08",
+      "status": "restricted_model"
+    },
+    {
+      "kind": "stage",
+      "seconds": 41.855479542165995,
+      "stage": "recipe_block:R09",
+      "status": "bounded_search_skipped"
+    },
+    {
+      "kind": "stage",
+      "seconds": 44.30634956806898,
+      "stage": "native_recipe:R09",
+      "status": "restricted_model"
+    },
+    {
+      "kind": "stage",
+      "seconds": 44.31120749935508,
+      "stage": "recipe_block:R10",
+      "status": "bounded_search_skipped"
+    },
+    {
+      "kind": "stage",
+      "seconds": 46.9793961122632,
+      "stage": "native_recipe:R10",
+      "status": "restricted_model"
+    },
+    {
+      "kind": "stage",
+      "seconds": 46.98605063557625,
+      "stage": "recipe_block:R11",
+      "status": "bounded_search_skipped"
+    },
+    {
+      "kind": "stage",
+      "seconds": 49.906468603760004,
+      "stage": "native_recipe:R11",
+      "status": "restricted_model"
+    },
+    {
+      "kind": "stage",
+      "seconds": 49.913610968738794,
+      "stage": "recipe_block:R12",
+      "status": "bounded_search_skipped"
+    },
+    {
+      "kind": "stage",
+      "seconds": 52.65310450270772,
+      "stage": "native_recipe:R12",
+      "status": "restricted_model"
+    },
+    {
+      "kind": "stage",
+      "seconds": 52.658516474068165,
+      "stage": "recipe_block:R13",
+      "status": "bounded_search_skipped"
+    },
+    {
+      "kind": "stage",
+      "seconds": 54.99084969237447,
+      "stage": "native_recipe:R13",
+      "status": "restricted_model"
+    },
+    {
+      "kind": "stage",
+      "seconds": 54.99586381018162,
+      "stage": "recipe_block:R14",
+      "status": "bounded_search_skipped"
+    },
+    {
+      "kind": "stage",
+      "seconds": 57.65249219536781,
+      "stage": "native_recipe:R14",
+      "status": "restricted_model"
+    },
+    {
+      "kind": "stage",
+      "seconds": 57.657481633126736,
+      "stage": "recipe_block:R15",
+      "status": "bounded_search_skipped"
+    },
+    {
+      "kind": "stage",
+      "seconds": 60.20002844929695,
+      "stage": "native_recipe:R15",
+      "status": "restricted_model"
+    },
+    {
+      "kind": "stage",
+      "seconds": 60.20518718659878,
+      "stage": "recipe_block:R16",
+      "status": "bounded_search_skipped"
+    },
+    {
+      "kind": "stage",
+      "seconds": 62.65766689553857,
+      "stage": "native_recipe:R16",
+      "status": "restricted_model"
+    },
+    {
+      "kind": "stage",
+      "seconds": 62.662788689136505,
+      "stage": "recipe_block:R17",
+      "status": "bounded_search_skipped"
+    },
+    {
+      "kind": "stage",
+      "seconds": 65.39020106196404,
+      "stage": "native_recipe:R17",
+      "status": "restricted_model"
+    },
+    {
+      "kind": "stage",
+      "seconds": 65.39514649286866,
+      "stage": "recipe_block:R18",
+      "status": "bounded_search_skipped"
+    },
+    {
+      "kind": "stage",
+      "seconds": 68.0291549898684,
+      "stage": "native_recipe:R18",
+      "status": "restricted_model"
+    },
+    {
+      "kind": "stage",
+      "seconds": 68.03486398607492,
+      "stage": "recipe_block:R19",
+      "status": "bounded_search_skipped"
+    },
+    {
+      "kind": "stage",
+      "seconds": 70.7857579253614,
+      "stage": "native_recipe:R19",
+      "status": "restricted_model"
+    },
+    {
+      "kind": "stage",
+      "seconds": 70.78579986467957,
+      "stage": "order_after_recipe_blocks",
+      "status": "heuristic"
+    }
+  ]
+}

@@ -7,16 +7,15 @@ Native libraries are deliberately absent from this controller.
 from collections import defaultdict
 from datetime import timedelta
 from fractions import Fraction
-from itertools import permutations
 import hashlib
 import json
 import time
 from .certificate import CertificateError
 from .input_lookup import InputIndex
 from .plan_operations import OperationContext
-from .manual_operations import bounded_certificate, _authorize_change
+from .manual_operations import _authorize_change
 from .output_rules import output_evaluation
-from .plan_models import Plan, ProductionSegment, RuleIssue
+from .plan_models import ProductionSegment, RuleIssue
 from .plans import protect, PlanProblem, effect_keys
 from .production_time import production_date
 from .rules import evaluate
@@ -51,11 +50,7 @@ def patch_operation(before, after):
 
 
 def _certificate(plan, context, scope):
-    # Execution owns current-day basis validation and the residual-hour witness.
-    try:
-        from .execution_rules import execution_certificate
-    except ImportError:
-        return bounded_certificate(plan, context, scope)
+    from .execution_rules import execution_certificate
     return execution_certificate(plan, context, scope)
 
 
@@ -75,19 +70,13 @@ class _Search:
         self.progress, self.should_stop = progress or (lambda value: None), should_stop or (lambda: False)
         self.stopped = False
         self.bounds, self.issues, self.history = [], [], []
+        self.candidate_cache = {}
         self.best, self.best_evaluation, self.best_score = None, None, None
         self.today = production_date(self.snapshot.time.as_of)
         self.locks = {(r.date, r.line_code, r.model_code): r.quantity for r in self.snapshot.locks}
-        try:
-            from .execution_rules import executed_by_segment
-            self.executed = executed_by_segment(self.snapshot.plan, self.snapshot.execution)
-        except ImportError:
-            facts = {(r.date, r.line_code, r.model_code): r.quantity for r in self.snapshot.execution.facts}
-            self.executed = {}
-            for row in sorted(self.snapshot.plan.segments, key=lambda r: (r.date, r.line_code, r.order, r.id)):
-                key = (row.date, row.line_code, row.model_code)
-                self.executed[row.id] = min(row.quantity, facts.get(key, 0))
-                facts[key] = max(0, facts.get(key, 0) - row.quantity)
+        self.original_ids = {r.id for r in self.snapshot.plan.segments}
+        from .execution_rules import executed_by_segment
+        self.executed = executed_by_segment(self.snapshot.plan, self.snapshot.execution)
 
     def check(self):
         if self.should_stop():
@@ -96,10 +85,13 @@ class _Search:
         if time.monotonic() >= self.deadline:
             raise _Finished
 
-    def stage(self, name, detail, status='heuristic', score=None, lower=None, neighborhood='authorized scope'):
+    def stage(self, name, detail, status='heuristic', score=None, lower=None, neighborhood='authorized scope', native=None, route=None):
+        layers = [{'layer': row['layer'], 'native_value': row['value'], 'reported_optimal': row['proven'],
+                   'exact_lower_bound': row['value'] if route == 'cp_sat' and row['proven'] else None}
+                  for row in (native or {}).get('stages', [])]
         bound = StageBound(stage=name, neighborhood=neighborhood, status=status,
             objective=[str(v) for v in score] if score is not None else None,
-            lower_bound=[str(v) for v in lower] if lower is not None else None, detail=detail)
+            lower_bound=[str(v) for v in lower] if lower is not None else None, detail=detail, route=route, native_layers=layers)
         self.bounds.append(bound)
         self.progress({'kind': 'stage', **bound.model_dump(mode='json')})
 
@@ -111,19 +103,31 @@ class _Search:
             return True
         if day < self.today:
             return False
-        try:
-            from .execution_rules import confirmed_day_capacity
-        except ImportError:
-            return False
+        from .execution_rules import confirmed_day_capacity
         return confirmed_day_capacity(self.snapshot, line) is not None
 
-    def witness(self, plan, *, fixed_switches=False):
+    def witness(self, plan, *, fixed_switches=False, base=None):
         self.check()
+        context, scope = self.context, self.scope
+        if base is not None:
+            old, new = {r.id: r for r in base.segments}, {r.id: r for r in plan.segments}
+            touched = [row for identity in old.keys() | new.keys() if old.get(identity) != new.get(identity)
+                for row in (old.get(identity), new.get(identity)) if row]
+            if not touched:
+                return base
+            scope = self.scope.model_copy(update={'start_date': min(r.date for r in touched),
+                'end_date': max(r.date for r in touched), 'line_codes': sorted({r.line_code for r in touched})})
+            context = OperationContext(self.snapshot.model_copy(update={'plan': base}), self.frozen.source_revision, action_id='solver')
         if fixed_switches:
             from .solver_witness import fixed_switch_certificate
             result = fixed_switch_certificate(plan, self.context, self.scope, self.request.mode == 'new_week')
         else:
-            result = _certificate(plan, self.context, self.scope)
+            try:
+                result = _certificate(plan, context, scope)
+            except (ValueError, CertificateError, PlanProblem):
+                if base is None:
+                    raise
+                result = _certificate(plan, self.context, self.scope)
             if self.request.mode == 'new_week':
                 from .solver_witness import preserve_existing
                 result = preserve_existing(result, self.context, self.scope)
@@ -135,6 +139,13 @@ class _Search:
         _authorize_change(self.snapshot.plan, plan, self.scope, self.context)
         old_rows = {r.id: r for r in self.snapshot.plan.segments}
         new_rows = {r.id: r for r in plan.segments}
+        for row in plan.segments:
+            prior = old_rows.get(row.id)
+            if row.model_code not in self.index.models or row.line_code not in self.index.lines:
+                raise ValueError('生产段引用不存在的机种或线体')
+            active = self.index.models[row.model_code].active and self.index.lines[row.line_code].active and self.index.recipes[self.index.models[row.model_code].recipe_code].active
+            if not active and (prior is None or (row.date, row.line_code, row.model_code) != (prior.date, prior.line_code, prior.model_code) or row.quantity > prior.quantity):
+                raise ValueError('停用资料不能获得新增投入或新的排程位置')
         for identity, row in old_rows.items():
             if (not self.scope.contains(row) or self.request.mode == 'new_week') and new_rows.get(identity) != row:
                 raise ValueError('范围外或新增周原有安排必须保持不变，请扩大授权范围')
@@ -148,6 +159,11 @@ class _Search:
                     raise ValueError('调整需要增加或修改范围外切机，请扩大范围')
         if plan.initial_states != self.snapshot.plan.initial_states:
             raise ValueError('计算不能改写冻结的线体起始 Recipe')
+        old_idle = {(r.date, r.line_code): r for r in self.snapshot.plan.ordinary_idle}
+        new_idle = {(r.date, r.line_code): r for r in plan.ordinary_idle}
+        for key in old_idle.keys() | new_idle.keys():
+            if old_idle.get(key) != new_idle.get(key) and (key[1] not in self.scope.line_codes or not self.scope.start_date <= key[0] <= self.scope.end_date):
+                raise ValueError('范围外或原有新增周普通空闲依据必须保持不变')
 
     def project(self, plan, model):
         """Exact per-model output ledger for generation, never publication."""
@@ -159,6 +175,8 @@ class _Search:
             'inputs': self.snapshot.inputs.model_copy(update={'business': business}),
             'execution': self.snapshot.execution.model_copy(update={'facts': [r for r in self.snapshot.execution.facts if r.model_code == model]}),
             'baseline': None})
+        if snapshot.reset is not None:
+            snapshot = snapshot.model_copy(update={'reset': snapshot.reset.model_copy(update={'models': [r for r in snapshot.reset.models if r.model_code == model]})})
         return output_evaluation(snapshot, self.index)
 
     def output_score(self, projected):
@@ -172,6 +190,11 @@ class _Search:
 
     def accept(self, plan, stage, *, prepare=False):
         self.check()
+        if not prepare and self.best is not None:
+            def inputs(candidate):
+                return sorted((r.id, r.date, r.line_code, r.model_code, r.quantity, r.order) for r in candidate.segments)
+            if inputs(plan) == inputs(self.best) and sum(s.from_recipe != s.to_recipe for s in plan.switches) == self.best_evaluation.switch_count:
+                return False
         if not prepare and not self.eligible(plan):
             return False
         try:
@@ -194,14 +217,19 @@ class _Search:
         return True
 
     def candidate(self, entry):
+        if id(entry) in self.candidate_cache:
+            return self.candidate_cache[id(entry)]
         plan, result, score, stage, bounds = entry
-        identity = hashlib.sha256(json.dumps(plan.model_dump(mode='json'), sort_keys=True).encode()).hexdigest()
-        return Candidate(id=identity, source_revision=self.frozen.source_revision, input_version=self.frozen.input_version,
+        candidate = Candidate(id='', source_revision=self.frozen.source_revision, input_version=self.frozen.input_version,
             latest_adoption=self.frozen.latest_adoption, snapshot=self.snapshot, request=self.request, plan=plan,
             operation=patch_operation(self.snapshot.plan, plan), effects=[list(r) for r in effect_keys(self.snapshot.plan, plan, self.snapshot)],
             objective=[str(v) for v in score], evaluation=result, stage_bounds=bounds or [StageBound(stage=stage,
                 neighborhood='authorized scope', status='validated', detail='完整规则已校验，没有全局最优证明')],
             eligibility='executable' if result.executable else 'pending_confirmation', tradeoff=stage)
+        content = json.dumps(candidate.model_dump(mode='json', exclude={'id'}), sort_keys=True, separators=(',', ':')).encode()
+        candidate = candidate.model_copy(update={'id': hashlib.sha256(content).hexdigest()})
+        self.candidate_cache[id(entry)] = candidate
+        return candidate
 
     def cleanup(self, plan):
         if self.request.mode == 'new_week':
@@ -270,19 +298,7 @@ class _Search:
             return self.witness(trial)
         # Generation-only day bound. A whole exact certificate and complete
         # evaluator remain mandatory before any batched proposal is accepted.
-        daily = sorted([r for r in trial.segments if r.date == day and r.line_code == line and r.quantity], key=lambda r: (r.order, r.id))
-        earlier = [r for r in trial.segments if r.line_code == line and r.date < day and r.quantity]
-        state = self.index.models[max(earlier, key=lambda r: (r.date, r.order, r.id)).model_code].recipe_code if earlier else next((r.recipe_code for r in plan.initial_states if r.line_code == line), None)
-        switch_hours = Fraction(0)
-        quantities, fixed_hours = defaultdict(int), defaultdict(Fraction)
-        old = {r.id for r in self.snapshot.plan.segments}
-        for row in daily:
-            recipe = self.index.models[row.model_code].recipe_code
-            switch_hours += Fraction(self.index.switch(state, recipe)['hours'])
-            state = recipe
-            quantities[recipe] += row.quantity
-            if not self.scope.contains(row) or self.request.mode == 'new_week' and row.id in old:
-                fixed_hours[recipe] += Fraction(row.hours)
+        quantities, fixed_hours, switch_hours = self.day_bounds(trial, day, line)
         lower = Fraction(0)
         strict = False
         for recipe, quantity in quantities.items():
@@ -297,24 +313,66 @@ class _Search:
             raise ValueError('生成阶段日容量不足')
         return trial
 
+    def day_bounds(self, trial, day, line):
+        daily = sorted([r for r in trial.segments if r.date == day and r.line_code == line and r.quantity], key=lambda r: (r.order, r.id))
+        earlier = [r for r in trial.segments if r.line_code == line and r.date < day and r.quantity]
+        state = self.index.models[max(earlier, key=lambda r: (r.date, r.order, r.id)).model_code].recipe_code if earlier else next((r.recipe_code for r in trial.initial_states if r.line_code == line), None)
+        switch_hours = Fraction(0)
+        quantities, fixed_hours = defaultdict(int), defaultdict(Fraction)
+        for row in daily:
+            recipe = self.index.models[row.model_code].recipe_code
+            switch_hours += Fraction(self.index.switch(state, recipe)['hours'])
+            state = recipe
+            quantities[recipe] += row.quantity
+            if not self.scope.contains(row) or self.request.mode == 'new_week' and row.id in self.original_ids:
+                fixed_hours[recipe] += Fraction(row.hours)
+        return quantities, fixed_hours, switch_hours
+
+    def capacity_maximum(self, plan, model, day, line, limit):
+        trial = self.add(plan, model, day, line, 1)
+        quantities, fixed_hours, switch_hours = self.day_bounds(trial, day, line)
+        target_recipe = self.index.models[model].recipe_code
+        other_lower = Fraction(0)
+        for recipe, quantity in quantities.items():
+            if recipe == target_recipe:
+                continue
+            capacity = self.index.capacity(day.strftime('%Y-%m'), recipe, line)
+            if capacity['state'] != 'known':
+                return 0
+            other_lower += max(Fraction(24 * (quantity - 1), capacity['pieces']), fixed_hours[recipe])
+        available = Fraction(self.index.day(day, line)['available_hours']) - switch_hours - other_lower
+        if available <= 0 or available < fixed_hours[target_recipe]:
+            return 0
+        exact = self.index.capacity(day.strftime('%Y-%m'), target_recipe, line)['pieces'] * available / 24
+        maximum = -(-exact.numerator // exact.denominator) - (quantities[target_recipe] - 1)
+        return max(0, min(limit, maximum))
+
     def construct(self, plan, *, on_time_only=False):
         """Allocate cumulative unmet output, using exact ledgers and capacity."""
         working = plan
         demands = sorted([r for r in self.snapshot.inputs.business.demands if r.quantity and self.snapshot.time.window_start <= r.week <= self.snapshot.time.window_end], key=lambda r: (r.week, r.model_code))
         model_scores = {model: self.output_score(self.project(working, model)) for model in {r.model_code for r in demands}}
+        if all(not any(score[:15] if on_time_only else score[15:]) for score in model_scores.values()):
+            return plan
         fast = len(demands) * (self.scope.end_date - self.scope.start_date).days * len(self.scope.line_codes) > 500
         current_week = None
+        certificate_base = plan
+        changed_since_certificate = False
         for demand in demands:
             self.check()
-            if fast and current_week is not None and demand.week != current_week:
+            if fast and changed_since_certificate and current_week is not None and demand.week != current_week:
                 try:
-                    working = self.witness(working)
+                    working = self.witness(working, base=certificate_base)
+                    certificate_base = working
+                    changed_since_certificate = False
                     self.accept(working, 'cumulative_week:' + str(current_week))
                 except (ValueError, CertificateError, PlanProblem) as error:
                     self.scope_issue(error)
             current_week = demand.week
             model = demand.model_code
             priority = (demand.week - self.snapshot.time.window_start).days // 7 + (0 if on_time_only else 15)
+            if not model_scores[model][priority]:
+                continue
             if model not in self.index.models or not self.index.models[model].active:
                 continue
             if self.scope.model_codes and model not in self.scope.model_codes:
@@ -350,9 +408,17 @@ class _Search:
                 previous = model_scores[model]
                 if not previous[priority]:
                     break
+                parameters = self.index.critical_parameters(day.strftime('%Y-%m'), model)
+                yield_rate = Fraction(parameters['line_yield']['percent']) * Fraction(parameters['model_yield']['percent']) / 10000
+                if fast and yield_rate:
+                    estimate = Fraction(previous[priority], 1) / yield_rate
+                    maximum = min(maximum, -(-estimate.numerator // estimate.denominator))
                 # Capacity bisection is independent of any demand estimate. A
                 # valid partial witness remains useful when all demand cannot fit.
                 low, high, witness = 0, maximum, None
+                if fast and day > self.today:
+                    low = high = self.capacity_maximum(working, model, day, line, maximum)
+                    witness = self.add(working, model, day, line, low) if low else None
                 while low < high:
                     amount = (low + high + 1) // 2
                     try:
@@ -391,6 +457,10 @@ class _Search:
                 # Keep the least input achieving this exact coverage, preserving
                 # necessary CT/yield rounding tails rather than nominal ceilings.
                 high, low_bound = low, 1
+                exact_unit_output = fast and yield_rate == 1 and Fraction(parameters['cycle_time']['days']).denominator == 1 and not any(batch.model_code == model for batch in self.snapshot.inputs.business.confirmations)
+                if exact_unit_output:
+                    low_bound = min(high, previous[priority] - target[priority])
+                    high = low_bound
                 while low_bound < high:
                     amount = (low_bound + high) // 2
                     trial = self.add(working, model, day, line, amount)
@@ -400,8 +470,9 @@ class _Search:
                     else:
                         low_bound = amount + 1
                 working = self.capacity_trial(working, model, day, line, low_bound, fast)
+                changed_since_certificate = True
                 model_scores[model] = self.output_score(self.project(working, model))
-        return self.witness(working) if fast else working
+        return self.witness(working, base=certificate_base) if fast and changed_since_certificate else working
 
     def eligible(self, plan):
         """Reject removable input used solely to buy a lower switch count."""
@@ -466,9 +537,16 @@ class _Search:
         built = self.construct(built)
         self.stage('cumulative_constructor', '累计需求、实际月产能与完整确认投影构造，可保留有缺口的可执行方案')
         self.accept(built, 'cumulative_constructor')
-        if self.request.mode != 'new_week':
-            # Structural reconstruction is a separate authorized proposal. It
-            # may move/delete free input while keeping locked/factual rows.
+        self.order(self.best or built, 'order_after_quantity')
+        self.local_neighborhood(self.best or built)
+        recipes = sorted({self.index.models[r.model_code].recipe_code for r in self.snapshot.inputs.business.demands if r.model_code in self.index.models})
+        for recipe in recipes:
+            self.check()
+            self.local_neighborhood(self.best or built, recipe=recipe)
+        self.order(self.best or built, 'order_after_recipe_blocks')
+        if self.request.mode != 'new_week' and any(self.mutable(r) and r.quantity > self.executed.get(r.id, 0) for r in prepared.segments):
+            # Free structural reconstruction is separate from fixed-switch
+            # quantity repair and cannot consume its entire initial budget.
             skeleton = prepared.model_copy(update={'segments': [r.model_copy(update={'quantity': self.executed[r.id]})
                 if self.mutable(r) and self.executed.get(r.id) else r for r in prepared.segments
                 if not self.mutable(r) or self.executed.get(r.id)]})
@@ -478,15 +556,9 @@ class _Search:
                 rebuilt = self.construct(rebuilt)
                 self.stage('structural_constructor', '自由日期、线体与零激活数量构造；保留锁定、事实和范围外事件')
                 self.accept(rebuilt, 'structural_constructor')
+                self.order(self.best or rebuilt, 'order_after_structure')
             except (ValueError, CertificateError, PlanProblem) as error:
                 self.scope_issue(error)
-        self.order(self.best or built, 'order_after_quantity')
-        self.local_neighborhood(self.best or built)
-        recipes = sorted({self.index.models[r.model_code].recipe_code for r in self.snapshot.inputs.business.demands if r.model_code in self.index.models})
-        for recipe in recipes:
-            self.check()
-            self.local_neighborhood(self.best or built, recipe=recipe)
-        self.order(self.best or built, 'order_after_recipe_blocks')
 
     def local_neighborhood(self, plan, recipe=None):
         from .solver_neighborhood import enumerate_local
@@ -496,8 +568,10 @@ class _Search:
         neighborhood = ('Recipe quantities with all other quantities/order/global switches fixed' if recipe is not None else 'finite free date/line/integer-quantity/daily-order domain')
         if result is None or not result:
             self.stage(stage, detail, status='bounded_search_skipped', neighborhood=neighborhood)
-            if recipe is not None and self.request.mode != 'new_week':
+            if recipe is not None:
                 self.quantity_repair(plan, recipe)
+            elif self.request.strategy != 'hybrid':
+                self.quantity_repair(plan, None)
             return
         table, scores = result
         if not table:
@@ -525,15 +599,18 @@ class _Search:
         route = self.request.strategy if self.request.strategy != 'hybrid' else 'cp_sat'
         try:
             proposed, response = repair(self, plan, recipe, route,
-                min(1, max(0.1, self.deadline - time.monotonic())))
+                min(1 if recipe is not None else 5, max(0.1, self.deadline - time.monotonic())))
             self.check()
-            self.stage('native_recipe:' + recipe,
-                'native ' + route + ': ' + response.get('status', 'failed') + '; cumulative-output relaxation; general quotas/FIFO/full33 independently checked',
-                status='restricted_relaxation', neighborhood='other Recipe quantities and all global switches fixed')
+            self.stage('native_recipe:' + recipe if recipe is not None else 'native_local',
+                'native ' + route + ': ' + response.get('status', 'failed') + '; exact oracle cuts ' + str(response.get('exact_cuts', 0)) + '; integer FIFO, dated batches, bans, largest-remainder shares and baseline objectives; native layer contributions omit fixed constants; full33 independently checked',
+                status='restricted_model', neighborhood='other Recipe quantities and all global switches fixed' if recipe is not None else 'all authorized Recipe quantities, fixed global switches', native=response, route=route)
             if proposed is not None:
-                self.accept(proposed, 'native_recipe:' + recipe)
+                self.accept(proposed, 'native_recipe:' + recipe if recipe is not None else 'native_local')
         except (ValueError, CertificateError, PlanProblem) as error:
             self.scope_issue(error)
+            self.stage('native_recipe:' + recipe if recipe is not None else 'native_local',
+                str(error), status='bounded_model_rejected',
+                neighborhood='fixed-position, fixed-switch native quantity neighborhood', route=route)
 
     def order(self, plan, name):
         from .solver_order import order_proposal

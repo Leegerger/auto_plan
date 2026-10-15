@@ -3,6 +3,7 @@ from collections import defaultdict
 from fractions import Fraction
 from .input_lookup import InputIndex
 from .production_time import production_date
+from .plan_models import OrdinaryIdle
 
 
 def preserve_existing(plan, context, scope):
@@ -22,23 +23,32 @@ def preserve_existing(plan, context, scope):
         subset = subset.model_copy(update={'switches': [documents.get(s.model_dump_json(exclude={'id'}), s) for s in subset.switches]})
         output = output.model_copy(update={'segments': [r for r in output.segments if not inside(r)] + subset.segments,
             'switches': [s for s in output.switches if not switch_inside(s)] + subset.switches})
+    used_idle = defaultdict(Fraction)
+    for switch in original.switches:
+        for allocation in switch.allocations:
+            if switch.line_code in scope.line_codes and scope.start_date <= allocation.date <= scope.end_date:
+                used_idle[allocation.date, switch.line_code] += Fraction(allocation.idle_hours)
+    retained = [r for r in output.ordinary_idle if not (r.line_code in scope.line_codes and scope.start_date <= r.date <= scope.end_date)]
+    retained.extend(OrdinaryIdle(date=day, line_code=line, hours=str(value)) for (day, line), value in used_idle.items() if value)
+    output = output.model_copy(update={'ordinary_idle': retained})
     return output
 
 
 def fixed_switch_certificate(plan, context, scope, preserve_existing=False, recipe_code=None):
     index = InputIndex(context.inputs)
     original = {r.id: r for r in context.plan.segments}
+    today = production_date(context.time.as_of)
     groups = defaultdict(list)
     for row in plan.segments:
-        if row.date <= production_date(context.time.as_of) and original.get(row.id) != row:
-            # Current-day reconstruction belongs to execution_certificate; its
-            # residual current-Recipe switch model cannot be replaced here.
-            raise ValueError('本阶段固定切机，仅修复未来数量；当天请使用完整执行工时构造')
-        groups[row.date, row.line_code, index.models[row.model_code].recipe_code].append(row)
+        # This neighborhood changes future quantities only. Earlier accepted
+        # current-day additions and their declared joint proof stay exact.
+        if row.date > today:
+            groups[row.date, row.line_code, index.models[row.model_code].recipe_code].append(row)
     switches = defaultdict(Fraction)
     for switch in plan.switches:
         for allocation in switch.allocations:
             switches[allocation.date, switch.line_code] += Fraction(allocation.hours)
+    idle = {(r.date, r.line_code): Fraction(r.hours) for r in plan.ordinary_idle}
     daily = defaultdict(list)
     for key, rows in groups.items():
         daily[key[:2]].append((key, rows))
@@ -61,7 +71,7 @@ def fixed_switch_certificate(plan, context, scope, preserve_existing=False, reci
                 if not free:
                     raise ValueError('固定安排无法满足严格容量边界')
                 needs.append(key)
-        spare = Fraction(index.day(day, line)['available_hours']) - switches[day, line] - sum(bounds.values(), Fraction(0))
+        spare = Fraction(index.day(day, line)['available_hours']) - max(switches[day, line], idle.get((day, line), Fraction(0))) - sum(bounds.values(), Fraction(0))
         if spare < 0 or needs and spare <= 0:
             raise ValueError('固定切机及其他 Recipe 后没有精确容量依据')
         margin = spare / (2 * len(needs)) if needs else Fraction(0)

@@ -8,7 +8,6 @@ from datetime import timedelta
 from fractions import Fraction
 from itertools import permutations, product
 from math import factorial
-from .plan_models import ProductionSegment
 from .solver import objective
 from .solver_witness import fixed_switch_certificate
 
@@ -17,16 +16,17 @@ def enumerate_local(search, plan, *, recipe=None, maximum=512):
     models = sorted({r.model_code for r in search.snapshot.inputs.business.demands if r.quantity
         and search.snapshot.time.window_start <= r.week <= search.snapshot.time.window_end})
     models = [m for m in models if m in search.index.models and search.index.models[m].active
+        and search.index.recipes[search.index.models[m].recipe_code].active
         and (recipe is None or search.index.models[m].recipe_code == recipe)
         and (not search.scope.model_codes or m in search.scope.model_codes)]
     fixed, templates = [], {}
     for row in plan.segments:
-        if not search.mutable(row) or search.executed.get(row.id) or recipe is not None and search.index.models[row.model_code].recipe_code != recipe or search.request.mode == 'new_week':
+        if not search.mutable(row) or search.executed.get(row.id) or recipe is not None and (row.date <= search.today or search.index.models[row.model_code].recipe_code != recipe) or search.request.mode == 'new_week' and row.id in search.original_ids:
             fixed.append(row)
         else:
             templates.setdefault((row.date, row.line_code, row.model_code), row)
     variables, count = [], 1
-    day = max(search.scope.start_date, search.today)
+    day = max(search.scope.start_date, search.today + timedelta(days=1) if recipe is not None else search.today)
     while day <= search.scope.end_date:
         for line in search.scope.line_codes:
             if not search.capacity_allowed(day, line) or line not in search.index.lines or not search.index.lines[line].active or not search.index.day(day, line)['available_hours']:
