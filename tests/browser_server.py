@@ -49,6 +49,7 @@ if __name__ == '__main__':
             options['clock'] = lambda: now
             access.users['SHARED_EDITOR']={'user_id':'SHARED_EDITOR','roles':['editor'],'active':True}
             access.users['SECOND_EDITOR']={'user_id':'SECOND_EDITOR','roles':['editor'],'active':True}
+            access.users['SHARED_VIEWER']={'user_id':'SHARED_VIEWER','roles':['viewer'],'active':True}
         if os.getenv('AUTO_PLAN_BROWSER_INITIALIZATION_FIXTURE') == '1':
             from datetime import datetime, timezone
             from tests.plan_support import MemoryPlanStore

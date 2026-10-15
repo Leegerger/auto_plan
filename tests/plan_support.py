@@ -25,6 +25,15 @@ class MemoryPlanStore:
         return self.contexts[max(eligible)].model_copy(deep=True) if eligible else PlanningContext()
     def get_revision(self,identity): return deepcopy(self.revisions[identity])
     def get_adoption(self,identity): return deepcopy(self.adoptions[identity])
+    def list_history(self,cutoff,before,limit):
+        from datetime import datetime
+        adoption_by_revision={record['revision']:number for number,record in self.adoptions.items()}
+        records=[record for number,record in sorted(self.revisions.items(),reverse=True)
+                 if number and (before is None or number<before) and
+                 (number in adoption_by_revision or datetime.fromisoformat(record['recorded_at'])>=cutoff)]
+        items=[{key:record[key] for key in ('revision','actor','kind','pending','recorded_at')}|
+               {'adoption':adoption_by_revision.get(record['revision']),'recoverable':True} for record in records[:limit]]
+        return {'items':items,'next_before':items[-1]['revision'] if len(records)>limit else None}
     def effects_since(self,revision): return {tuple(k) for number,row in self.revisions.items() if number>revision for k in row['effects']}
     def read(self,actor,action):
         with self.lock: return action(self)

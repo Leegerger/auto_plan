@@ -6,6 +6,7 @@ import ManualEditor from '../components/ManualEditor.vue'
 import LocalRecovery from '../components/LocalRecovery.vue'
 import StabilityPanel from '../components/StabilityPanel.vue'
 import ExecutionResetPanel from '../components/ExecutionResetPanel.vue'
+import HistoryPanel from '../components/HistoryPanel.vue'
 import { useSharedPlan } from '../useSharedPlan'
 const shared=useSharedPlan()
 const {head,preview,proposal,operations,selectedActions,undo,busy,unknown,pending,message,error,differences,conflict,voided,
@@ -17,12 +18,14 @@ const conflictRows=computed(()=>Array.isArray(conflict.value?.conflicts) ? confl
   return {kind:'需求归属及确认额度',model_code:key[1],week:key[2]}
 }) : [])
 const changeRows=computed(()=>Array.isArray(conflict.value?.changes) ? conflict.value.changes : [])
-const operationNames:Record<string,string>={record_execution:'累计执行事实及纠错',confirm_day_capacity:'当日剩余容量确认',weekly_reset:'每周重置及更正',lock_cells:'批量锁定',unlock_cells:'显式解锁',set_preferences:'稳定性偏好',change_quantity:'改量顺延',append_fill:'追加填量',swap_segments:'完整交换',move_segment:'移动',split_segment:'拆分',clear_segments:'清空',reorder_segments:'日内排序',copy_segments:'复制新增',overwrite_copy_segments:'覆盖复制',discard_unallocated:'舍弃指定余额'}
+const operationNames:Record<string,string>={restore_history:'恢复历史为新草稿',record_execution:'累计执行事实及纠错',confirm_day_capacity:'当日剩余容量确认',weekly_reset:'每周重置及更正',lock_cells:'批量锁定',unlock_cells:'显式解锁',set_preferences:'稳定性偏好',change_quantity:'改量顺延',append_fill:'追加填量',swap_segments:'完整交换',move_segment:'移动',split_segment:'拆分',clear_segments:'清空',reorder_segments:'日内排序',copy_segments:'复制新增',overwrite_copy_segments:'覆盖复制',discard_unallocated:'舍弃指定余额'}
 const fields:Record<string,string>={date:'生产日',line_code:'线体',model_code:'机种',recipe_code:'Recipe',quantity:'数量',hours:'精确工时',order:'顺序',from_recipe:'原Recipe',to_recipe:'目标Recipe',allocations:'切机分配',idle_hours:'使用普通空闲',id:'记录',reason:'原因',week:'需求周',batch_id:'批次',code:'检查项'}
 function operationDescription(value:Record<string,unknown>):string {
   const parts=[value.model_code,value.quantity===undefined ? '' : `${value.quantity}片`,value.line_code,value.start_date,value.end_date,value.target_date,value.target_start_date,value.target_line]
   if(Array.isArray(value.segment_ids))parts.push(`所选${value.segment_ids.length}段`)
   if(value.segment_id)parts.push('所选生产段')
+  const source=value.source as {kind:string;id:number}|undefined
+  if(value.kind==='restore_history'&&source)parts.push(`历史${source.kind==='adoption' ? '采用版' : '修订'} ${source.id}`)
   const scope=value.scope as {start_date:string;end_date:string;line_codes:string[]}|undefined
   if(scope)parts.push(`范围 ${scope.start_date} 至 ${scope.end_date}，${scope.line_codes.join('、')}`)
   return parts.filter(Boolean).join(' / ')
@@ -48,6 +51,7 @@ function display(value: unknown): string {
     <el-alert v-if="error" :title="error" type="error" :closable="false" />
     <p v-if="message" role="status">{{ message }}</p>
     <LocalRecovery :shared="shared" />
+    <HistoryPanel :shared="shared" />
     <ManualEditor :shared="shared" />
     <StabilityPanel :shared="shared" />
     <ExecutionResetPanel :shared="shared" />
