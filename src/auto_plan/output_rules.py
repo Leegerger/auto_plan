@@ -36,6 +36,11 @@ def output_evaluation(snapshot, index=None):
     for segment in snapshot.plan.segments:
         plan[(segment.date, segment.line_code, segment.model_code)] += segment.quantity
     facts = {(row.date, row.line_code, row.model_code): row.quantity for row in snapshot.execution.facts}
+    from .execution_rules import executed_by_segment
+    executed=executed_by_segment(snapshot.plan,snapshot.execution)
+    unexecuted=defaultdict(int)
+    for segment in snapshot.plan.segments:
+        unexecuted[segment.date,segment.line_code,segment.model_code]+=max(0,segment.quantity-executed.get(segment.id,0))
     today = production_date(snapshot.time.as_of)
     cutoff = snapshot.execution.cutoff
     if cutoff is not None and cutoff > snapshot.time.as_of:
@@ -72,8 +77,8 @@ def output_evaluation(snapshot, index=None):
             actual = facts[key]  # The fact is retained, while the result is blocked.
         if not known:
             issues.append(RuleIssue(code='execution_unknown', reason='执行事实或覆盖内空白为零尚未确认，不能把未知当零', severity='incomplete', date=day, line_code=line, model_code=model))
-        remaining = max(planned - (actual or 0), 0) if known and day >= today else 0
-        expired = max(planned - (actual or 0), 0) if known and day < today else 0
+        remaining = unexecuted[key] if known and day >= today else 0
+        expired = unexecuted[key] if known and day < today else 0
         cells.append(ReconciledCell(date=day, line_code=line, model_code=model,
             quantity=(actual or 0) + remaining, planned=planned, actual=actual,
             remaining=remaining, expired=expired, known=known))

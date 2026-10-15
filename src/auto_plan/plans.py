@@ -112,6 +112,11 @@ def effect_keys(before, after, context):
         if old.get(key,0) != new.get(key,0):
             day,line,model=key
             changed_models.add(model); source_dates[model].add(day); changed_lines[line].add(day)
+    old_proofs={(r.date,r.line_code):r for r in before.current_day_witnesses}
+    new_proofs={(r.date,r.line_code):r for r in after.current_day_witnesses}
+    for proof_key in old_proofs.keys()|new_proofs.keys():
+        if old_proofs.get(proof_key)!=new_proofs.get(proof_key):
+            keys.add(('CAP',proof_key[1],proof_key[0].isoformat()))
     for field in ('switches','ordinary_idle','initial_states'):
         left, right = getattr(before,field),getattr(after,field)
         if left == right:
@@ -187,38 +192,51 @@ def context_effect_keys(context,updates):
     return keys
 
 
-def protect(before, after, snapshot):
+def protect(before, after, snapshot, *, allow_past_input=False):
+    from .execution_rules import executed_by_segment
+    from .production_time import production_date
     old,new=cells(before),cells(after)
+    today=production_date(snapshot.time.as_of)
     failures=[]
+    if not allow_past_input:
+        for key,quantity in new.items():
+            if snapshot.time.window_start.isoformat()<=key[0]<today.isoformat() and quantity>old.get(key,0):
+                failures.append({'code':'past_input','date':key[0],'line_code':key[1],'model_code':key[2],'quantity':quantity-old.get(key,0)})
     for lock in snapshot.locks:
+        if not snapshot.time.window_start<=lock.date<=snapshot.time.window_end: continue
         key=(lock.date.isoformat(),lock.line_code,lock.model_code)
         if new.get(key,0)!=lock.quantity:
             failures.append({'code':'locked_cell','date':key[0],'line_code':key[1],'model_code':key[2],'quantity':lock.quantity})
-    # Executed pieces stay on their original segment identities and positions.
-    facts={(r.date.isoformat(),r.line_code,r.model_code):r.quantity for r in snapshot.execution.facts}
+    before_execution=executed_by_segment(before,snapshot.execution)
+    after_execution=executed_by_segment(after,snapshot.execution)
     by_id={s.id:s for s in after.segments}
-    assigned=defaultdict(int)
-    for segment in sorted(before.segments,key=lambda s:(s.date,s.line_code,s.order,s.id)):
-        key=(segment.date.isoformat(),segment.line_code,segment.model_code)
-        executed=min(segment.quantity,max(0,facts.get(key,0)-assigned[key])); assigned[key]+=executed
+    for segment in before.segments:
+        if not snapshot.time.window_start<=segment.date<=snapshot.time.window_end: continue
+        executed=before_execution.get(segment.id,0)
         if not executed: continue
         target=by_id.get(segment.id)
+        where={'segment_id':segment.id,'date':segment.date.isoformat(),'line_code':segment.line_code,'model_code':segment.model_code,'quantity':executed}
         if target is None or (target.date,target.line_code,target.model_code)!=(segment.date,segment.line_code,segment.model_code) or target.quantity<executed:
-            failures.append({'code':'executed_segment','segment_id':segment.id,'date':key[0],'line_code':key[1],'model_code':key[2],'quantity':executed})
-    new_assigned=defaultdict(int)
-    new_execution={}
-    for segment in sorted(after.segments,key=lambda s:(s.date,s.line_code,s.order,s.id)):
-        key=(segment.date.isoformat(),segment.line_code,segment.model_code)
-        amount=min(segment.quantity,max(0,facts.get(key,0)-new_assigned[key]))
-        new_assigned[key]+=amount; new_execution[segment.id]=amount
-    assigned=defaultdict(int)
-    for segment in sorted(before.segments,key=lambda s:(s.date,s.line_code,s.order,s.id)):
-        key=(segment.date.isoformat(),segment.line_code,segment.model_code)
-        amount=min(segment.quantity,max(0,facts.get(key,0)-assigned[key])); assigned[key]+=amount
-        if amount and new_execution.get(segment.id,0)!=amount:
-            failures.append({'code':'executed_association','segment_id':segment.id,'date':key[0],
-                             'line_code':key[1],'model_code':key[2],'quantity':amount})
-    if failures: raise PlanProblem(409,'操作会改变已执行部分或锁定数量',conflicts=failures)
+            failures.append({'code':'executed_segment',**where})
+        elif after_execution.get(segment.id,0)!=executed:
+            failures.append({'code':'executed_association',**where})
+    if failures: raise PlanProblem(409,'操作会改变已执行部分、锁定数量或在过去日新增投入',conflicts=failures)
+
+
+def execution_segments(plan,execution):
+    from .execution_rules import executed_by_segment
+    assigned=executed_by_segment(plan,execution)
+    return [{'segment_id':r.id,'executed':assigned.get(r.id,0),'remaining':max(0,r.quantity-assigned.get(r.id,0))}
+            for r in sorted(plan.segments,key=lambda r:(r.date,r.line_code,r.order,r.id))]
+
+
+def execution_surplus(plan,execution):
+    from .execution_rules import executed_by_segment
+    assigned=executed_by_segment(plan,execution)
+    used=defaultdict(int)
+    for row in plan.segments: used[row.date,row.line_code,row.model_code]+=assigned.get(row.id,0)
+    return [row.model_copy(update={'quantity':row.quantity-used[row.date,row.line_code,row.model_code]}).model_dump(mode='json')
+            for row in execution.facts if row.quantity>used[row.date,row.line_code,row.model_code]]
 
 
 class PlanService:
@@ -234,7 +252,7 @@ class PlanService:
         return EvaluationSnapshot(time=EvaluationTime.at(now),inputs=unit.inputs,plan=plan,
             execution=context.execution,reset=context.reset,locks=context.locks,baseline=baseline,preferences=context.preferences)
 
-    def _prepare(self, unit, command, now):
+    def _prepare(self, unit, command, now, actor=''):
         if command.input_version!=unit.inputs.input_version:
             try: old=unit.get_inputs(command.input_version).model_dump(mode='json')
             except KeyError: old={}
@@ -243,13 +261,14 @@ class PlanService:
                                   unit.get_context(command.input_version).model_dump(mode='json'),
                                   unit.context.model_dump(mode='json'),('context',)),
                               context=unit.context.model_dump(mode='json'))
+        initial_import=unit.revision==0 and bool(unit.context.lineage.get('external_reset'))
         try: base=unit.get_revision(command.base_revision)
         except KeyError: raise PlanProblem(409,'基准修订不存在或已超出恢复范围',revision=unit.revision) from None
         if command.base_revision>unit.revision: raise PlanProblem(409,'基准修订不存在',revision=unit.revision)
         base_plan=Plan.model_validate(base['snapshot']['plan'])
         snapshot=self._snapshot(unit,base_plan,now)
         try:
-            original_result=replay_result(base_plan,command.operations,OperationContext(snapshot,command.base_revision,base.get('unallocated',[]),base.get('operation_issues',[]),base.get('lineage',{})))
+            original_result=replay_result(base_plan,command.operations,OperationContext(snapshot,command.base_revision,base.get('unallocated',[]),base.get('operation_issues',[]),base.get('lineage',{}),actor=actor,history=unit,latest_adoption=unit.adoption,current_revision=unit.revision,allow_past_input=initial_import))
             proposed=original_result.plan
         except ValueError as error: raise PlanProblem(422,str(error)) from None
         effects=set(map(tuple,effect_keys(base_plan,proposed,snapshot)))
@@ -264,19 +283,25 @@ class PlanService:
             current=unit.get_revision(unit.revision)
             replayed=replay_result(unit.plan,command.operations,OperationContext(
                 self._snapshot(unit,unit.plan,now),command.base_revision,current.get('unallocated',[]),
-                current.get('operation_issues',[]),current.get('lineage',{})))
+                current.get('operation_issues',[]),current.get('lineage',{}),actor=actor,history=unit,latest_adoption=unit.adoption,current_revision=unit.revision,allow_past_input=initial_import))
             merged=replayed.plan
         except ValueError as error: raise PlanProblem(409,str(error)) from None
         merged_context=unit.context.model_copy(update=replayed.context_updates)
+        if {'execution','reset'}&replayed.context_updates.keys():
+            merged_context=merged_context.model_copy(update={'lineage':unit.context.lineage|replayed.lineage})
         merged_snapshot=self._snapshot(unit,merged,now).model_copy(update=replayed.context_updates)
         effects|=set(map(tuple,effect_keys(unit.plan,merged,merged_snapshot)))
         effects|=result_effect_keys(current,{'unallocated':replayed.unallocated,'operation_issues':replayed.issues},merged_snapshot)
         if effects&changed:
             raise PlanProblem(409,'合并后的关联范围已变化',revision=unit.revision,conflicts=sorted(effects&changed))
-        protect(unit.plan,merged,merged_snapshot)
+        protect(unit.plan,merged,merged_snapshot,allow_past_input=initial_import)
         result=evaluate(merged_snapshot)
         return {'revision':unit.revision,'input_version':unit.inputs.input_version,'latest_adoption':unit.adoption,
                 'context':merged_context.model_dump(mode='json'),
+                'execution_segments':execution_segments(merged,merged_snapshot.execution),
+                'execution_surplus':execution_surplus(merged,merged_snapshot.execution),
+                'reset_preview':replayed.lineage.get('reset_preview'),
+                'reset_reference':replayed.lineage.get('reset_reference'),
                 'context_changes':differences(unit.context.model_dump(mode='json'),merged_context.model_dump(mode='json')),
                 'plan':merged.model_dump(mode='json'),'snapshot':merged_snapshot.model_dump(mode='json'),'hour_display':plan_hour_display(merged),
                 'evaluation':result.model_dump(mode='json'),'effects':[list(k) for k in sorted(effects)],
@@ -288,17 +313,37 @@ class PlanService:
                 'lineage':unit.get_revision(unit.revision).get('lineage',{})|unit.context.lineage|replayed.lineage}
 
     def preview(self, command, actor, now):
-        return self.store.read(actor,lambda unit:self._prepare(unit,command,now))
+        return self.store.read(actor,lambda unit:self._prepare(unit,command,now,actor))
 
     def submit(self, command, actor, now, kind='save'):
         def action(unit):
             if kind=='adopt' and command.latest_adoption!=unit.adoption:
                 raise PlanProblem(409,'采用版已变化，请重新核对',latest_adoption=unit.adoption,revision=unit.revision)
-            prepared=self._prepare(unit,command,now)
+            prepared=self._prepare(unit,command,now,actor)
+            reference=prepared.get('reset_reference')
+            if reference and command.operations and all(r.get('kind')=='weekly_reset' for r in command.operations):
+                prepared['lineage'].pop('reset_reference',None)
+                saved=unit.append(prepared,command.operations,actor,now,'reset_reference',unit.get_revision(unit.revision).get('pending',False))
+                return saved|{'already_effective':True,**reference}
             if kind=='adopt' and (not prepared['evaluation']['executable'] or prepared['adoption_blocked']):
                 raise PlanProblem(422,'存在硬冲突、未完成计算或必要确认，不能采用',evaluation=prepared['evaluation'])
             if kind=='save' and not command.pending and (not prepared['evaluation']['executable'] or prepared['adoption_blocked']):
                 raise PlanProblem(422,'请明确保存为待处理草稿',evaluation=prepared['evaluation'])
+            if kind=='adopt' and prepared.get('reset_preview'):
+                context=PlanningContext.model_validate(prepared['context'])
+                records=context.lineage.get('resets',{})
+                key=prepared['snapshot']['time']['window_start']
+                record=records.get(key)
+                if record and record.get('draft_action'):
+                    if not record.get('effective_adoption') and record['source_adoption']!=unit.adoption:
+                        raise PlanProblem(409,'首次重置来源采用版已变化，请重新核对来源与快照',source_adoption=unit.adoption)
+                    record=record|{'effective_adoption':unit.adoption+1,'effective_revision':unit.revision+1,
+                        'first_effective_revision':record.get('first_effective_revision') or unit.revision+1,'draft_action':None}
+                    lineage=context.lineage|{'resets':records|{key:record},'reset_preview':record}
+                    context=context.model_copy(update={'lineage':lineage})
+                    prepared['context']=context.model_dump(mode='json')
+                    prepared['context_changes']=differences(unit.context.model_dump(mode='json'),prepared['context'])
+                    prepared['lineage'].update(lineage);prepared['reset_preview']=record
             if prepared['context_changes']:
                 unit.write_context(PlanningContext.model_validate(prepared['context']),actor,now)
                 prepared['input_version']=unit.inputs.input_version
@@ -325,6 +370,9 @@ class PlanService:
                     'unallocated':record.get('unallocated',[]), 'operation_issues':record.get('operation_issues',[]),
                     'lineage':record.get('lineage',{})|unit.context.lineage, 'coverage':record.get('coverage',[]),
                     'plan':unit.plan.model_dump(mode='json'),'context':unit.context.model_dump(mode='json'),
+                    'execution_segments':execution_segments(unit.plan,snapshot.execution),
+                    'execution_surplus':execution_surplus(unit.plan,snapshot.execution),
+                    'reset_preview':record.get('lineage',{}).get('reset_preview'),
                     'time':snapshot.time.model_dump(mode='json'),'hour_display':plan_hour_display(unit.plan),
                     'weeks': [{'number':week+1,'label':week_label(snapshot.time.window_start+timedelta(days=week*7)),'start_date':(snapshot.time.window_start+timedelta(days=week*7)).isoformat(),
                         'dates':[(snapshot.time.window_start+timedelta(days=week*7+day)).isoformat() for day in range(7)]} for week in range(15)],

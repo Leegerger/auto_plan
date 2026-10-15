@@ -29,14 +29,8 @@ class PendingSegment:
 
 
 def _executed_minima(plan, execution):
-    facts = {(r.date, r.line_code, r.model_code): r.quantity for r in execution.facts}
-    assigned = defaultdict(int)
-    minima = {}
-    for row in sorted(plan.segments, key=lambda r: (r.date, r.line_code, r.order, r.id)):
-        key = row.date, row.line_code, row.model_code
-        minima[row.id] = min(row.quantity, max(0, facts.get(key, 0) - assigned[key]))
-        assigned[key] += minima[row.id]
-    return minima
+    from .execution_rules import executed_by_segment
+    return executed_by_segment(plan,execution)
 
 
 def change_quantity(plan, command, context):

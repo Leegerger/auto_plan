@@ -20,7 +20,7 @@ class CertificateError(Exception):
 
 
 def construct_hour_certificate(inputs: InputSnapshot, segments: list[SourceSegment],
-                               initial_states: Sequence[InitialRecipeState] = (), *, window_start=None) -> Plan:
+                               initial_states: Sequence[InitialRecipeState] = (), *, window_start=None, day_limits=None) -> Plan:
     """Return a lossless certificate; callers still evaluate the full snapshot."""
     index = InputIndex(inputs)
     initial = {row.line_code: row.recipe_code for row in initial_states}
@@ -81,7 +81,7 @@ def construct_hour_certificate(inputs: InputSnapshot, segments: list[SourceSegme
         productive = []
         for day in dates:
             keys = [key for key in groups if key[0] == day and key[1] == line]
-            bounds.append(Fraction(index.day(day, line)['available_hours']) - sum((lower[key] for key in keys), Fraction(0)))
+            bounds.append(Fraction((day_limits or {}).get((day,line),index.day(day, line)['available_hours'])) - sum((lower[key] for key in keys), Fraction(0)))
             productive.append(any(quantities[key] for key in keys))
         jobs = []
         state = initial.get(line)
