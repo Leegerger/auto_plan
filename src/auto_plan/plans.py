@@ -1,6 +1,6 @@
 """Shared plan service: authoritative replay, dependency checks and explicit adoption."""
 from collections import defaultdict
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any
 from uuid import UUID
 from pydantic import Field
@@ -9,6 +9,13 @@ from .plan_models import (Plan, EvaluationSnapshot, EvaluationTime, ExecutionCon
                           EvaluationPreferences, ExecutionCoverage, PlanCell, AdoptedBaseline)
 from .plan_operations import replay_result, OperationContext
 from .rules import evaluate
+from .exact import hours
+from .production_time import week_label
+
+
+def plan_hour_display(plan):
+    return {'segments':{row.id:hours(row.hours).model_dump(mode='json') for row in plan.segments},
+            'switches':{row.id:[{'hours':hours(a.hours).model_dump(mode='json'),'idle_hours':hours(a.idle_hours).model_dump(mode='json')} for a in row.allocations] for row in plan.switches}}
 
 
 class PlanningContext(InputRow):
@@ -254,7 +261,7 @@ class PlanService:
         protect(unit.plan,merged,merged_snapshot)
         result=evaluate(merged_snapshot)
         return {'revision':unit.revision,'input_version':unit.inputs.input_version,'latest_adoption':unit.adoption,
-                'plan':merged.model_dump(mode='json'),'snapshot':merged_snapshot.model_dump(mode='json'),
+                'plan':merged.model_dump(mode='json'),'snapshot':merged_snapshot.model_dump(mode='json'),'hour_display':plan_hour_display(merged),
                 'evaluation':result.model_dump(mode='json'),'effects':[list(k) for k in sorted(effects)],
                 'changes':plan_differences(unit.plan.model_dump(mode='json'),merged.model_dump(mode='json')),
                 'unallocated':replayed.unallocated, 'operation_issues':replayed.issues,
@@ -297,6 +304,9 @@ class PlanService:
                     'unallocated':record.get('unallocated',[]), 'operation_issues':record.get('operation_issues',[]),
                     'lineage':record.get('lineage',{})|unit.context.lineage, 'coverage':record.get('coverage',[]),
                     'plan':unit.plan.model_dump(mode='json'),'context':unit.context.model_dump(mode='json'),
+                    'time':snapshot.time.model_dump(mode='json'),'hour_display':plan_hour_display(unit.plan),
+                    'weeks': [{'number':week+1,'label':week_label(snapshot.time.window_start+timedelta(days=week*7)),'start_date':(snapshot.time.window_start+timedelta(days=week*7)).isoformat(),
+                        'dates':[(snapshot.time.window_start+timedelta(days=week*7+day)).isoformat() for day in range(7)]} for week in range(15)],
                     'evaluation':evaluate(snapshot).model_dump(mode='json')}
         return self.store.read(actor,current)
 

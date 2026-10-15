@@ -130,3 +130,6 @@ def replay_result(plan, operations, context):
 
 def replay(plan, operations, context):
     return replay_result(plan,operations,context).plan
+
+# Load typed business commands after the replay primitives are defined.
+from . import manual_operations  # noqa: E402,F401

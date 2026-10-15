@@ -64,3 +64,50 @@ class Verification(InputRow):
 @router.post('/plans/verify')
 def verify(payload:Verification,request:Request,principal=Depends(require_editor)):
     return invoke(lambda:service(request).verify(payload.operation_id,principal.user_id,request.app.state.clock()))
+
+
+from datetime import date, timedelta
+from .input_models import Code
+from .manual_operations import EditingScope, AppendFill, append_fill
+from .plan_models import EvaluationSnapshot
+from .plan_operations import OperationContext
+from .input_lookup import InputIndex
+
+
+class FillOptions(PlanCommand):
+    model_code: Code
+    start_date: date
+    end_date: date
+    line_code: Code | None = None
+    scope: EditingScope
+
+
+@router.post('/plans/fill-options')
+def fill_options(payload:FillOptions,request:Request,principal=Depends(require_editor)):
+    planner=service(request)
+    def action(unit):
+        prepared=planner._prepare(unit,PlanCommand.model_validate(payload.model_dump(include=set(PlanCommand.model_fields))),request.app.state.clock())
+        snapshot=EvaluationSnapshot.model_validate(prepared['snapshot'])
+        index=InputIndex(snapshot.inputs)
+        if payload.model_code not in index.models or not index.models[payload.model_code].active:
+            raise PlanProblem(422,'请选择有效机种')
+        if not snapshot.time.window_start<=payload.start_date<=payload.end_date<=snapshot.time.window_end:
+            raise PlanProblem(422,'追加日期必须位于当周至第十五周')
+        dates=[payload.start_date+timedelta(days=n) for n in range((payload.end_date-payload.start_date).days+1)]
+        recipe=index.models[payload.model_code].recipe_code
+        maxima={line:sum(capacity['pieces'] for day in dates if (capacity:=index.capacity(day.strftime('%Y-%m'),recipe,line))['state']=='known')
+            for line,value in index.lines.items() if value.active}
+        lines=[{'code':line,'name':index.lines[line].name} for line,maximum in maxima.items() if maximum>0]
+        days=[]
+        if payload.line_code:
+            if payload.line_code not in {row['code'] for row in lines}:
+                raise PlanProblem(422,'所选线体在范围内没有已知且允许的正产能')
+            command=AppendFill(kind='append_fill',scope=payload.scope,model_code=payload.model_code,quantity=maxima[payload.line_code],
+                line_code=payload.line_code,start_date=payload.start_date,end_date=payload.end_date)
+            try: result=append_fill(snapshot.plan,command,OperationContext(snapshot,action_id='capacity-probe'))
+            except ValueError as error: raise PlanProblem(422,str(error)) from None
+            previous={r.id for r in snapshot.plan.segments}
+            placed={r.date:r.quantity for r in result.plan.segments if r.id not in previous}
+            days=[{'date':day.isoformat(),'line_code':payload.line_code,'quantity':placed.get(day,0)} for day in dates]
+        return {'lines':lines,'days':days,'notice':'可追加数量仅表示指定范围的精确容量；执行前须完整预览需求、保护与确认状态'}
+    return invoke(lambda:planner.store.read(principal.user_id,action))

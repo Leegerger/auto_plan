@@ -17,3 +17,12 @@
 details { margin-top: .35rem; font-size: .85rem; }
 summary { cursor: pointer; color: #236e8a; }
 .input-table input, .input-toolbar input { padding: .45rem; border: 1px solid #c8d2df; border-radius: 4px; font: inherit; max-width: 180px; }
+.weekly-grid td { padding: 0; vertical-align: top; min-width: 115px; }
+.plan-cell { display: block; width: 100%; min-height: 76px; border: 0; padding: .6rem; text-align: left; background: transparent; color: inherit; cursor: pointer; font: inherit; }
+.selected-cell { background: #e1f0f5; outline: 2px solid #236e8a; outline-offset: -2px; }
+.edit-scope, .manual-form fieldset { border: 1px solid #c8d2df; padding: 1rem; margin: 1.2rem 0; border-radius: 4px; }
+.edit-scope { display: flex; flex-wrap: wrap; gap: 1rem; align-items: start; }
+.edit-scope label { display: grid; gap: .5rem; }
+.available-fill { background: #eef8ef; }
+.queued-action { display: block; margin: .7rem 0; }
+.actions { display: flex; gap: .7rem; flex-wrap: wrap; margin: 1.5rem 0; }
