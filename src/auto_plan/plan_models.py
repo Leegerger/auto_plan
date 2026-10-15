@@ -2,7 +2,7 @@
 from datetime import datetime, timedelta
 from typing import Literal
 from pydantic import Field, field_validator
-from .input_models import InputRow, InputSnapshot, Code, Pieces, ProductionDate
+from .input_models import InputRow, InputSnapshot, Code, Pieces, ProductionDate, WeeklyDemand
 from .exact import Exact, Hours
 
 
@@ -79,6 +79,13 @@ class ExecutionContext(InputRow):
     coverage: list[ExecutionCoverage] = Field(default_factory=list)
     cutoff: datetime | None = None
 
+    @field_validator('cutoff')
+    @classmethod
+    def aware_cutoff(cls, value):
+        if value is not None and (value.tzinfo is None or value.utcoffset() is None):
+            raise ValueError('执行截止时点必须包含时区')
+        return value
+
 
 class ResetModel(InputRow):
     model_code: Code
@@ -91,6 +98,13 @@ class ResetContext(InputRow):
     production_week: ProductionDate
     cutoff: datetime
     models: list[ResetModel]
+
+    @field_validator('cutoff')
+    @classmethod
+    def aware_cutoff(cls, value):
+        if value.tzinfo is None or value.utcoffset() is None:
+            raise ValueError('重置截止时点必须包含时区')
+        return value
 
 
 class AdoptedBaseline(InputRow):
@@ -121,6 +135,10 @@ class EvaluationTime(InputRow):
     def monday(cls, value):
         if value.weekday() != 0:
             raise ValueError('排程窗口起日必须为生产周周一')
+        try:
+            value + timedelta(days=104)
+        except OverflowError:
+            raise ValueError('十五周窗口超出可表示日历范围') from None
         return value
 
     @property
@@ -154,6 +172,12 @@ class RuleIssue(InputRow):
     recipe_code: str | None = None
     segment_id: str | None = None
     switch_id: str | None = None
+    demand_week: ProductionDate | None = None
+    batch_id: str | None = None
+    source_id: str | None = None
+    input_date: ProductionDate | None = None
+    line_codes: list[Code] = Field(default_factory=list)
+    related_batch_ids: list[Code] = Field(default_factory=list)
 
 
 class RecipeCapacity(InputRow):
@@ -198,6 +222,110 @@ class InitialStateEvaluation(InputRow):
     state: Literal['known', 'unknown_initial']
 
 
+class ReconciledCell(PlanCell):
+    planned: Pieces
+    actual: Pieces | None
+    remaining: Pieces
+    expired: Pieces
+    known: bool
+
+
+class OutputPortion(InputRow):
+    date: ProductionDate
+    fraction: str
+    before_rounding: str
+    quantity: Pieces
+    unallocated: Pieces = 0
+
+
+class OutputSource(InputRow):
+    id: str
+    kind: Literal['input', 'wip']
+    model_code: Code
+    input_date: ProductionDate
+    quantity: Pieces
+    lines: list[ReconciledCell] = Field(default_factory=list)
+    yield_month: str
+    line_yield: str
+    model_yield: str
+    cycle_time: str | None
+    portions: list[OutputPortion]
+    allocated_output: Pieces = 0
+    unallocated_output: Pieces = 0
+
+
+class BatchUse(InputRow):
+    batch_id: Code
+    quantity: Pieces
+
+
+class OutputAttribution(InputRow):
+    source_id: str
+    model_code: Code
+    demand_week: ProductionDate
+    input_date: ProductionDate
+    date: ProductionDate
+    quantity: Pieces
+    source_week_output: Pieces = 0
+    apportionment_denominator: Pieces = 0
+    apportioned_input: Pieces = 0
+    input_share_exact: str = '0'
+    material_required: bool = False
+    material_input_used: Pieces = 0
+    material_input_pending: Pieces = 0
+    material_satisfied: Pieces = 0
+    pending_material: Pieces = 0
+    pending_shipping: Pieces = 0
+    forbidden_material: bool = False
+    forbidden_shipping: bool = False
+    on_time: Pieces = 0
+    late: Pieces = 0
+    material_batches: list[BatchUse] = Field(default_factory=list)
+    shipping_batches: list[BatchUse] = Field(default_factory=list)
+
+
+class WeeklyResult(InputRow):
+    computation_complete: bool = True
+    model_code: Code
+    week: ProductionDate
+    demand: Pieces
+    attributed: Pieces
+    on_time: Pieces
+    late: Pieces
+    pending_material: Pieces
+    pending_shipping: Pieces
+    pending: Pieces
+    gap: Pieces
+    on_time_rate: str | None
+    on_time_rate_display: str = '不适用'
+
+
+class ConfirmationUsage(InputRow):
+    model_code: Code
+    week: ProductionDate
+    kind: str
+    batch_id: Code
+    status: str
+    date: ProductionDate | None
+    quota: Pieces | None
+    used: Pieces
+    remaining: Pieces
+    banned: bool
+
+
+class OutputTotals(InputRow):
+    computation_complete: bool = True
+    expected: Pieces
+    outside_window: Pieces
+    unallocated: Pieces
+    on_time: Pieces
+    late: Pieces
+    pending: Pieces
+    gap: Pieces
+    on_time_rate: str | None
+    on_time_rate_display: str = '不适用'
+
+
 class EvaluationResult(InputRow):
     time: EvaluationTime
     capacity_valid: bool
@@ -208,6 +336,13 @@ class EvaluationResult(InputRow):
     switches: list[SwitchEvaluation]
     initial_states: list[InitialStateEvaluation]
     switch_count: Pieces
+    output_sources: list['OutputSource'] = Field(default_factory=list)
+    attributions: list['OutputAttribution'] = Field(default_factory=list)
+    weekly_results: list['WeeklyResult'] = Field(default_factory=list)
+    confirmation_usage: list['ConfirmationUsage'] = Field(default_factory=list)
+    reconciled_cells: list['ReconciledCell'] = Field(default_factory=list)
+    output_totals: 'OutputTotals | None' = None
+    excluded_demands: list[WeeklyDemand] = Field(default_factory=list)
 
 
 class SourcePlan(InputRow):

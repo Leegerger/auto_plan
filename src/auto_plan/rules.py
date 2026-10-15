@@ -173,7 +173,10 @@ def evaluate(snapshot: EvaluationSnapshot) -> EvaluationResult:
     initial = [InitialStateEvaluation(line_code=line, recipe_code=initial_states.get(line), state='known' if initial_states.get(line) else 'unknown_initial')
                for line in sorted(all_lines)]
     valid = not any(i.severity == 'error' for i in issues)
+    from .output_rules import output_evaluation
+    output = output_evaluation(snapshot)
+    issues.extend(output.pop('issues'))
     complete = not any(i.severity == 'incomplete' for i in issues)
-    return EvaluationResult(time=snapshot.time, capacity_valid=valid, computation_complete=complete, executable=valid and complete,
+    return EvaluationResult(time=snapshot.time, capacity_valid=valid, computation_complete=complete, executable=not any(i.severity == 'error' for i in issues) and complete,
         issues=issues, days=result_days, switches=switch_results, initial_states=initial,
-        switch_count=sum(s.from_recipe != s.to_recipe for s in snapshot.plan.switches))
+        switch_count=sum(s.from_recipe != s.to_recipe for s in snapshot.plan.switches), **output)
