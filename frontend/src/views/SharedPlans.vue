@@ -24,6 +24,8 @@ function operationDescription(value:Record<string,unknown>):string {
   const parts=[value.model_code,value.quantity===undefined ? '' : `${value.quantity}片`,value.line_code,value.start_date,value.end_date,value.target_date,value.target_start_date,value.target_line]
   if(Array.isArray(value.segment_ids))parts.push(`所选${value.segment_ids.length}段`)
   if(value.segment_id)parts.push('所选生产段')
+  const source=value.source as {kind:string;id:number}|undefined
+  if(value.kind==='restore_history'&&source)parts.push(`历史${source.kind==='adoption' ? '采用版' : '修订'} ${source.id}`)
   const scope=value.scope as {start_date:string;end_date:string;line_codes:string[]}|undefined
   if(scope)parts.push(`范围 ${scope.start_date} 至 ${scope.end_date}，${scope.line_codes.join('、')}`)
   return parts.filter(Boolean).join(' / ')

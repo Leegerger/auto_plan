@@ -39,9 +39,7 @@ test('selected history stays frozen and restoration persists only a server refer
 
 test('viewer can inspect and download history without restoration controls',async({page})=>{
   test.skip(process.env.AUTO_PLAN_BROWSER_TRANSACTIONS_FIXTURE!=='1','Requires frozen shared plan')
-  await page.request.post('/planning/api/auth/login',{headers,data:{username:'ADMIN',password:'company-secret'}})
-  expect((await page.request.put('/planning/api/admin/authorizations/HISTORY_VIEWER',{headers,data:{roles:['viewer']}})).ok()).toBeTruthy()
-  await page.request.post('/planning/api/auth/login',{headers,data:{username:'HISTORY_VIEWER',password:'company-secret'}})
+  expect((await page.request.post('/planning/api/auth/login',{headers,data:{username:'SHARED_VIEWER',password:'company-secret'}})).ok()).toBeTruthy()
   await page.goto('/planning/plans/shared')
   await expect(page.getByRole('table',{name:'历史每日投入'})).toBeVisible()
   await expect(page.getByRole('button',{name:'恢复为新草稿并预览',exact:true})).toHaveCount(0)

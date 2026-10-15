@@ -5,6 +5,7 @@ import type { useSharedPlan, Plan } from '../useSharedPlan'
 import type { OutputEvaluation } from '../outputTypes'
 import OutputResults from './OutputResults.vue'
 import ExactHours from './ExactHours.vue'
+import { categories, fieldNames } from '../inputFields'
 const props=defineProps<{shared:ReturnType<typeof useSharedPlan>}>()
 interface Item {revision:number;adoption:number|null;actor:string;recorded_at:string;kind:string;pending:boolean;recoverable:boolean}
 interface Historical {revision:number;actor:string;recorded_at:string;kind:string;pending:boolean;input_version:number;latest_adoption:number;hour_display?:{segments:Record<string,{exact:string;display:string}>};snapshot:{time:{as_of:string};plan:Plan;inputs:Record<string,Record<string,Record<string,unknown>[]>>;execution:Record<string,unknown>;reset:Record<string,unknown>|null;locks:Record<string,unknown>[];preferences:Record<string,unknown>};evaluation:OutputEvaluation}
@@ -13,7 +14,9 @@ let selectionRequest=0
 const source=computed(()=>{const [kind,id]=choice.value.split(':');return {kind:kind as 'revision'|'adoption',id:Number(id)}})
 const path=computed(()=>`/plans/${source.value.kind==='adoption' ? 'adoptions' : 'revisions'}/${source.value.id}`)
 const recordedOutput=computed(()=>{const value=selected.value?.evaluation;return value && ['output_sources','weekly_results','attributions','confirmation_usage','excluded_demands'].every(key=>Array.isArray(value[key as keyof OutputEvaluation])) ? value : null})
-const parameters=computed(()=>Object.entries(selected.value?.snapshot.inputs ?? {}).flatMap(([section,categories])=>Object.entries(categories).flatMap(([category,rows])=>Array.isArray(rows) ? rows.map(row=>({section,category,description:Object.entries(row).map(([key,value])=>`${key}: ${value ?? '未记录'}`).join('；')})) : [])))
+const names:Record<string,string>={allowed:'允许',pending:'待确认',forbidden:'整周禁令',revoked:'已撤销',material:'物料',shipping:'出货'}
+function label(value:unknown){return value===null ? '未记录' : typeof value==='boolean' ? value ? '是' : '否' : names[String(value)] ?? String(value)}
+const parameters=computed(()=>Object.entries(selected.value?.snapshot.inputs ?? {}).flatMap(([section,entries])=>Object.entries(entries).flatMap(([category,rows])=>Array.isArray(rows) ? rows.map(row=>({section,category:categories.find(entry=>entry.kind===category)?.title ?? (category==='demands' ? '周出货需求' : category),description:Object.entries(row).map(([key,value])=>`${key==='quantity'&&category==='demands' ? '需求量 (片)' : fieldNames[key] ?? key}: ${label(value)}`).join('；')})) : [])))
 async function list(more=false){
   if(!online.value)return
   busy.value=true;error.value=''
