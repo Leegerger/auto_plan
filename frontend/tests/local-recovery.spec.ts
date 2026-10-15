@@ -256,3 +256,20 @@ test('an unavailable original base retains exportable intent and does not rebase
   await expect(page.getByRole('button',{name:'导出本机稿 main JSON',exact:true})).toBeVisible()
   await expect(page.getByRole('button',{name:'重试原基准比较',exact:true})).toBeVisible()
 })
+test('changed context is compared after recovery and requires an explicit current-input recheck',async({page})=>{
+  await login(page);await append(page,'37')
+  const before=await(await page.request.get('/planning/api/plans/current')).json()
+  const preferences={...before.context.preferences,near_weeks:before.context.preferences.near_weeks===7 ? 8 : 7}
+  const changed=await page.request.post('/planning/api/plans/save',{headers,data:{
+    base_revision:before.revision,input_version:before.input_version,latest_adoption:before.latest_adoption,
+    operation_id:crypto.randomUUID(),pending:true,operations:[{kind:'set_preferences',preferences}],
+  }})
+  expect(changed.ok()).toBeTruthy()
+  await page.reload();await page.getByRole('button',{name:'恢复本机临时稿',exact:true}).click()
+  await expect(page.getByRole('table',{name:'本机恢复期间的资料变更'})).toContainText('近期周数')
+  await page.getByRole('button',{name:'预览本机修改',exact:true}).click()
+  await expect(page.getByText('输入资料已变化，请查看差异并重新预览',{exact:true})).toBeVisible()
+  await expect(page.getByRole('region',{name:'本机完整动作队列'})).toContainText('37片')
+  await page.getByRole('button',{name:'按最新资料重新预览',exact:true}).click()
+  await expect(page.getByText('预览完成，尚未共享',{exact:true})).toBeVisible()
+})

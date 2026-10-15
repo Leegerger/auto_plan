@@ -7,6 +7,8 @@ function display(value:unknown):string{
   if(typeof value==='object')return Object.entries(value).map(([key,item])=>`${key} ${display(item)}`).join('；')
   return String(value)
 }
+const names:Record<string,string>={context:'执行与保护',locks:'数量锁',execution:'实绩',coverage:'执行覆盖',reset:'重置',preferences:'稳定性偏好',near_weeks:'近期周数',near_tolerance_percent:'近期容忍百分比',far_tolerance_percent:'远期容忍百分比',near_week_weight:'近期权重',far_week_weight:'远期权重',input_version:'输入版本',parameters:'参数',masters:'主资料',business:'需求与确认',calendar:'日历',capacities:'产能',line_yields:'线体良率',model_yields:'机种良率',cycle_times:'CT',switch_durations:'切机时间',demands:'需求',confirmations:'确认批次'}
+function path(value:unknown):string{return Array.isArray(value) ? value.map(item=>names[String(item)] ?? String(item)).join(' / ') : display(value)}
 const props=defineProps<{shared:ReturnType<typeof useSharedPlan>}>()
 const {recoveryChanges,recoveryInputChanges,recoveryCompareError,localDraftId,localState,localWarning,recoveryRecords,recoveryCandidate,recoveryDifferences,ownsDraft,leaseIssue,busy,unknown,editor}=props.shared
 </script>
@@ -33,7 +35,7 @@ const {recoveryChanges,recoveryInputChanges,recoveryCompareError,localDraftId,lo
       <el-table-column label="原共享值"><template #default="{row}">{{display(row.before)}}</template></el-table-column><el-table-column label="最新共享值"><template #default="{row}">{{display(row.after)}}</template></el-table-column>
     </el-table>
     <el-table v-if="recoveryInputChanges.length" :data="recoveryInputChanges" role="table" aria-label="本机恢复期间的资料变更">
-      <el-table-column prop="path" label="资料或上下文"/><el-table-column label="原值"><template #default="{row}">{{display(row.before)}}</template></el-table-column><el-table-column label="最新值"><template #default="{row}">{{display(row.after)}}</template></el-table-column>
+      <el-table-column label="资料或上下文"><template #default="{row}">{{path(row.path)}}</template></el-table-column><el-table-column label="原值"><template #default="{row}">{{display(row.before)}}</template></el-table-column><el-table-column label="最新值"><template #default="{row}">{{display(row.after)}}</template></el-table-column>
     </el-table>
     <p v-if="recoveryDifferences.length">恢复后尚未共享。预览使用原版本，遇到关联变更会保留动作并列出差异；按最新资料重新预览须由你明确选择。</p>
     <div class="actions">

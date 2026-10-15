@@ -18,3 +18,15 @@ def test_recovery_comparison_shows_current_shared_and_input_changes_without_reba
     assert compared['input_changes'] == [{'path': ['input_version'], 'before': 1, 'after': 2}]
     assert client.get('/auto_plan/api/plans/current').json()['revision'] == 2
     assert client.get('/auto_plan/api/plans/compare', params={'base_revision': -1, 'input_version': 1}).status_code == 422
+
+
+def test_recovery_comparison_includes_context_changes_in_the_complete_input_epoch(shared_client):
+    client, _, _ = shared_client
+    assert post(client, 'save', command(patch(row()))).status_code == 200
+    lock={'date':'2026-10-15','line_code':'L','model_code':'M','quantity':100}
+    locked=post(client, 'save', command({'kind':'lock_cells','cells':[lock]}, base=1))
+    assert locked.status_code == 200, locked.text
+    compared=client.get('/auto_plan/api/plans/compare', params={'base_revision':1,'input_version':1}).json()
+    assert compared['revision'] == 2
+    assert compared['input_version'] == 2
+    assert {'path':['context','locks'],'before':[],'after':[lock]} in compared['input_changes']
