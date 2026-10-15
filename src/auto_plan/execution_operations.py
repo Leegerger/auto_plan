@@ -21,6 +21,8 @@ class RecordExecution(InputRow):
 
 
 def record_execution(plan,command,context):
+    if command.cutoff is not None and (command.cutoff.tzinfo is None or command.cutoff.utcoffset() is None):
+        raise ValueError('执行截止时点必须包含时区')
     execution=context.execution.model_copy(deep=True)
     key=lambda r:(r.date,r.line_code,r.model_code)
     rows={key(r):r for r in execution.facts}
@@ -37,45 +39,71 @@ def record_execution(plan,command,context):
         correction|=old is not None
         changes.append({'family':'fact','before':old.model_dump(mode='json') if old else None,'after':row.model_dump(mode='json')})
         rows[key(row)]=row
-    if command.associations is not None and command.associations!=execution.associations:
-        correction=True
-        changes.append({'family':'associations','before':[r.model_dump(mode='json') for r in execution.associations],
-                        'after':[r.model_dump(mode='json') for r in command.associations]})
+    changed_cells={key(row) for row in command.rows if rows[key(row)]!=next((r for r in context.execution.facts if key(r)==key(row)),None)}
+    associations=execution.associations
+    if command.associations is not None:
         identities=[r.segment_id for r in command.associations]
         segments={r.id:r for r in plan.segments}
-        if len(identities)!=len(set(identities)) or set(identities)-segments.keys(): raise ValueError('分段关联重复或生产段已不存在')
+        historical={r.segment_id:r for r in execution.associations if r.segment_id not in segments}
+        if len(identities)!=len(set(identities)) or any(r.segment_id not in segments and historical.get(r.segment_id)!=r for r in command.associations):
+            raise ValueError('分段关联重复或生产段已不存在')
         totals=defaultdict(int)
         for association in command.associations:
+            if association.segment_id not in segments: continue
             segment=segments[association.segment_id]
             if association.quantity>segment.quantity: raise ValueError('分段执行关联超过该段投入数量')
             totals[key(segment)]+=association.quantity
-        for cell,total in totals.items():
-            expected=min(rows[cell].quantity,sum(r.quantity for r in plan.segments if key(r)==cell)) if cell in rows else -1
-            if total!=expected: raise ValueError('分段执行关联必须完整保留累计事实对应的计划内总量，超计划量另列')
-        execution=execution.model_copy(update={'associations':command.associations})
-    changed_cells={key(row) for row in command.rows if rows[key(row)]!=next((r for r in context.execution.facts if key(r)==key(row)),None)}
-    if changed_cells and command.associations is None:
+        from .execution_rules import executed_by_segment
+        assigned=executed_by_segment(plan,context.execution)
+        prior=defaultdict(int);planned=defaultdict(int)
+        for segment in plan.segments:
+            prior[key(segment)]+=assigned.get(segment.id,0)
+            planned[key(segment)]+=segment.quantity
+        old_cells={key(r) for r in context.execution.facts}
+        for cell in rows.keys()|totals.keys():
+            actual=rows[cell].quantity if cell in rows else 0
+            minimum=min(actual,prior[cell] if cell in old_cells else planned[cell])
+            if not minimum<=totals[cell]<=min(actual,planned[cell]):
+                raise ValueError('分段执行关联必须保留已确认计划内总量，且不能超过累计事实或分段投入总量；超计划量另列')
+        associations=command.associations+[r for identity,r in historical.items() if identity not in identities]
+        correction|=sorted(associations,key=lambda r:r.segment_id)!=sorted(execution.associations,key=lambda r:r.segment_id)
+    elif changed_cells:
         associations=[r for r in execution.associations if not any(s.id==r.segment_id and key(s) in changed_cells for s in plan.segments)]
-        for cell in changed_cells:
+        for cell in sorted(changed_cells):
             remaining=rows[cell].quantity
             for segment in sorted([r for r in plan.segments if key(r)==cell],key=lambda r:(r.order,r.id)):
                 quantity=min(segment.quantity,remaining);remaining-=quantity
                 associations.append(ExecutionAssociation(segment_id=segment.id,quantity=quantity))
-        execution=execution.model_copy(update={'associations':associations})
+    associations=sorted(associations,key=lambda r:r.segment_id)
+    if associations!=sorted(execution.associations,key=lambda r:r.segment_id):
+        changes.append({'family':'associations','before':[r.model_dump(mode='json') for r in execution.associations],
+                        'after':[r.model_dump(mode='json') for r in associations]})
+    execution=execution.model_copy(update={'associations':associations})
     associated={key(r):r for r in execution.association_cells}
     associated.update({cell:rows[cell] for cell in changed_cells})
     if command.associations is not None:
         for association in command.associations:
-            segment=next(r for r in plan.segments if r.id==association.segment_id)
+            segment=next((r for r in plan.segments if r.id==association.segment_id),None)
+            if segment is None: continue
+            if key(segment) not in rows: raise ValueError('分段执行关联须对应已登记的累计事实')
             associated[key(segment)]=rows[key(segment)]
     execution=execution.model_copy(update={'association_cells':list(associated.values())})
-    if correction and not (command.reason and command.reason.strip()): raise ValueError('纠错必须填写原因')
     execution=execution.model_copy(update={'facts':list(rows.values())})
     for field in ('coverage','cutoff'):
         value=getattr(command,field)
         if value is not None and value!=getattr(execution,field):
-            changes.append({'family':field,'before':str(getattr(execution,field)),'after':str(value)})
+            old=getattr(execution,field)
+            if field=='cutoff': correction|=old is not None and value<old
+            elif old:
+                def covered(day,line,model,coverages):
+                    return any(r.blanks_are_zero and r.start_date<=day<=r.end_date and line in r.line_codes and model in r.model_codes for r in coverages)
+                from datetime import timedelta
+                correction|=any(not covered(r.start_date+timedelta(days=n),line,model,value)
+                    for r in old if r.blanks_are_zero for n in range((r.end_date-r.start_date).days+1) for line in r.line_codes for model in r.model_codes)
+            serialized=lambda v:[r.model_dump(mode='json') for r in v] if isinstance(v,list) else v.isoformat() if v else None
+            changes.append({'family':field,'before':serialized(old),'after':serialized(value)})
             execution=execution.model_copy(update={field:value})
+    if correction and not (command.reason and command.reason.strip()): raise ValueError('纠错必须填写原因')
     if execution.cutoff is not None:
         if execution.cutoff.tzinfo is None or execution.cutoff.utcoffset() is None or execution.cutoff>context.time.as_of:
             raise ValueError('执行截止时点必须包含时区且不晚于计算时点')
@@ -89,13 +117,17 @@ def record_execution(plan,command,context):
     for week,record in records.items():
         if not record.get('effective_adoption'): continue
         affected=[change for change in changes if change.get('family')=='fact' and change.get('after',{}).get('date','9999')<week]
-        association_change=any(change.get('family')=='associations' for change in changes)
-        earlier_association=association_change and any(r.date.isoformat()<week for r in plan.segments if any(a.segment_id==r.id for a in execution.associations))
+        prior_associations={r.segment_id:r.quantity for r in context.execution.associations}
+        new_associations={r.segment_id:r.quantity for r in execution.associations}
+        changed_associations={identity for identity in prior_associations.keys()|new_associations.keys() if prior_associations.get(identity)!=new_associations.get(identity)}
+        earlier_association=any(r.date.isoformat()<week for r in plan.segments if r.id in changed_associations)
         coverage_change=any(change.get('family') in {'coverage','cutoff'} for change in changes) and any(c.start_date.isoformat()<week for c in execution.coverage)
         if affected or earlier_association or coverage_change:
             records[week]=record|{'pending_review':True,'review_action':context.action_id}
             issues.append({'id':'reset-review-'+week,'code':'reset_pending_review','week':week,'reason':'重置截止前的执行事实已纠错，请重新确认同批在制品与最终净余额','blocks_adoption':True})
-    if issues:
+    if records:
+        from .reset_operations import refresh_targets
+        records={week:refresh_targets(record,plan,execution,context.time,lines) for week,record in records.items()}
         lineage={'resets':records}
         current=context.lineage.get('reset_preview')
         if current: lineage['reset_preview']=records.get(current['production_week'],current)

@@ -59,6 +59,7 @@ class CurrentDayWitness(InputRow):
     switches: list[RecipeSwitch] = Field(default_factory=list)
     prior_recipe_hours: list[RecipeHours] = Field(default_factory=list)
     prior_switch_hours: Exact = '0'
+    prior_switches: list[RecipeSwitch] = Field(default_factory=list)
 
 
 class Plan(InputRow):

@@ -42,6 +42,43 @@ def _known(execution,day,line,model,now):
         c.blanks_are_zero and c.start_date<=day<=c.end_date and line in c.line_codes and model in c.model_codes for c in execution.coverage)
 
 
+def _actual_known(execution,model,week,lines,now):
+    last=min(production_date(now),week+timedelta(days=6))
+    day=week
+    while day<=last:
+        if not all(_known(execution,day,line,model,now) for line in lines): return False
+        day+=timedelta(days=1)
+    return True
+
+
+def refresh_targets(record,plan,execution,time,lines):
+    record=deepcopy(record);today=production_date(time.as_of)
+    if record.get('production_week')!=time.window_start.isoformat(): return record
+    for target in record.get('targets',[]):
+        model=target['model_code'];week=date.fromisoformat(target['week'])
+        known=_actual_known(execution,model,week,lines,time.as_of)
+        placed=_valid_remaining(plan,execution,model,week,today)
+        if not known:
+            target.update(actual=None,actual_known=False,remaining_target=None,planned_remaining=placed,
+                actual_over_target=None,unmet_increase=None,unmet_reduction=None)
+            continue
+        actual=sum(r.quantity for r in execution.facts if r.model_code==model and production_week(r.date)==week)
+        remaining=max(0,target['target']-actual)
+        target.update(actual=actual,actual_known=True,remaining_target=remaining,planned_remaining=placed,
+            actual_over_target=max(0,actual-target['target']),unmet_increase=max(0,remaining-placed),unmet_reduction=max(0,placed-remaining))
+    return record
+
+
+def refresh_lineage(lineage,plan,snapshot):
+    lineage=deepcopy(lineage)
+    record=lineage.get('resets',{}).get(snapshot.time.window_start.isoformat())
+    if record:
+        record=refresh_targets(record,plan,snapshot.execution,snapshot.time,{r.code for r in snapshot.inputs.masters.lines})
+        lineage['resets'][record['production_week']]=record
+        lineage['reset_preview']=record
+    return lineage
+
+
 def _week_covered(source,coverage,model,week,lines):
     return all(any(c.blanks_are_zero and c.start_date<=week+timedelta(days=n)<=c.end_date and line in c.line_codes and model in c.model_codes for c in coverage)
                for n in range(7) for line in lines)
@@ -76,6 +113,7 @@ def _valid_remaining(plan,execution,model,week,today):
 
 
 def _reduce(plan,amount,model,week,command,context):
+    from .plans import PlanProblem
     today=production_date(context.time.as_of)
     while amount:
         assigned=executed_by_segment(plan,context.execution)
@@ -89,7 +127,7 @@ def _reduce(plan,amount,model,week,command,context):
             candidate=plan.model_copy(update={'segments':[r.model_copy(update={'quantity':r.quantity-take}) if r.id==row.id else r for r in plan.segments if r.id!=row.id or r.quantity>take]},deep=True)
             local=command.scope.model_copy(update={'start_date':max(today,week,command.scope.start_date),'end_date':min(week+timedelta(days=6),command.scope.end_date),'line_codes':[row.line_code]})
             try: candidate=_witness(plan,candidate,context,local,command.snapshot)
-            except (ValueError,CapacityWitnessError): continue
+            except (ValueError,PlanProblem): continue
             score=_score(context,candidate,command.snapshot)
             candidates.append(((score[0],-row.date.toordinal(),score[2],1,row.id),candidate,take))
         if not candidates: break
@@ -98,6 +136,7 @@ def _reduce(plan,amount,model,week,command,context):
 
 
 def _increase(plan,amount,model,week,command,context):
+    from .plans import PlanProblem
     index=InputIndex(context.inputs);today=production_date(context.time.as_of)
     recipe=index.models[model].recipe_code
     locked={(r.date,r.line_code,r.model_code) for r in context.locks}
@@ -127,7 +166,7 @@ def _increase(plan,amount,model,week,command,context):
                     while low<high:
                         take=(low+high+1)//2
                         try: candidate=proposal(take)
-                        except (ValueError,CapacityWitnessError): high=take-1
+                        except (ValueError,PlanProblem): high=take-1
                         else: low,best=take,candidate
                     if low:
                         candidate=best if best is not None else proposal(low)
@@ -150,27 +189,75 @@ def _adjustments(context,start_revision):
     return changes
 
 
-def _apply_delta(plan,change,scope):
+def _apply_delta(plan,change,scope,context):
     before=Plan.model_validate(change['before']);after=Plan.model_validate(change['after'])
     rows={r.id:r for r in plan.segments};old={r.id:r for r in before.segments};new={r.id:r for r in after.segments}
+    transfer=bool(change.get('operations')) and all(r.get('kind') in {'split_segment','move_segment','swap_segments'} for r in change['operations'])
+    represented=defaultdict(int)
+    if transfer:
+        for identity in new.keys()-old.keys():
+            current=rows.get(identity);target=new[identity]
+            if current and (current.date,current.line_code,current.model_code)==(target.date,target.line_code,target.model_code):
+                represented[target.model_code]+=min(current.quantity,target.quantity)
     for identity in old.keys()|new.keys():
         a,b=old.get(identity),new.get(identity)
         if a==b: continue
         if any(row and not scope.contains(row) for row in (a,b)): continue
         current=rows.get(identity)
         if a is None:
-            if current is not None: raise ValueError('保留调整的生产段识别号与重置结果重复，请重新核对')
-            rows[identity]=b
+            if current is not None:
+                if (current.date,current.line_code,current.model_code)!=(b.date,b.line_code,b.model_code):
+                    raise ValueError('保留调整的生产段识别号与受保护位置冲突，请重新核对')
+                rows[identity]=current.model_copy(update={'quantity':max(current.quantity,b.quantity) if transfer else current.quantity+b.quantity})
+            else: rows[identity]=b
         elif b is None:
             if current is not None: rows.pop(identity)
         elif current is None:
+            if b.quantity<a.quantity and transfer and represented[a.model_code]>=a.quantity-b.quantity:
+                represented[a.model_code]-=a.quantity-b.quantity
+                continue
+            if b.quantity<a.quantity: raise ValueError('保留完整调整所需的原位置待执行量不足，不能拆散或补造该动作')
             if b.quantity-a.quantity>0: rows[identity]=b.model_copy(update={'quantity':b.quantity-a.quantity})
             elif (a.date,a.line_code,a.model_code)!=(b.date,b.line_code,b.model_code): rows[identity]=b
         else:
-            quantity=current.quantity+b.quantity-a.quantity
+            delta=b.quantity-a.quantity
+            if transfer and delta<0:
+                covered=min(-delta,represented[a.model_code]);represented[a.model_code]-=covered;delta+=covered
+            quantity=current.quantity+delta
             if quantity<0: raise ValueError('撤回或保留的调整超过更正后可用数量，请重新核对')
             rows[identity]=current.model_copy(update={'quantity':quantity,'date':b.date,'line_code':b.line_code,'model_code':b.model_code,'order':b.order})
     return plan.model_copy(update={'segments':list(rows.values())})
+
+
+def _apply_explicit_metadata(plan,change,scope,context,*,retract=False):
+    """Retain declared patch metadata too, rather than silently dropping half an action."""
+    before=Plan.model_validate(change['before']);after=Plan.model_validate(change['after'])
+    operations=change.get('operations',[])
+    fields=set()
+    for operation in operations:
+        if operation.get('kind')=='replace_plan': fields.update({'switches','ordinary_idle','initial_states'})
+        elif operation.get('kind')=='patch_plan':
+            fields.update(field for field in ('switches','ordinary_idle','initial_states') if field in operation or 'remove_'+('idle' if field=='ordinary_idle' else field) in operation)
+    for field in fields:
+        identity=(lambda r:r.id) if field=='switches' else (lambda r:(r.date,r.line_code)) if field=='ordinary_idle' else (lambda r:r.line_code)
+        old={identity(r):r for r in getattr(before,field)};new={identity(r):r for r in getattr(after,field)}
+        current={identity(r):r for r in getattr(plan,field)}
+        def inside(row):
+            if row.line_code not in scope.line_codes: return False
+            if field=='initial_states': return scope.start_date==context.time.window_start
+            dates=[a.date for a in row.allocations] if field=='switches' else [row.date]
+            return all(scope.start_date<=day<=scope.end_date for day in dates)
+        for key in old.keys()|new.keys():
+            a,b=old.get(key),new.get(key)
+            if a==b: continue
+            if not all(inside(row) for row in (a,b) if row):
+                if retract: raise ValueError('撤回完整调整涉及范围外工时或 Recipe 状态，请扩大范围后重新预览')
+                continue
+            target=a if retract else b
+            if target is None: current.pop(key,None)
+            else: current[key]=target
+        plan=plan.model_copy(update={field:list(current.values())})
+    return plan
 
 
 def weekly_reset(plan,command,context):
@@ -201,12 +288,13 @@ def weekly_reset(plan,command,context):
     if batch_revision is None:
         versions.append({'digest':snapshot_digest,'snapshot':snapshot_data});batch_revision=len(versions)
     result=active_plan(source,context.time)
+    projected_current=active_plan(plan,context.time)
     inside_switch=lambda s:s.line_code in command.scope.line_codes and all(command.scope.start_date<=a.date<=command.scope.end_date for a in s.allocations)
     result=result.model_copy(update={
         'segments':[r for r in result.segments if command.scope.contains(r)]+[r for r in plan.segments if context.time.window_start<=r.date<=context.time.window_end and not command.scope.contains(r)],
-        'switches':[r for r in result.switches if inside_switch(r)]+[r for r in plan.switches if not inside_switch(r) and any(context.time.window_start<=a.date<=context.time.window_end for a in r.allocations)],
+        'switches':[r for r in result.switches if inside_switch(r)]+[r for r in projected_current.switches if not inside_switch(r)],
         'ordinary_idle':[r for r in result.ordinary_idle if r.line_code in command.scope.line_codes and command.scope.start_date<=r.date<=command.scope.end_date]+[r for r in plan.ordinary_idle if context.time.window_start<=r.date<=context.time.window_end and not(r.line_code in command.scope.line_codes and command.scope.start_date<=r.date<=command.scope.end_date)],
-        'initial_states':plan.initial_states,'current_day_witnesses':plan.current_day_witnesses})
+        'initial_states':projected_current.initial_states,'current_day_witnesses':projected_current.current_day_witnesses})
     today=production_date(context.time.as_of)
     current_executed=executed_by_segment(plan,context.execution)
     source_executed=executed_by_segment(result,context.execution)
@@ -228,8 +316,8 @@ def weekly_reset(plan,command,context):
             known=_known(context.execution,row.date,row.line_code,row.model_code,context.time.as_of)
             if not known: issues.append({'code':'reset_execution_unknown','reason':'过去计划的执行事实或覆盖截止尚未确认','date':row.date.isoformat(),'line_code':row.line_code,'model_code':row.model_code,'blocks_adoption':True})
             executed=current_executed.get(row.id,source_executed.get(row.id,0))
-            expired.append({'segment_id':row.id,'date':row.date.isoformat(),'model_code':row.model_code,'quantity':max(0,row.quantity-executed),'destination_week':production_week(row.date).isoformat(),'destination':'原周待重新安排，不计预计产出'})
-            if command.scope.contains(row) and (row.date,row.line_code,row.model_code) not in locked:
+            expired.append({'segment_id':row.id,'date':row.date.isoformat(),'model_code':row.model_code,'quantity':max(0,row.quantity-executed) if known else None,'destination_week':production_week(row.date).isoformat(),'destination':'原周待重新安排，不计预计产出'})
+            if known and command.scope.contains(row) and (row.date,row.line_code,row.model_code) not in locked:
                 row=row.model_copy(update={'quantity':executed})
         if row.quantity: segments.append(row)
     result=result.model_copy(update={'segments':segments})
@@ -246,10 +334,13 @@ def weekly_reset(plan,command,context):
             source_input=sum(r.quantity for r in source.segments if r.model_code==model and production_week(r.date)==target_week)
             target=max(0,source_input-balance);carry=max(0,balance-source_input)
             actual=sum(r.quantity for r in context.execution.facts if r.model_code==model and production_week(r.date)==target_week)
+            actual_known=_actual_known(context.execution,model,target_week,lines,context.time.as_of)
             remaining=max(0,target-actual)
+            if not actual_known:
+                issues.append({'code':'reset_execution_unknown','reason':'该机种本周执行覆盖或截止尚未确认，实际量不能按零计算','model_code':model,'week':target_week.isoformat(),'blocks_adoption':True})
             current=_valid_remaining(result,context.execution,model,target_week,today)
-            if current>remaining: result=_reduce(result,current-remaining,model,target_week,command,context)
-            elif current<remaining: result=_increase(result,remaining-current,model,target_week,command,context)
+            if actual_known and current>remaining: result=_reduce(result,current-remaining,model,target_week,command,context)
+            elif actual_known and current<remaining: result=_increase(result,remaining-current,model,target_week,command,context)
             placed=_valid_remaining(result,context.execution,model,target_week,today)
             targets.append({'model_code':model,'week':target_week.isoformat(),'source_input':source_input,'incoming_balance':balance,'target':target,'actual':actual,
                 'remaining_target':remaining,'planned_remaining':placed,'actual_over_target':max(0,actual-target),'natural_carry':carry,
@@ -263,22 +354,46 @@ def weekly_reset(plan,command,context):
         issues.append({'code':'reset_choices_pending','reason':'首次重置后的每项完整调整都须明确保留或撤回','blocks_adoption':True})
     for change in changes:
         if choices.get(change['revision']) is False:
+            old_plan=Plan.model_validate(change['before']);new_plan=Plan.model_validate(change['after'])
+            old_rows={r.id:r for r in old_plan.segments};new_rows={r.id:r for r in new_plan.segments}
+            current_rows={r.id:r for r in plan.segments};conflicts=[]
+            for identity in old_rows.keys()|new_rows.keys():
+                a,b=old_rows.get(identity),new_rows.get(identity)
+                if a==b: continue
+                current=current_rows.get(identity);executed=current_executed.get(identity,0)
+                if executed and (a is None or (a.date,a.line_code,a.model_code)!=(current.date,current.line_code,current.model_code) or a.quantity<executed):
+                    conflicts.append({'code':'reset_protected_adjustment','revision':change['revision'],'segment_id':identity,'reason':'撤回会改变后来已执行的完整调整'})
+            def quantities(value):
+                totals=defaultdict(int)
+                for row in value.segments: totals[row.date,row.line_code,row.model_code]+=row.quantity
+                return totals
+            a_cells,b_cells=quantities(old_plan),quantities(new_plan)
+            for cell in locked:
+                if a_cells[cell]!=b_cells[cell]: conflicts.append({'code':'reset_protected_adjustment','revision':change['revision'],'date':cell[0].isoformat(),'line_code':cell[1],'model_code':cell[2],'reason':'撤回会改变当前锁定数量'})
+            if conflicts: raise PlanProblem(409,'此完整调整已受执行事实或当前锁定保护，不能撤回',conflicts=conflicts)
             before={r['id']:r for r in change['before'].get('segments',[])}
             after={r['id']:r for r in change['after'].get('segments',[])}
             if any(not command.scope.contains(ProductionSegment.model_validate(row)) for identity in before.keys()|after.keys() if before.get(identity)!=after.get(identity) for row in (before.get(identity),after.get(identity)) if row):
                 raise ValueError('撤回调整涉及授权范围外的安排，请扩大范围后重新预览')
         if choices.get(change['revision']) is True:
-            candidate=_apply_delta(result,change,command.scope)
+            candidate=_apply_delta(result,change,command.scope,context)
             result=_witness(result,candidate,context,command.scope,reset)
+    for change in changes:
+        if choices.get(change['revision']) is not None:
+            result=_apply_explicit_metadata(result,change,command.scope,context,retract=not choices[change['revision']])
+    if choices and not evaluate(_snapshot(context,result,reset)).capacity_valid:
+        raise ValueError('完整调整的投入、工时或 Recipe 衔接与更正目标冲突，请扩大范围或改选处理方式')
     # Retaining an adjustment does not rewrite the underlying target.
     for target in targets:
         placed=_valid_remaining(result,context.execution,target['model_code'],date.fromisoformat(target['week']),today)
         target.update(planned_remaining=placed,unmet_increase=max(0,target['remaining_target']-placed),unmet_reduction=max(0,placed-target['remaining_target']))
     protect(plan,result,context.snapshot)
     record={'production_week':key,'source_adoption':source_number,'comparison_adoption':context.latest_adoption,'snapshot':snapshot_data,'snapshot_digest':snapshot_digest,
-        'batch_revision':batch_revision,'targets':targets,'residual_carry':residual,'expired':expired,'adjustments':review,'pending_review':False,
+        'batch_revision':batch_revision,'historical_inputs':[r.model_dump(mode='json')|{'destination':'由本周最终净余额与在制品接续，不复制投入'} for r in source.segments if r.date<week],
+        'crossing_switches':[r.model_dump(mode='json')|{'state':'跨窗口进度待复核，不推定已执行'} for r in source.switches if any(a.date<week for a in r.allocations) and any(a.date>=week for a in r.allocations)],'targets':targets,'residual_carry':residual,'expired':expired,'adjustments':review,'pending_review':False,
         'effective_adoption':existing.get('effective_adoption') if existing else None,'effective_revision':existing.get('effective_revision') if existing else None,
         'first_effective_revision':existing.get('first_effective_revision') if existing else None,'draft_action':context.action_id,'correction':command.correction}
+    record=refresh_targets(record,result,context.execution,context.time,lines)
     records[key]=record
     lineage={'resets':records,'reset_batches':batches,'reset_preview':record,'reset_reference':None}
     return ReplayResult(result,issues=issues,context_updates={'reset':reset},lineage=lineage,

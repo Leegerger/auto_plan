@@ -49,6 +49,8 @@ def prepare_initial(current, head, payload, now):
     coverage=typed_rows(ExecutionCoverage,payload.coverage,'coverage',errors)
     states=typed_rows(InitialRecipeState,payload.initial_states,'initial_states',errors)
     reset=typed_rows(ResetContext,[payload.reset],'reset',errors)
+    for field in sorted(set(payload.execution)-{'facts','coverage','cutoff'}):
+        errors.append(error('execution',2,field,'首次接入只接受累计事实、覆盖范围和截止时点；关联、审计与剩余工时由服务端建立'))
     execution=typed_rows(ExecutionContext,[payload.execution],'execution',errors)
     if not payload.complete_weekly_demands:
         errors.append(error('demands',1,'complete_weekly_demands','须确认填写完整整周需求，包含已经满足部分'))
@@ -114,7 +116,8 @@ def prepare_initial(current, head, payload, now):
     try: plan=construct_hour_certificate(inputs,segments,states,window_start=time.window_start)
     except CertificateError as exc:
         result.update(valid=False,errors=[error('segments',next((r.get('_row',i) for i,r in enumerate(payload.segments,2) if r.get('id')==issue.segment_id),2),'quantity',issue.reason) for issue in exc.issues]); return result
-    context=PlanningContext(execution=execution[0],reset=reset[0],coverage=coverage,lineage=lineage)
+    from .execution_rules import freeze_associations
+    context=PlanningContext(execution=freeze_associations(plan,execution[0]),reset=reset[0],coverage=coverage,lineage=lineage)
     evaluated=evaluate(EvaluationSnapshot(inputs=inputs,time=time,plan=plan,execution=context.execution,reset=context.reset))
     result.update(plan=plan.model_dump(mode='json'),context=context.model_dump(mode='json'),evaluation=evaluated.model_dump(mode='json'))
     if not evaluated.capacity_valid or not evaluated.computation_complete:

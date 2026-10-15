@@ -182,13 +182,45 @@ def result_effect_keys(before, after, snapshot):
     return keys
 
 
-def context_effect_keys(context,updates):
+def context_effect_keys(context,updates,snapshot=None):
     keys=set()
     if 'locks' in updates:
         before={(r.date.isoformat(),r.line_code,r.model_code):r.quantity for r in context.locks}
         after={(r.date.isoformat(),r.line_code,r.model_code):r.quantity for r in updates['locks']}
         for key in before.keys()|after.keys():
             if before.get(key)!=after.get(key): keys.add(('CELL',*key))
+    if snapshot is not None:
+        from .production_time import production_date
+        models=set();dated=set();lines={r.code for r in snapshot.inputs.masters.lines}
+        if 'execution' in updates:
+            before=context.execution;after=updates['execution']
+            old={(r.date,r.line_code,r.model_code):r.quantity for r in before.facts}
+            new={(r.date,r.line_code,r.model_code):r.quantity for r in after.facts}
+            for cell in old.keys()|new.keys():
+                if old.get(cell)!=new.get(cell): dated.add(cell);models.add(cell[2])
+            if (before.coverage,before.cutoff,before.associations,before.association_cells)!=(after.coverage,after.cutoff,after.associations,after.association_cells):
+                dated.update((r.date,r.line_code,r.model_code) for r in snapshot.plan.segments if r.date<=production_date(snapshot.time.as_of))
+                for coverage in before.coverage+after.coverage:
+                    day=max(coverage.start_date,snapshot.time.window_start)
+                    while day<=min(coverage.end_date,production_date(snapshot.time.as_of),snapshot.time.window_end):
+                        dated.update((day,line,model) for line in coverage.line_codes for model in coverage.model_codes)
+                        day+=timedelta(days=1)
+                models.update(cell[2] for cell in dated)
+            a={(r.date,r.line_code):r for r in before.day_capacities};b={(r.date,r.line_code):r for r in after.day_capacities}
+            for cell in a.keys()|b.keys():
+                if a.get(cell)!=b.get(cell): keys.add(('CAP',cell[1],cell[0].isoformat()))
+        if 'reset' in updates:
+            before=context.reset;after=updates['reset']
+            a={r.model_code:r for r in before.models} if before else {};b={r.model_code:r for r in after.models} if after else {}
+            models.update(model for model in a.keys()|b.keys() if a.get(model)!=b.get(model))
+        for day,line,model in dated:
+            keys.add(('CAP',line,day.isoformat()))
+            for related_line in lines: keys.add(('CELL',day.isoformat(),related_line,model))
+        for model in models:
+            weeks={snapshot.time.window_start+timedelta(days=7*n) for n in range(15)}
+            weeks.update(r.week for r in snapshot.inputs.business.demands if r.model_code==model)
+            weeks.update(r.week for r in snapshot.inputs.business.confirmations if r.model_code==model)
+            keys.update(('REQ',model,week.isoformat()) for week in weeks)
     return keys
 
 
@@ -220,6 +252,10 @@ def protect(before, after, snapshot, *, allow_past_input=False):
             failures.append({'code':'executed_segment',**where})
         elif after_execution.get(segment.id,0)!=executed:
             failures.append({'code':'executed_association',**where})
+    for day,line in {(r.date,r.line_code) for r in before.segments if before_execution.get(r.id,0) and snapshot.time.window_start<=r.date<=snapshot.time.window_end}:
+        prior=[r.id for r in sorted(before.segments,key=lambda r:(r.order,r.id)) if r.date==day and r.line_code==line and before_execution.get(r.id,0)]
+        current=[r.id for r in sorted(after.segments,key=lambda r:(r.order,r.id)) if r.id in set(prior)]
+        if prior!=current: failures.append({'code':'executed_order','date':day.isoformat(),'line_code':line,'segment_ids':prior})
     if failures: raise PlanProblem(409,'操作会改变已执行部分、锁定数量或在过去日新增投入',conflicts=failures)
 
 
@@ -244,13 +280,14 @@ class PlanService:
         self.store=store
 
     def _snapshot(self, unit, plan, now):
+        from .execution_rules import freeze_associations
         context=unit.context
         baseline=None
         if unit.adoption:
             record=unit.get_adoption(unit.adoption)
             baseline=AdoptedBaseline(version=unit.adoption,plan=record['snapshot']['plan'],coverage=record['coverage'])
         return EvaluationSnapshot(time=EvaluationTime.at(now),inputs=unit.inputs,plan=plan,
-            execution=context.execution,reset=context.reset,locks=context.locks,baseline=baseline,preferences=context.preferences)
+            execution=freeze_associations(unit.plan,context.execution),reset=context.reset,locks=context.locks,baseline=baseline,preferences=context.preferences)
 
     def _prepare(self, unit, command, now, actor=''):
         if command.input_version!=unit.inputs.input_version:
@@ -268,11 +305,13 @@ class PlanService:
         base_plan=Plan.model_validate(base['snapshot']['plan'])
         snapshot=self._snapshot(unit,base_plan,now)
         try:
-            original_result=replay_result(base_plan,command.operations,OperationContext(snapshot,command.base_revision,base.get('unallocated',[]),base.get('operation_issues',[]),base.get('lineage',{}),actor=actor,history=unit,latest_adoption=unit.adoption,current_revision=unit.revision,allow_past_input=initial_import))
+            original_result=replay_result(base_plan,command.operations,OperationContext(snapshot,command.base_revision,base.get('unallocated',[]),base.get('operation_issues',[]),base.get('lineage',{})|unit.context.lineage,actor=actor,history=unit,latest_adoption=unit.adoption,current_revision=unit.revision,allow_past_input=initial_import))
             proposed=original_result.plan
         except ValueError as error: raise PlanProblem(422,str(error)) from None
+        if snapshot.execution!=unit.context.execution:
+            original_result.context_updates.setdefault('execution',snapshot.execution)
         effects=set(map(tuple,effect_keys(base_plan,proposed,snapshot)))
-        effects|=context_effect_keys(unit.context,original_result.context_updates)
+        effects|=context_effect_keys(unit.context,original_result.context_updates,snapshot)
         effects|=result_effect_keys(base,{'unallocated':original_result.unallocated,'operation_issues':original_result.issues},snapshot)
         changed=unit.effects_since(command.base_revision)
         intersection=effects&changed
@@ -283,13 +322,19 @@ class PlanService:
             current=unit.get_revision(unit.revision)
             replayed=replay_result(unit.plan,command.operations,OperationContext(
                 self._snapshot(unit,unit.plan,now),command.base_revision,current.get('unallocated',[]),
-                current.get('operation_issues',[]),current.get('lineage',{}),actor=actor,history=unit,latest_adoption=unit.adoption,current_revision=unit.revision,allow_past_input=initial_import))
+                current.get('operation_issues',[]),current.get('lineage',{})|unit.context.lineage,actor=actor,history=unit,latest_adoption=unit.adoption,current_revision=unit.revision,allow_past_input=initial_import))
             merged=replayed.plan
         except ValueError as error: raise PlanProblem(409,str(error)) from None
+        if snapshot.execution!=unit.context.execution:
+            replayed.context_updates.setdefault('execution',snapshot.execution)
         merged_context=unit.context.model_copy(update=replayed.context_updates)
         if {'execution','reset'}&replayed.context_updates.keys():
             merged_context=merged_context.model_copy(update={'lineage':unit.context.lineage|replayed.lineage})
         merged_snapshot=self._snapshot(unit,merged,now).model_copy(update=replayed.context_updates)
+        from .reset_operations import refresh_lineage
+        replayed.lineage=refresh_lineage(replayed.lineage,merged,merged_snapshot)
+        if {'execution','reset'}&replayed.context_updates.keys():
+            merged_context=merged_context.model_copy(update={'lineage':unit.context.lineage|replayed.lineage})
         effects|=set(map(tuple,effect_keys(unit.plan,merged,merged_snapshot)))
         effects|=result_effect_keys(current,{'unallocated':replayed.unallocated,'operation_issues':replayed.issues},merged_snapshot)
         if effects&changed:
@@ -365,14 +410,16 @@ class PlanService:
         def current(unit):
             snapshot=self._snapshot(unit,unit.plan,now)
             record=unit.get_revision(unit.revision)
+            from .reset_operations import refresh_lineage
+            lineage=refresh_lineage(record.get('lineage',{})|unit.context.lineage,unit.plan,snapshot)
             return {'revision':unit.revision,'latest_adoption':unit.adoption,'input_version':unit.inputs.input_version,
                     'pending':record.get('pending',False), 'kind':record.get('kind','empty'),
                     'unallocated':record.get('unallocated',[]), 'operation_issues':record.get('operation_issues',[]),
-                    'lineage':record.get('lineage',{})|unit.context.lineage, 'coverage':record.get('coverage',[]),
-                    'plan':unit.plan.model_dump(mode='json'),'context':unit.context.model_dump(mode='json'),
+                    'lineage':lineage, 'coverage':record.get('coverage',[]),
+                    'plan':unit.plan.model_dump(mode='json'),'context':unit.context.model_copy(update={'execution':snapshot.execution}).model_dump(mode='json'),
                     'execution_segments':execution_segments(unit.plan,snapshot.execution),
                     'execution_surplus':execution_surplus(unit.plan,snapshot.execution),
-                    'reset_preview':record.get('lineage',{}).get('reset_preview'),
+                    'reset_preview':lineage.get('reset_preview'),
                     'time':snapshot.time.model_dump(mode='json'),'hour_display':plan_hour_display(unit.plan),
                     'weeks': [{'number':week+1,'label':week_label(snapshot.time.window_start+timedelta(days=week*7)),'start_date':(snapshot.time.window_start+timedelta(days=week*7)).isoformat(),
                         'dates':[(snapshot.time.window_start+timedelta(days=week*7+day)).isoformat() for day in range(7)]} for week in range(15)],

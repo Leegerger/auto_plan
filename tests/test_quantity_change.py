@@ -62,7 +62,7 @@ def test_chain_preserves_executed_pieces_and_locked_days_and_retains_cutoff_bala
     assert post(client, 'save', command(change(1000), base=1)).status_code == 200
     stored = client.get('/auto_plan/api/plans/current').json()
     assert stored['unallocated'] == data['unallocated']
-    assert post(client, 'save', command(base=2)).status_code == 200
+    assert post(client, 'save', command(base=2,version=stored['input_version'])).status_code == 200
     assert client.get('/auto_plan/api/plans/current').json()['unallocated'] == data['unallocated']
 
 
