@@ -133,3 +133,4 @@ def replay(plan, operations, context):
 
 # Load typed business commands after the replay primitives are defined.
 from . import manual_operations  # noqa: E402,F401
+from . import quantity_operations  # noqa: E402,F401
