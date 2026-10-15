@@ -2,7 +2,7 @@
 
 These synthetic inputs and independent references are frozen for implementation checks. They have no user confirmation. Passing an adapter check or an automated browser run does not establish final business acceptance.
 
-`frozen/manifest.json` lists 37 scenarios. Every pointer names a canonical UTF-8 JSON document compressed with deterministic gzip. Its SHA-256 is the hash of the uncompressed canonical bytes. Each scenario contains a complete source snapshot, separate reference snapshot, action, public first-import payload, explicit scope, logical input/revision/adoption tokens, exact totals and all 33 objective coordinates. The source, reference and action are separate assets even where their content is equal. The adopted baseline remains separate from the reference used to judge quality.
+`frozen/manifest.json` lists 38 scenarios. Every pointer names a canonical UTF-8 JSON document compressed with deterministic gzip. Its SHA-256 is the hash of the uncompressed canonical bytes. Each scenario contains a complete source snapshot, separate reference snapshot, action, public first-import payload, explicit scope, logical input/revision/adoption tokens, exact totals and all 33 objective coordinates. The source, reference and action are separate assets even where their content is equal. The adopted baseline remains separate from the reference used to judge quality.
 
 | Family | Recipe counts | Independent reference |
 | --- | --- | --- |

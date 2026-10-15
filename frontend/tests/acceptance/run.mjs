@@ -99,7 +99,7 @@ async function save(page, before) {
   await expect(page.getByText(/已共享保存修订/)).toBeVisible({ timeout: 180000 })
   await settle(page)
   if (result.status !== 'COMMITTED' || result.revision <= before.revision || result.latest_adoption !== before.latest_adoption) throw new Error('Save did not confirm a new shared revision with the preserved baseline.')
-  return result
+  return { ...result, operation_id: received.request().postDataJSON().operation_id }
 }
 function check(kind, evaluation, candidate, stem, observedSource) {
   writeFileSync(resolve(output, stem + '-evaluation.json'), JSON.stringify(evaluation))
@@ -299,7 +299,12 @@ try {
   await Promise.all(loadPromises)
   for (const entry of evidence.repeats) {
     if (mode !== 'solo') {
-      entry.active_editor_contexts = [1, 2, 3, 4].filter(index => evidence.editor_actions.some(row => row.editor === index && row.started_ms <= entry.clicked_ms && row.finished_ms >= entry.full_render_ms)).length + 1
+      entry.active_editor_contexts = [1, 2, 3, 4].filter(index => {
+        const intervals = evidence.editor_actions.filter(row => row.editor === index && row.started_ms <= entry.full_render_ms && row.finished_ms >= entry.clicked_ms).sort((a, b) => a.started_ms - b.started_ms)
+        let through = entry.clicked_ms
+        for (const interval of intervals) { if (interval.started_ms > through + 100) return false; through = Math.max(through, interval.finished_ms) }
+        return through >= entry.full_render_ms
+      }).length + 1
       if (entry.active_editor_contexts !== 5) { entry.status = 'fail'; entry.load_reason = 'Five editor action intervals did not overlap the complete measurement.' }
     }
   }

@@ -1,6 +1,6 @@
 # Acceptance preparation observations
 
-Implementation preparation passed all 37 independent reference evaluations through the public business API. Thirty-four applicable first-import payloads validated. Three rolling cases retain existing history and are explicitly not first imports. Four combined import payloads were rechecked after fixing preservation of their explicit reset snapshots, including the three physical WIP pieces in case B. Reference snapshots and objective vectors stayed unchanged. `preparation.json` records the exact reference hashes, manifest versions, observed quantities and vectors.
+Implementation preparation passed all 38 independent reference evaluations through the public business API. Thirty-five applicable first-import payloads validated. Three rolling cases retain existing history and are explicitly not first imports. Four combined import payloads were rechecked after fixing preservation of their explicit reset snapshots, including the three physical WIP pieces in case B. Reference snapshots and objective vectors stayed unchanged. `preparation.json` records the exact reference hashes, manifest versions, observed quantities and vectors.
 
 The twenty-account synthetic role command passed all twenty prepared account expectations, including nine acknowledged zero-change editor saves. The negative run against a target without those grants failed eighteen accounts and accepted only the expected ungranted/inactive denials. Neither run establishes real company account or human acceptance.
 
