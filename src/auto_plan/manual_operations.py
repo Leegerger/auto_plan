@@ -71,7 +71,9 @@ def _bounded_certificate(plan,context,scope):
     if scope.start_date<context.time.window_start or scope.end_date>context.time.window_end:
         raise ValueError('调整范围必须位于当周至第十五周')
     index=InputIndex(context.inputs)
-    output=plan.model_copy(deep=True)
+    # Every changed collection below is replaced with a fresh list. Existing
+    # rows and nested allocations are only read, including fixed outside rows.
+    output=plan.model_copy()
     original=context.plan
     original_states=analyze_recipe_states(original,index)
     original_switch_documents={switch.model_dump_json() for switch in original.switches}

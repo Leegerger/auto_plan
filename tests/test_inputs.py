@@ -49,6 +49,21 @@ def test_editor_previews_without_writing_and_saves_fixed_recipe_master(inputs_cl
     assert client.get('/auto_plan/api/inputs').json()['input_version'] == version
 
 
+def test_code_normalization_preserves_atomic_rejection_for_nontext_control_and_long_values(inputs_client):
+    client=inputs_client
+    masters(client)
+    before=client.get('/auto_plan/api/inputs').json()
+    for code in ([],{},12,None,'R\n','X'*65):
+        checked=batch(client,{'recipes':[{'code':code,'name':'Invalid code','active':True}]},apply=False)
+        assert checked.status_code==200
+        assert checked.json()['valid'] is False
+        assert any(row['field']=='code' for row in checked.json()['errors'])
+    spaced=batch(client,{'recipes':[{'code':' '*10000+' R ','name':'工艺','active':True}]},apply=False)
+    assert spaced.status_code==200 and spaced.json()['valid'] is True
+    assert spaced.json()['changes']['recipes'][0]['code']=='R'
+    assert client.get('/auto_plan/api/inputs').json()==before
+
+
 def test_parameter_batch_is_atomic_strict_and_preserves_unsupplied_values(inputs_client):
     client = inputs_client
     masters(client)

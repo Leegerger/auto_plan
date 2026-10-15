@@ -20,12 +20,21 @@ def document(value):
 def encode(value): return zlib.compress(document(value))
 
 
-def decode(blob,sha=None):
+def _decode_document(blob,sha,reader):
     try:
         raw=zlib.decompress(blob.read() if hasattr(blob,'read') else blob)
         if sha and hashlib.sha256(raw).hexdigest()!=sha: raise StoreUnavailable
-        return json.loads(raw)
+        return reader(raw)
     except (ValueError,zlib.error): raise StoreUnavailable from None
+
+
+def decode(blob,sha=None):
+    return _decode_document(blob,sha,json.loads)
+
+
+def decode_planning(blob,sha=None):
+    from .planning_records import planning_document
+    return _decode_document(blob,sha,planning_document)
 
 
 def insert_batches(cursor,statement,rows):
@@ -49,7 +58,7 @@ class OraclePlanUnit:
         # Only this authorized, head-pinned transaction owns these immutable
         # documents. Bound history/reset walks rather than retaining all history.
         self._records=OrderedDict()
-        self.plan=Plan.model_validate(self.get_revision(self.revision)['snapshot']['plan'])
+        self.plan=Plan.model_validate(self.get_planning_revision(self.revision)['snapshot']['plan'])
 
     def get_candidate(self,job_id,candidate_id,payload_sha,now):
         from .oracle_jobs import retained_candidate
@@ -64,16 +73,19 @@ class OraclePlanUnit:
 
     def get_context(self,version): return self.store.context_in_transaction(self.cursor,version)
 
-    def _record(self,table,column,identity):
-        key=table,column,identity
+    def _record(self,table,column,identity,*,planning=False):
+        key=table,column,identity,planning
         if key in self._records:
             self._records.move_to_end(key)
             return self._records[key][1]
         self.cursor.execute(f'SELECT S.SNAPSHOT_BLOB,S.SHA256 FROM {table} R JOIN AP_PLAN_SNAPSHOT S ON S.SHA256=R.SNAPSHOT_SHA WHERE R.{column}=:identity',identity=identity)
         row=self.cursor.fetchone()
         if not row: raise KeyError(identity)
-        record=next((record for sha,record in self._records.values() if sha==row[1]),None)
-        if record is None: record=decode(row[0],row[1])
+        # A selected record cannot satisfy a full-history read, even when
+        # revision and adoption point to the exact same immutable SHA.
+        record=next((record for candidate,(sha,record) in self._records.items()
+                     if sha==row[1] and candidate[-1]==planning),None)
+        if record is None: record=(decode_planning if planning else decode)(row[0],row[1])
         self._records[key]=row[1],record
         if len(self._records)>8: self._records.popitem(last=False)
         return record
@@ -82,6 +94,12 @@ class OraclePlanUnit:
         return zero_revision() if identity==0 else self._record('AP_PLAN_REVISION','REVISION_NO',identity)
 
     def get_adoption(self,identity): return self._record('AP_PLAN_ADOPTION','ADOPTION_NO',identity)
+
+    def get_planning_revision(self,identity):
+        return zero_revision() if identity==0 else self._record('AP_PLAN_REVISION','REVISION_NO',identity,planning=True)
+
+    def get_planning_adoption(self,identity):
+        return self._record('AP_PLAN_ADOPTION','ADOPTION_NO',identity,planning=True)
 
     def list_history(self,cutoff,before,limit):
         # Metadata only. Snapshot BLOBs are loaded only after a user selects one.
@@ -133,6 +151,8 @@ class OraclePlanUnit:
 class OraclePlanStore:
     def __init__(self,pool):
         self.pool=pool; self.input_store=OracleInputStore(pool)
+        from .oracle_operation_keys import OracleOperationKeys
+        self.operation_keys=OracleOperationKeys(self)
 
     @staticmethod
     def authorize(cursor,actor,editor=False):
@@ -176,83 +196,11 @@ class OraclePlanStore:
                     connection.rollback(); raise
         except oracledb.Error: raise StoreUnavailable from None
 
-    def _key(self,cursor,key,actor,kind=None,request_sha=None):
-        cursor.execute('SELECT ACTOR_ID,OPERATION_KIND,STATUS,REQUEST_SHA,RESULT_BLOB FROM AP_PLAN_KEY WHERE OPERATION_ID=:key',key=key)
-        row=cursor.fetchone()
-        if not row: return None
-        if row[0]!=actor or (row[2]=='COMMITTED' and kind is not None and (row[1]!=kind or row[3]!=request_sha)):
-            raise PlanProblem(409,'操作编号已用于其他请求，请使用原请求核实')
-        result=decode(row[4])
-        if row[2]=='ABORTED_VOID' and kind is not None:
-            raise PlanProblem(409,'前次操作已作废，请由用户重新发起',result=result)
-        return result
-
     def submit(self,command,actor,now,kind,action):
-        key=str(command.operation_id); sha=hashlib.sha256(document(command.model_dump(mode='json'))).hexdigest()
-        committing=False
-        try:
-            with self.pool.acquire() as connection:
-                connection.call_timeout=15000
-                try:
-                    with connection.cursor() as cursor:
-                        self.authorize(cursor,actor,True)
-                        replayed=self._key(cursor,key,actor,kind,sha)
-                        if replayed is not None: return replayed
-                        head=self.head(cursor,True)
-                        cursor.setinputsizes(result=oracledb.DB_TYPE_BLOB)
-                        try:
-                            cursor.execute('INSERT INTO AP_PLAN_KEY (OPERATION_ID,ACTOR_ID,OPERATION_KIND,STATUS,REQUEST_SHA,RESULT_BLOB,RECORDED_AT) VALUES (:key,:actor,:kind,\'COMMITTED\',:sha,:result,:now)',key=key,actor=actor,kind=kind,sha=sha,result=encode({}),now=now)
-                        except oracledb.IntegrityError as error:
-                            if code(error)!=1: raise
-                            connection.rollback()
-                            self.authorize(cursor,actor,True)
-                            replayed=self._key(cursor,key,actor,kind,sha)
-                            if replayed is None: raise StoreUnavailable
-                            return replayed
-                        unit=self.unit(cursor,head,key,lock=True)
-                        self.authorize(cursor,actor,True)
-                        result=action(unit)
-                        cursor.setinputsizes(result=oracledb.DB_TYPE_BLOB)
-                        cursor.execute('UPDATE AP_PLAN_KEY SET RESULT_BLOB=:result WHERE OPERATION_ID=:key',result=encode(result),key=key)
-                    committing=True
-                    connection.commit()
-                    return result
-                except BaseException:
-                    connection.rollback(); raise
-        except oracledb.Error as error:
-            if committing: raise PlanUnknown from None
-            if code(error) in (30006,54): raise PlanBusy from None
-            raise StoreUnavailable from None
+        return self.operation_keys.submit(command,actor,now,kind,action)
 
     def verify(self,key,actor,now):
-        committing=False
-        try:
-            with self.pool.acquire() as connection:
-                connection.call_timeout=15000
-                try:
-                    with connection.cursor() as cursor:
-                        self.authorize(cursor,actor,True)
-                        result=self._key(cursor,key,actor)
-                        if result is not None: return result
-                        result={'status':'ABORTED_VOID','operation_id':key}
-                        cursor.setinputsizes(result=oracledb.DB_TYPE_BLOB)
-                        try:
-                            cursor.execute('INSERT INTO AP_PLAN_KEY (OPERATION_ID,ACTOR_ID,OPERATION_KIND,STATUS,RESULT_BLOB,RECORDED_AT) VALUES (:key,:actor,\'verify\',\'ABORTED_VOID\',:result,:now)',key=key,actor=actor,result=encode(result),now=now)
-                        except oracledb.IntegrityError as error:
-                            if code(error)!=1: raise
-                            connection.rollback()
-                            self.authorize(cursor,actor,True)
-                            result=self._key(cursor,key,actor)
-                            if result is None: raise StoreUnavailable
-                            return result
-                    committing=True; connection.commit()
-                    return result
-                except BaseException:
-                    connection.rollback(); raise
-        except oracledb.Error:
-            # An insert may have waited on a save reservation. Never claim void
-            # until its commit is acknowledged or the durable winner is read.
-            raise PlanUnknown from None
+        return self.operation_keys.verify(key,actor,now)
 
     def write_context_in_transaction(self,cursor,actor,now,context,transform_inputs=None):
         context=PlanningContext.model_validate(context)

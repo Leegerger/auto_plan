@@ -284,10 +284,18 @@ class PlanService:
         context=unit.context
         baseline=None
         if unit.adoption:
-            record=unit.get_adoption(unit.adoption)
+            record=unit.get_planning_adoption(unit.adoption)
             baseline=AdoptedBaseline(version=unit.adoption,plan=record['snapshot']['plan'],coverage=record['coverage'])
         return EvaluationSnapshot(time=EvaluationTime.at(now),inputs=unit.inputs,plan=plan,
             execution=freeze_associations(unit.plan,context.execution),reset=context.reset,locks=context.locks,baseline=baseline,preferences=context.preferences)
+
+    def _reset_participants(self,unit,snapshot,lineage):
+        from .reset_operations import participating_models
+        def selected(number):
+            source=snapshot.baseline.plan if snapshot.baseline and number==unit.adoption else Plan.model_validate(unit.get_planning_adoption(number)['snapshot']['plan']) if number else Plan()
+            return {'source_adoption':number,'model_codes':sorted(participating_models(snapshot.inputs,source,snapshot.execution,snapshot.time.window_start))}
+        record=lineage.get('resets',{}).get(snapshot.time.window_start.isoformat())
+        return {'current':selected(unit.adoption),'correction':selected(record['source_adoption']) if record and record.get('effective_adoption') else None}
 
     def _prepare(self, unit, command, now, actor=''):
         if command.input_version!=unit.inputs.input_version:
@@ -299,7 +307,7 @@ class PlanService:
                                   unit.context.model_dump(mode='json'),('context',)),
                               context=unit.context.model_dump(mode='json'))
         initial_import=unit.revision==0 and bool(unit.context.lineage.get('external_reset'))
-        try: base=unit.get_revision(command.base_revision)
+        try: base=unit.get_planning_revision(command.base_revision)
         except KeyError: raise PlanProblem(409,'基准修订不存在或已超出恢复范围',revision=unit.revision) from None
         if command.base_revision>unit.revision: raise PlanProblem(409,'基准修订不存在',revision=unit.revision)
         base_plan=Plan.model_validate(base['snapshot']['plan'])
@@ -319,12 +327,17 @@ class PlanService:
             raise PlanProblem(409,'其他用户已修改关联范围，请核对差异',revision=unit.revision,
                               conflicts=sorted(intersection),changes=plan_differences(base['snapshot']['plan'],unit.plan.model_dump(mode='json')))
         try:
-            current=unit.get_revision(unit.revision)
+            current=unit.get_planning_revision(unit.revision)
             # Inputs, adopted baseline, association freeze and time are shared
             # by both replays in this pinned unit; only the plan differs.
-            replayed=replay_result(unit.plan,command.operations,OperationContext(
-                snapshot.model_copy(update={'plan':unit.plan}),command.base_revision,current.get('unallocated',[]),
-                current.get('operation_issues',[]),current.get('lineage',{})|unit.context.lineage,actor=actor,history=unit,latest_adoption=unit.adoption,current_revision=unit.revision,allow_past_input=initial_import))
+            if command.base_revision==unit.revision:
+                # This immutable revision and its replay context are identical
+                # to the first replay. Merged-context effects still run below.
+                replayed=original_result
+            else:
+                replayed=replay_result(unit.plan,command.operations,OperationContext(
+                    snapshot.model_copy(update={'plan':unit.plan}),command.base_revision,current.get('unallocated',[]),
+                    current.get('operation_issues',[]),current.get('lineage',{})|unit.context.lineage,actor=actor,history=unit,latest_adoption=unit.adoption,current_revision=unit.revision,allow_past_input=initial_import))
             merged=replayed.plan
         except ValueError as error: raise PlanProblem(409,str(error)) from None
         if snapshot.execution!=unit.context.execution:
@@ -348,6 +361,7 @@ class PlanService:
                 'execution_segments':execution_segments(merged,merged_snapshot.execution),
                 'execution_surplus':execution_surplus(merged,merged_snapshot.execution),
                 'reset_preview':replayed.lineage.get('reset_preview'),
+                'reset_participants':self._reset_participants(unit,merged_snapshot,unit.context.lineage|replayed.lineage),
                 'reset_reference':replayed.lineage.get('reset_reference'),
                 'context_changes':differences(unit.context.model_dump(mode='json'),merged_context.model_dump(mode='json')),
                 'plan':merged.model_dump(mode='json'),'snapshot':merged_snapshot.model_dump(mode='json'),'hour_display':plan_hour_display(merged),
@@ -357,10 +371,29 @@ class PlanService:
                 'adoption_blocked':any(issue.get('blocks_adoption',issue.get('severity')=='error') for issue in replayed.issues), 'merged':command.base_revision!=unit.revision,
                 'coverage':[r.model_dump(mode='json') for r in unit.context.coverage],
                 'parent_revision':unit.revision, 'base_revision':command.base_revision,
-                'lineage':unit.get_revision(unit.revision).get('lineage',{})|unit.context.lineage|replayed.lineage}
+                'lineage':unit.get_planning_revision(unit.revision).get('lineage',{})|unit.context.lineage|replayed.lineage}
 
     def preview(self, command, actor, now):
         return self.store.read(actor,lambda unit:self._prepare(unit,command,now,actor))
+
+    def _adopted_coverage(self,unit,prepared):
+        from .production_time import production_week
+        old=unit.get_planning_adoption(unit.adoption)['coverage'] if unit.adoption else []
+        coverage=[ExecutionCoverage.model_validate(row) for row in old+prepared['coverage']+prepared['lineage'].get('planned_coverage',[])]
+        plan=Plan.model_validate(prepared['plan'])
+        time=EvaluationTime.model_validate(prepared['snapshot']['time'])
+        facts=prepared['snapshot']['execution']['facts']
+        lines=sorted({r.code for r in unit.inputs.masters.lines if r.active}|{r.line_code for r in plan.segments}|{r['line_code'] for r in facts})
+        models=sorted({r.code for r in unit.inputs.masters.models if r.active}|{r.model_code for r in plan.segments}|{r['model_code'] for r in facts})
+        # Imported partial coverage stays partial. Only a newly planned week
+        # without an imported boundary gains explicit adopted blank-zero cells.
+        for week in sorted({production_week(r.date) for r in plan.segments if r.quantity and time.window_start<=r.date<=time.window_end}):
+            end=week+timedelta(days=6)
+            if any(r.start_date<=end and r.end_date>=week for r in coverage):
+                continue
+            coverage.append(ExecutionCoverage(start_date=week,end_date=end,line_codes=lines,model_codes=models,blanks_are_zero=True))
+        unique={r.model_dump_json():r.model_dump(mode='json') for r in coverage}
+        return list(unique.values())
 
     def submit(self, command, actor, now, kind='save'):
         def action(unit):
@@ -370,10 +403,12 @@ class PlanService:
             reference=prepared.get('reset_reference')
             if reference and command.operations and all(r.get('kind')=='weekly_reset' for r in command.operations):
                 prepared['lineage'].pop('reset_reference',None)
-                saved=unit.append(prepared,command.operations,actor,now,'reset_reference',unit.get_revision(unit.revision).get('pending',False))
+                saved=unit.append(prepared,command.operations,actor,now,'reset_reference',unit.get_planning_revision(unit.revision).get('pending',False))
                 return saved|{'already_effective':True,**reference}
             if kind=='adopt' and (not prepared['evaluation']['executable'] or prepared['adoption_blocked']):
                 raise PlanProblem(422,'存在硬冲突、未完成计算或必要确认，不能采用',evaluation=prepared['evaluation'])
+            if kind=='adopt':
+                prepared['coverage']=self._adopted_coverage(unit,prepared)
             if kind=='save' and not command.pending and (not prepared['evaluation']['executable'] or prepared['adoption_blocked']):
                 raise PlanProblem(422,'请明确保存为待处理草稿',evaluation=prepared['evaluation'])
             if kind=='adopt' and prepared.get('reset_preview'):
@@ -411,7 +446,7 @@ class PlanService:
     def current(self, actor, now):
         def current(unit):
             snapshot=self._snapshot(unit,unit.plan,now)
-            record=unit.get_revision(unit.revision)
+            record=unit.get_planning_revision(unit.revision)
             from .reset_operations import refresh_lineage
             lineage=refresh_lineage(record.get('lineage',{})|unit.context.lineage,unit.plan,snapshot)
             return {'revision':unit.revision,'latest_adoption':unit.adoption,'input_version':unit.inputs.input_version,
@@ -422,6 +457,7 @@ class PlanService:
                     'execution_segments':execution_segments(unit.plan,snapshot.execution),
                     'execution_surplus':execution_surplus(unit.plan,snapshot.execution),
                     'reset_preview':lineage.get('reset_preview'),
+                    'reset_participants':self._reset_participants(unit,snapshot,lineage),
                     'time':snapshot.time.model_dump(mode='json'),'hour_display':plan_hour_display(unit.plan),
                     'weeks': [{'number':week+1,'label':week_label(snapshot.time.window_start+timedelta(days=week*7)),'start_date':(snapshot.time.window_start+timedelta(days=week*7)).isoformat(),
                         'dates':[(snapshot.time.window_start+timedelta(days=week*7+day)).isoformat() for day in range(7)]} for week in range(15)],
@@ -430,7 +466,7 @@ class PlanService:
 
     def compare(self, base_revision, input_version, actor):
         def compare(unit):
-            base=unit.get_revision(base_revision)
+            base=unit.get_planning_revision(base_revision)
             old_inputs=unit.get_inputs(input_version)
             old_context=unit.get_context(input_version)
             return {'base_revision':base_revision,'base_input_version':input_version,

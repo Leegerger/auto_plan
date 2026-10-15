@@ -10,6 +10,12 @@ test('Chinese facts and reset editor keeps source, complete pairing and correcti
   await page.getByRole('link',{name:'共享计划',exact:true}).click()
   const panel=page.getByRole('region',{name:'执行事实与每周重置'})
   await expect(panel).toBeVisible()
+  const inputs=await(await page.request.get('/planning/api/inputs')).json()
+  const retired=await page.request.post('/planning/api/inputs/apply',{headers:{Origin:new URL(page.url()).origin,'X-Auto-Plan-Request':'1'},data:{base_version:inputs.input_version,changes:{models:[{code:'RETIRED',name:'已停用且无来源事实',recipe_code:'R',active:false}]}}})
+  expect(retired.status()).toBe(200)
+  await page.reload()
+  await expect(panel).toBeVisible()
+  await expect(page.getByLabel('RETIRED 周一起始在制品',{exact:true})).toHaveCount(0)
   await page.getByLabel('重置批次',{exact:true}).fill('browser-monday')
   for(const model of ['M','N','P']){
     await page.getByLabel(`${model} 周一起始在制品`,{exact:true}).fill('0')

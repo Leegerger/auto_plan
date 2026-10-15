@@ -38,6 +38,37 @@ def test_submission_is_recoverable_by_separate_uuid_and_never_writes_a_revision(
     assert client.post('/auto_plan/api/jobs', json=submission(submission_id=unknown)).status_code == 409
 
 
+def test_adopting_a_full_zero_candidate_records_its_named_week_through_shared_save(shared_client):
+    from tests.test_execution_reset import current_command,preview,head
+    from tests.test_plan_transactions import post,patch,row
+    client,plans,_=shared_client
+    controller=install_controller(client,plans)
+    try:
+        request=submission(request={'scope':{'start_date':'2027-01-18','end_date':'2027-01-24','line_codes':['L','B'],'model_codes':['M','N','P']},'mode':'new_week','time_limit_seconds':1})
+        accepted=client.post('/auto_plan/api/jobs',json=request)
+        assert accepted.status_code==200,accepted.text
+        identity=accepted.json()['job_id']
+        job=wait_job(client,identity)
+        assert job['state']=='completed' and job['candidates'],job
+        reference=job['candidates'][0]
+        viewed=client.get(f"/auto_plan/api/jobs/{identity}/candidates/{reference['candidate_id']}").json()
+        assert viewed['candidate']['plan']['segments']==[]
+        saved=post(client,'save',viewed['proposal']|{'operation_id':str(uuid4()),'pending':True})
+        assert saved.status_code==200,saved.text
+        assert post(client,'adopt',current_command(client)).status_code==200
+        checked=preview(client,patch(row('new','M','2027-01-20'))).json()['evaluation']['stability']
+        assert (checked['weeks'][14]['state'],checked['weeks'][14]['baseline_complete'])==('zero_baseline',True)
+        assert checked['weeks'][13]['state']=='new_plan'
+        current=head(client)
+        added=client.post('/auto_plan/api/inputs/apply',json={'base_version':current['input_version'],'changes':{
+            'models':[{'code':'LATER','name':'Added after adoption','recipe_code':'R','active':True}]}})
+        assert added.status_code==200,added.text
+        after=preview(client,patch(row('later','LATER','2027-01-20'))).json()['evaluation']['stability']['weeks'][14]
+        assert (after['state'],after['baseline_complete'],after['unknown_baseline_cells'])==('partial',False,1)
+    finally:
+        controller.shutdown()
+
+
 def wait_job(client,identity,timeout=15):
     import time
     deadline=time.monotonic()+timeout
