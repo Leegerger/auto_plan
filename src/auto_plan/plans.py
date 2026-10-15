@@ -284,7 +284,7 @@ class PlanService:
         context=unit.context
         baseline=None
         if unit.adoption:
-            record=unit.get_adoption(unit.adoption)
+            record=unit.get_planning_adoption(unit.adoption)
             baseline=AdoptedBaseline(version=unit.adoption,plan=record['snapshot']['plan'],coverage=record['coverage'])
         return EvaluationSnapshot(time=EvaluationTime.at(now),inputs=unit.inputs,plan=plan,
             execution=freeze_associations(unit.plan,context.execution),reset=context.reset,locks=context.locks,baseline=baseline,preferences=context.preferences)
@@ -292,7 +292,7 @@ class PlanService:
     def _reset_participants(self,unit,snapshot,lineage):
         from .reset_operations import participating_models
         def selected(number):
-            source=snapshot.baseline.plan if snapshot.baseline and number==unit.adoption else Plan.model_validate(unit.get_adoption(number)['snapshot']['plan']) if number else Plan()
+            source=snapshot.baseline.plan if snapshot.baseline and number==unit.adoption else Plan.model_validate(unit.get_planning_adoption(number)['snapshot']['plan']) if number else Plan()
             return {'source_adoption':number,'model_codes':sorted(participating_models(snapshot.inputs,source,snapshot.execution,snapshot.time.window_start))}
         record=lineage.get('resets',{}).get(snapshot.time.window_start.isoformat())
         return {'current':selected(unit.adoption),'correction':selected(record['source_adoption']) if record and record.get('effective_adoption') else None}
@@ -307,7 +307,7 @@ class PlanService:
                                   unit.context.model_dump(mode='json'),('context',)),
                               context=unit.context.model_dump(mode='json'))
         initial_import=unit.revision==0 and bool(unit.context.lineage.get('external_reset'))
-        try: base=unit.get_revision(command.base_revision)
+        try: base=unit.get_planning_revision(command.base_revision)
         except KeyError: raise PlanProblem(409,'基准修订不存在或已超出恢复范围',revision=unit.revision) from None
         if command.base_revision>unit.revision: raise PlanProblem(409,'基准修订不存在',revision=unit.revision)
         base_plan=Plan.model_validate(base['snapshot']['plan'])
@@ -327,7 +327,7 @@ class PlanService:
             raise PlanProblem(409,'其他用户已修改关联范围，请核对差异',revision=unit.revision,
                               conflicts=sorted(intersection),changes=plan_differences(base['snapshot']['plan'],unit.plan.model_dump(mode='json')))
         try:
-            current=unit.get_revision(unit.revision)
+            current=unit.get_planning_revision(unit.revision)
             # Inputs, adopted baseline, association freeze and time are shared
             # by both replays in this pinned unit; only the plan differs.
             if command.base_revision==unit.revision:
@@ -371,14 +371,14 @@ class PlanService:
                 'adoption_blocked':any(issue.get('blocks_adoption',issue.get('severity')=='error') for issue in replayed.issues), 'merged':command.base_revision!=unit.revision,
                 'coverage':[r.model_dump(mode='json') for r in unit.context.coverage],
                 'parent_revision':unit.revision, 'base_revision':command.base_revision,
-                'lineage':unit.get_revision(unit.revision).get('lineage',{})|unit.context.lineage|replayed.lineage}
+                'lineage':unit.get_planning_revision(unit.revision).get('lineage',{})|unit.context.lineage|replayed.lineage}
 
     def preview(self, command, actor, now):
         return self.store.read(actor,lambda unit:self._prepare(unit,command,now,actor))
 
     def _adopted_coverage(self,unit,prepared):
         from .production_time import production_week
-        old=unit.get_adoption(unit.adoption)['coverage'] if unit.adoption else []
+        old=unit.get_planning_adoption(unit.adoption)['coverage'] if unit.adoption else []
         coverage=[ExecutionCoverage.model_validate(row) for row in old+prepared['coverage']+prepared['lineage'].get('planned_coverage',[])]
         plan=Plan.model_validate(prepared['plan'])
         time=EvaluationTime.model_validate(prepared['snapshot']['time'])
@@ -403,7 +403,7 @@ class PlanService:
             reference=prepared.get('reset_reference')
             if reference and command.operations and all(r.get('kind')=='weekly_reset' for r in command.operations):
                 prepared['lineage'].pop('reset_reference',None)
-                saved=unit.append(prepared,command.operations,actor,now,'reset_reference',unit.get_revision(unit.revision).get('pending',False))
+                saved=unit.append(prepared,command.operations,actor,now,'reset_reference',unit.get_planning_revision(unit.revision).get('pending',False))
                 return saved|{'already_effective':True,**reference}
             if kind=='adopt' and (not prepared['evaluation']['executable'] or prepared['adoption_blocked']):
                 raise PlanProblem(422,'存在硬冲突、未完成计算或必要确认，不能采用',evaluation=prepared['evaluation'])
@@ -446,7 +446,7 @@ class PlanService:
     def current(self, actor, now):
         def current(unit):
             snapshot=self._snapshot(unit,unit.plan,now)
-            record=unit.get_revision(unit.revision)
+            record=unit.get_planning_revision(unit.revision)
             from .reset_operations import refresh_lineage
             lineage=refresh_lineage(record.get('lineage',{})|unit.context.lineage,unit.plan,snapshot)
             return {'revision':unit.revision,'latest_adoption':unit.adoption,'input_version':unit.inputs.input_version,
@@ -466,7 +466,7 @@ class PlanService:
 
     def compare(self, base_revision, input_version, actor):
         def compare(unit):
-            base=unit.get_revision(base_revision)
+            base=unit.get_planning_revision(base_revision)
             old_inputs=unit.get_inputs(input_version)
             old_context=unit.get_context(input_version)
             return {'base_revision':base_revision,'base_input_version':input_version,

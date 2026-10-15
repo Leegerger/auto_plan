@@ -117,6 +117,35 @@ def seed(real_app):
     return current(client)
 
 
+def test_real_selected_planning_reads_cannot_truncate_same_sha_history(real_app):
+    client,_,plans,_,_,_,_,_=real_app
+    seed(real_app)
+    adopted=post(client,'adopt',body(client))
+    assert adopted.status_code==200,adopted.text
+    saved=adopted.json()
+    revision=client.get(f"/auto_plan/api/plans/revisions/{saved['revision']}").json()
+    adoption=client.get(f"/auto_plan/api/plans/adoptions/{saved['latest_adoption']}").json()
+    assert revision==adoption
+
+    def selected_then_full(unit):
+        selected_revision=unit.get_planning_revision(saved['revision'])
+        selected_adoption=unit.get_planning_adoption(saved['latest_adoption'])
+        assert 'evaluation' not in selected_revision and 'inputs' not in selected_revision['snapshot']
+        assert selected_revision==selected_adoption
+        full_adoption=unit.get_adoption(saved['latest_adoption'])
+        full_revision=unit.get_revision(saved['revision'])
+        assert full_revision==revision and full_adoption==adoption
+        # Both tables reference the same SHA. Selection has its own ownership.
+        selected_revision['snapshot']['plan']['segments'][0]['quantity']=999
+        assert full_revision['snapshot']['plan']==revision['snapshot']['plan']
+        return full_revision
+
+    assert plans.read('T29EDITOR',selected_then_full)==revision
+    assert current(client)['plan']==revision['snapshot']['plan']
+    assert client.get(f"/auto_plan/api/plans/revisions/{saved['revision']}").json()==revision
+    assert client.get(f"/auto_plan/api/plans/adoptions/{saved['latest_adoption']}").json()==adoption
+
+
 def test_real_adoption_race_same_key_replay_and_frozen_adopted_cells(real_app):
     client,_,plans,_,model,_,line,_=real_app
     seed(real_app)

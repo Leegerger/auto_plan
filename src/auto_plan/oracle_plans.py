@@ -20,12 +20,21 @@ def document(value):
 def encode(value): return zlib.compress(document(value))
 
 
-def decode(blob,sha=None):
+def _decode_document(blob,sha,reader):
     try:
         raw=zlib.decompress(blob.read() if hasattr(blob,'read') else blob)
         if sha and hashlib.sha256(raw).hexdigest()!=sha: raise StoreUnavailable
-        return json.loads(raw)
+        return reader(raw)
     except (ValueError,zlib.error): raise StoreUnavailable from None
+
+
+def decode(blob,sha=None):
+    return _decode_document(blob,sha,json.loads)
+
+
+def decode_planning(blob,sha=None):
+    from .planning_records import planning_document
+    return _decode_document(blob,sha,planning_document)
 
 
 def insert_batches(cursor,statement,rows):
@@ -49,7 +58,7 @@ class OraclePlanUnit:
         # Only this authorized, head-pinned transaction owns these immutable
         # documents. Bound history/reset walks rather than retaining all history.
         self._records=OrderedDict()
-        self.plan=Plan.model_validate(self.get_revision(self.revision)['snapshot']['plan'])
+        self.plan=Plan.model_validate(self.get_planning_revision(self.revision)['snapshot']['plan'])
 
     def get_candidate(self,job_id,candidate_id,payload_sha,now):
         from .oracle_jobs import retained_candidate
@@ -64,16 +73,19 @@ class OraclePlanUnit:
 
     def get_context(self,version): return self.store.context_in_transaction(self.cursor,version)
 
-    def _record(self,table,column,identity):
-        key=table,column,identity
+    def _record(self,table,column,identity,*,planning=False):
+        key=table,column,identity,planning
         if key in self._records:
             self._records.move_to_end(key)
             return self._records[key][1]
         self.cursor.execute(f'SELECT S.SNAPSHOT_BLOB,S.SHA256 FROM {table} R JOIN AP_PLAN_SNAPSHOT S ON S.SHA256=R.SNAPSHOT_SHA WHERE R.{column}=:identity',identity=identity)
         row=self.cursor.fetchone()
         if not row: raise KeyError(identity)
-        record=next((record for sha,record in self._records.values() if sha==row[1]),None)
-        if record is None: record=decode(row[0],row[1])
+        # A selected record cannot satisfy a full-history read, even when
+        # revision and adoption point to the exact same immutable SHA.
+        record=next((record for candidate,(sha,record) in self._records.items()
+                     if sha==row[1] and candidate[-1]==planning),None)
+        if record is None: record=(decode_planning if planning else decode)(row[0],row[1])
         self._records[key]=row[1],record
         if len(self._records)>8: self._records.popitem(last=False)
         return record
@@ -82,6 +94,12 @@ class OraclePlanUnit:
         return zero_revision() if identity==0 else self._record('AP_PLAN_REVISION','REVISION_NO',identity)
 
     def get_adoption(self,identity): return self._record('AP_PLAN_ADOPTION','ADOPTION_NO',identity)
+
+    def get_planning_revision(self,identity):
+        return zero_revision() if identity==0 else self._record('AP_PLAN_REVISION','REVISION_NO',identity,planning=True)
+
+    def get_planning_adoption(self,identity):
+        return self._record('AP_PLAN_ADOPTION','ADOPTION_NO',identity,planning=True)
 
     def list_history(self,cutoff,before,limit):
         # Metadata only. Snapshot BLOBs are loaded only after a user selects one.
