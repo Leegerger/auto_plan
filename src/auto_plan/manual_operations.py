@@ -11,22 +11,7 @@ from .input_lookup import InputIndex
 from .recipe_states import analyze_recipe_states
 from .certificate import construct_hour_certificate, CertificateError
 from .plan_operations import register_operation, ReplayResult
-
-
-class EditingScope(InputRow):
-    start_date: date
-    end_date: date
-    line_codes: list[Code] = Field(min_length=1)
-    model_codes: list[Code] = Field(default_factory=list)
-
-    @model_validator(mode='after')
-    def ordered(self):
-        if self.start_date > self.end_date or len(set(self.line_codes)) != len(self.line_codes):
-            raise ValueError('调整范围日期或线体重复，请重新选择')
-        return self
-
-    def contains(self,row):
-        return self.start_date<=row.date<=self.end_date and row.line_code in self.line_codes and (not self.model_codes or row.model_code in self.model_codes)
+from .editing_scope import EditingScope
 
 
 class ScopedOperation(InputRow):
@@ -47,8 +32,8 @@ def derived_id(context,suffix):
     return 'edit-'+hashlib.sha256(f'{context.action_id}:{suffix}'.encode()).hexdigest()[:40]
 
 
-def _state_before(plan,index,line,day):
-    states=analyze_recipe_states(plan,index)
+def _state_before(plan,index,line,day,states=None):
+    states=states if states is not None else analyze_recipe_states(plan,index)
     endings=[(production_day,state) for (production_day,production_line),state in states.endings.items()
              if production_line==line and production_day<day]
     return max(endings,key=lambda value:value[0])[1] if endings else states.initial_states.get(line)
@@ -69,12 +54,14 @@ def bounded_certificate(plan,context,scope):
     index=InputIndex(context.inputs)
     output=plan.model_copy(deep=True)
     original=context.plan
+    original_states=analyze_recipe_states(original,index)
+    original_switch_documents={switch.model_dump_json() for switch in original.switches}
     for line in scope.line_codes:
         if line not in index.lines: raise ValueError('线体编码不存在')
         crossing=[s for s in original.switches if s.line_code==line and any(scope.start_date<=a.date<=scope.end_date for a in s.allocations) and any(not scope.start_date<=a.date<=scope.end_date for a in s.allocations)]
         if crossing: raise ValueError('切机跨越调整范围边界，请扩大日期范围后重新预览')
         inside=[r for r in output.segments if r.line_code==line and scope.start_date<=r.date<=scope.end_date]
-        incoming=_state_before(original,index,line,scope.start_date)
+        incoming=_state_before(original,index,line,scope.start_date,original_states)
         sources=[SourceSegment.model_validate(r.model_dump(exclude={'hours'})) for r in inside]
         try:
             certificate=construct_hour_certificate(context.inputs,sources,[InitialRecipeState(line_code=line,recipe_code=incoming)],window_start=scope.start_date)
@@ -85,7 +72,7 @@ def bounded_certificate(plan,context,scope):
             if certificate is None:
                 raise CapacityWitnessError('；'.join(f'{i.date or ""} {i.line_code or ""} {i.reason}' for i in error.issues)) from None
         outgoing=_state_before(certificate,index,line,scope.end_date+timedelta(days=1))
-        old_outgoing=_state_before(original,index,line,scope.end_date+timedelta(days=1))
+        old_outgoing=_state_before(original,index,line,scope.end_date+timedelta(days=1),original_states)
         outside_later=any(r.line_code==line and r.date>scope.end_date and r.quantity for r in original.segments) or any(s.line_code==line and any(a.date>scope.end_date for a in s.allocations) for s in original.switches)
         if outside_later and outgoing!=old_outgoing:
             raise ValueError(f'{scope.end_date} {line} 调整会改变范围外 Recipe 衔接，请扩大范围后重新预览')
@@ -106,7 +93,7 @@ def bounded_certificate(plan,context,scope):
         switches=[s for s in output.switches if not(s.line_code==line and all(scope.start_date<=a.date<=scope.end_date for a in s.allocations))]
         for switch in certificate.switches:
             signature=f'{line}:{switch.from_recipe}:{switch.to_recipe}:'+','.join(f'{a.date}:{a.order}' for a in switch.allocations)
-            switches.append(switch if switch in original.switches else switch.model_copy(update={'id':derived_id(context,signature)}))
+            switches.append(switch if switch.model_dump_json() in original_switch_documents else switch.model_copy(update={'id':derived_id(context,signature)}))
         idle=[r for r in output.ordinary_idle if not(r.line_code==line and scope.start_date<=r.date<=scope.end_date) or (r.line_code==line and r.date in preserved_days)]
         output=output.model_copy(update={'segments':segments,'switches':switches,'ordinary_idle':idle})
     output=output.model_copy(update={'segments':sorted(output.segments,key=lambda r:(r.date,r.line_code,r.order,r.id))})
@@ -144,8 +131,8 @@ def _local_certificate(output,original,context,index,scope,line,incoming,inside)
     return certificate
 
 
-def _preserve_fixed_models(certificate,inside,index,scope,line):
-    fixed={r.id:r for r in inside if r.model_code not in scope.model_codes}
+def _preserve_fixed_models(certificate,inside,index,scope,line,fixed_ids=None):
+    fixed={r.id:r for r in inside if r.id in fixed_ids} if fixed_ids is not None else {r.id:r for r in inside if r.model_code not in scope.model_codes}
     if not fixed: return certificate
     rows={r.id:r for r in certificate.segments}
     # Preserve the integer event positions of all excluded models. Inserted
