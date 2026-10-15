@@ -2,6 +2,7 @@
 import hashlib
 import json
 import zlib
+from itertools import islice
 from datetime import date
 import oracledb
 from .access import AuthorizationDenied, StoreUnavailable
@@ -24,6 +25,12 @@ def decode(blob,sha=None):
         if sha and hashlib.sha256(raw).hexdigest()!=sha: raise StoreUnavailable
         return json.loads(raw)
     except (ValueError,zlib.error): raise StoreUnavailable from None
+
+
+def insert_batches(cursor,statement,rows):
+    pending=iter(rows)
+    while batch:=list(islice(pending,1000)):
+        cursor.executemany(statement,batch)
 
 
 def code(error): return getattr(error.args[0],'code',None) if error.args else None
@@ -68,14 +75,15 @@ class OraclePlanUnit:
             self.cursor.setinputsizes(blob=oracledb.DB_TYPE_BLOB)
             self.cursor.execute('INSERT INTO AP_PLAN_SNAPSHOT (SHA256,SNAPSHOT_BLOB,RECORDED_AT) VALUES (:sha,:blob,:now)',sha=sha,blob=zlib.compress(raw),now=now)
         self.cursor.execute('INSERT INTO AP_PLAN_REVISION (REVISION_NO,SNAPSHOT_SHA,INPUT_VERSION,ACTOR_ID,OPERATION_KIND,PENDING,RECORDED_AT) VALUES (:revision,:sha,:version,:actor,:kind,:pending,:now)',revision=revision,sha=sha,version=self.inputs.input_version,actor=actor,kind=kind,pending=int(pending),now=now)
-        for effect in record['effects']:
-            effect_json=document(effect).decode()
-            self.cursor.execute('INSERT INTO AP_PLAN_EFFECT (REVISION_NO,EFFECT_SHA,EFFECT_JSON) VALUES (:revision,:sha,:effect)',revision=revision,sha=hashlib.sha256(effect_json.encode()).hexdigest(),effect=effect_json)
+        effect_rows=({'revision':revision,'sha':hashlib.sha256(document(effect)).hexdigest(),
+                      'effect':document(effect).decode()} for effect in record['effects'])
+        insert_batches(self.cursor,'INSERT INTO AP_PLAN_EFFECT (REVISION_NO,EFFECT_SHA,EFFECT_JSON) VALUES (:revision,:sha,:effect)',effect_rows)
         if kind=='adopt':
             self.cursor.execute('INSERT INTO AP_PLAN_ADOPTION (ADOPTION_NO,REVISION_NO,SNAPSHOT_SHA,ACTOR_ID,RECORDED_AT) VALUES (:adoption,:revision,:sha,:actor,:now)',adoption=adoption,revision=revision,sha=sha,actor=actor,now=now)
-            for identity,quantity in cells(Plan.model_validate(prepared['plan'])).items():
-                day,line,model=identity
-                self.cursor.execute('INSERT INTO AP_ADOPTED_CELL (ADOPTION_NO,CELL_SHA,PRODUCTION_DATE,LINE_CODE,MODEL_CODE,QUANTITY) VALUES (:adoption,:sha,:day,:line,:model,:quantity)',adoption=adoption,sha=hashlib.sha256(document(identity)).hexdigest(),day=date.fromisoformat(day),line=line,model=model,quantity=quantity)
+            cell_rows=({'adoption':adoption,'sha':hashlib.sha256(document(identity)).hexdigest(),
+                        'day':date.fromisoformat(identity[0]),'line':identity[1],'model':identity[2],'quantity':quantity}
+                       for identity,quantity in cells(Plan.model_validate(prepared['plan'])).items())
+            insert_batches(self.cursor,'INSERT INTO AP_ADOPTED_CELL (ADOPTION_NO,CELL_SHA,PRODUCTION_DATE,LINE_CODE,MODEL_CODE,QUANTITY) VALUES (:adoption,:sha,:day,:line,:model,:quantity)',cell_rows)
         self.cursor.execute('INSERT INTO AP_PLAN_AUDIT (REVISION_NO,ACTOR_ID,OPERATION_KIND,OPERATION_ID,RECORDED_AT) VALUES (:revision,:actor,:kind,:key,:now)',revision=revision,actor=actor,kind=kind,key=self.key,now=now)
         self.cursor.execute('UPDATE AP_PLAN_HEAD SET CURRENT_REVISION=:revision,CURRENT_ADOPTION=:adoption WHERE ID=1',revision=revision,adoption=adoption)
         return {'status':'COMMITTED','revision':revision,'latest_adoption':adoption,'input_version':self.inputs.input_version,'pending':pending}

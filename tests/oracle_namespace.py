@@ -48,6 +48,7 @@ class NamespaceCursor:
     def __getattr__(self,name): return getattr(self.cursor,name)
     def __iter__(self): return iter(self.cursor)
     def execute(self,statement,*args,**kwargs): return self.cursor.execute(self.namespace.rewrite(statement),*args,**kwargs)
+    def executemany(self,statement,*args,**kwargs): return self.cursor.executemany(self.namespace.rewrite(statement),*args,**kwargs)
 
 
 @contextmanager
