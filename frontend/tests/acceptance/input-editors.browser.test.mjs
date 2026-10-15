@@ -15,6 +15,7 @@ import { INPUT_CONTENT_DIGEST_ALGORITHM, inputContentDigest, resolveInputCompani
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../../..')
 const enabled = process.env.AUTO_PLAN_INPUT_EDITORS_BROWSER === '1'
+const primaryPinProbe = process.env.AUTO_PLAN_INPUT_PRIMARY_PIN_PROBE === '1'
 const sha = value => createHash('sha256').update(value).digest('hex')
 
 function fixture(directory) {
@@ -83,7 +84,7 @@ function healthy(url) {
   })
 }
 
-test('four browser editors commit existing names through the Inputs workflow',
+test(primaryPinProbe ? 'a primary preview retains its accepted input pin and original retry clock while editors continue' : 'four browser editors commit existing names through the Inputs workflow',
   { skip: !enabled && 'Set AUTO_PLAN_INPUT_EDITORS_BROWSER=1 for the owned HTTPS adapter.', timeout: 180000 }, async () => {
     const python = process.env.AUTO_PLAN_INPUT_EDITORS_PYTHON
     assert.ok(python, 'Provide the already installed test Python interpreter.')
@@ -130,7 +131,7 @@ test('four browser editors commit existing names through the Inputs workflow',
     const log = openSync(resolve(output, 'runner.log'), 'w')
     const child = spawn(process.execPath, [resolve(root, 'frontend/tests/acceptance/run.mjs'), '--config', childConfigPath,
       '--output', resolve(output, 'run'), '--mode', 'five_automated_editors_one_computation', '--operations', 'all_replan',
-      '--editing-contract-probe', 'true'], { cwd: root, detached: true, stdio: ['pipe', log, log],
+      '--editing-contract-probe', 'true', ...(primaryPinProbe ? ['--primary-pin-probe', 'true'] : [])], { cwd: root, detached: true, stdio: ['pipe', log, log],
       env })
     writeFileSync(resolve(output, 'owned-processes.json'), JSON.stringify({ controller_pid: process.pid,
       server_pid: server.pid, server_pgid: server.pid, runner_pid: child.pid, runner_pgid: child.pid }) + '\n')
@@ -180,6 +181,31 @@ test('four browser editors commit existing names through the Inputs workflow',
       for (const conflict of report.editor_actions.filter(row => row.response_status === 409)) {
         assert.equal(conflict.commit, undefined, 'An optimistic conflict cannot earn modified-edit credit.')
         captured(conflict.request_artifact); captured(conflict.response_artifact)
+      }
+      if (primaryPinProbe) {
+        const primary = report.request_spans.filter(row => row.editor === 0 && row.path.endsWith('/plans/preview'))
+        assert.ok(primary.some(row => row.status === 409), 'The primary must actually submit its stale UI input pin and observe the public conflict.')
+        assert.ok(primary.some(row => row.status === 200), 'The primary must actually complete a successful preview through the public latest-input retry.')
+        const pin = report.primary_pin_probe
+        assert.equal(pin.accepted.command.input_version, pin.accepted.response.snapshot.inputs.input_version)
+        assert.deepEqual(captured(pin.accepted.request_artifact), pin.accepted.command)
+        assert.deepEqual(captured(pin.accepted.response_artifact), pin.accepted.response)
+        resolveInputCompanion(companion, initial, pin.accepted.response.snapshot.inputs)
+        assert.ok(pin.displayed_reload.head.input_version > pin.accepted.command.input_version,
+          'The later displayed source must really advance beyond the accepted primary pin.')
+        assert.equal(pin.displayed_reload.head.input_version, pin.displayed_reload.snapshot.inputs.input_version)
+        resolveInputCompanion(companion, initial, pin.displayed_reload.snapshot.inputs)
+        assert.equal(pin.clock.origin_epoch_ms, pin.clock.first_clicked_epoch_ms)
+        assert.ok(pin.clock.retry_clicked_epoch_ms.length >= 1)
+        assert.ok(pin.clock.retry_clicked_epoch_ms.every(value => value > pin.clock.origin_epoch_ms))
+        assert.ok(pin.clock.rendered_epoch_ms > pin.clock.retry_clicked_epoch_ms.at(-1))
+        assert.equal(pin.clock.seconds, (pin.clock.rendered_epoch_ms - pin.clock.origin_epoch_ms) / 1000)
+        assert.equal(pin.accepted.response.evaluation.output_totals.expected, 52499)
+        assert.equal(pin.accepted.response.evaluation.output_totals.gap, 1)
+        const changed = pin.accepted.response.plan.segments.find(row => row.id === 'S-2027-01-24-M00')
+        assert.equal(changed.quantity, 99)
+        assert.equal(pin.local_cleanup.queue_empty, true)
+        assert.equal(pin.local_cleanup.original_plan_restored, true)
       }
       assert.equal(inputContentDigest(report.input_editing_contract.restored_inputs), inputContentDigest(initial))
       assert.equal(report.input_editing_contract.cleanup, 'complete')

@@ -39,7 +39,9 @@ function asset(pointer) {
 const source = asset(scenario.source), action = asset(scenario.action), output = resolve(flags.output)
 mkdirSync(output, { recursive: false })
 const editingProbe = flags['editing-contract-probe'] === 'true'
+const primaryPinProbe = flags['primary-pin-probe'] === 'true'
 assert.ok(!editingProbe || mode !== 'solo' && config.target.kind === 'adapter', 'The editing-contract probe requires five disposable adapter accounts.')
+assert.ok(!primaryPinProbe || editingProbe, 'The primary-pin probe is part of the explicit adapter correctness workflow.')
 let inputCompanion
 if (mode !== 'solo') {
   assert.ok(config.input_companion?.path && config.input_companion.sha256, 'New five-editor runs require their frozen maintained-input companion.')
@@ -433,6 +435,68 @@ async function finishInputEditors() {
   assert.ok(!blocked, blocked)
   contract.status = 'pass'; persist()
 }
+async function primaryInputPinProbe() {
+  const page = pages[0], row = source.plan.segments.find(item => item.id === config.primary_segment)
+  await selectRow(page, row)
+  await page.getByLabel('改量后总量', { exact: true }).fill('99')
+  const entry = {}, record = { attempts: [], clock: { retry_clicked_epoch_ms: [] } }
+  evidence.primary_pin_probe = record
+  const until = performance.now() + 30000
+  let first = true
+  while (performance.now() < until) {
+    const pending = responseFor(page, response => response.url() === api('/plans/preview') && response.request().method() === 'POST', { timeout: 180000 })
+    if (first) {
+      await arm(page); await page.getByRole('button', { name: '预览完整改量顺延', exact: true }).click(); await clicked(page, entry)
+      record.clock.origin_epoch_ms = record.clock.first_clicked_epoch_ms = entry.clicked_epoch_ms
+    } else {
+      await page.getByRole('button', { name: '按最新资料重新预览', exact: true }).click()
+      record.clock.retry_clicked_epoch_ms.push(await page.evaluate(() => window.__acceptanceInputEpoch))
+    }
+    const received = await pending, request = received.request(), bytes = await received.body()
+    const attempt = { command: request.postDataJSON(), response_status: received.status(), response: JSON.parse(bytes),
+      request_artifact: captureInputBody(request.postDataBuffer()), response_artifact: captureInputBody(bytes) }
+    record.attempts.push(attempt); persist()
+    if (first) assert.equal(attempt.response_status, 409, 'The primary probe did not begin with its actual stale UI source.')
+    first = false
+    if (attempt.response_status === 409) { await idle(page); continue }
+    assert.equal(attempt.response_status, 200, 'The latest-input primary preview failed.')
+    assertManualRequest(attempt.command, [row], 'change_quantity', 99)
+    assertManualPlan(attempt.response.plan, source, [row], 'change_quantity')
+    resolveInputCompanion(inputCompanion, initialState.snapshot.inputs, attempt.response.snapshot.inputs)
+    assert.equal(attempt.command.input_version, attempt.response.snapshot.inputs.input_version)
+    await expect(page.getByText('预览完成，尚未共享', { exact: true })).toBeVisible()
+    await idle(page); await assertDaily(page, row, 99); await assertOutput(page, attempt.response.evaluation)
+    await rendered(page, entry)
+    record.accepted = attempt
+    Object.assign(record.clock, { rendered_epoch_ms: entry.browser_after_result_frames_epoch_ms,
+      seconds: entry.browser_after_result_frames_seconds, node_observed_seconds: entry.seconds })
+    await expect.poll(async () => {
+      record.displayed_reload = await readState(page, true)
+      assertAllowed(record.displayed_reload)
+      return record.displayed_reload.head.input_version > attempt.command.input_version
+    }, { timeout: 30000 }).toBe(true)
+    persist(); return
+  }
+  throw new Error('The primary preview did not complete through actual input conflicts within the adapter probe window.')
+}
+async function cleanPrimaryInputPinProbe() {
+  const page = pages[0], attempts = []
+  let undo = true, result
+  for (let number = 0; number < 3; number++) {
+    const pending = responseFor(page, response => response.url() === api('/plans/preview') && response.request().method() === 'POST', { timeout: 180000 })
+    await page.getByRole('button', { name: undo ? '撤销最后完整动作' : '按最新资料重新预览', exact: true }).click()
+    const received = await pending
+    attempts.push({ response_status: received.status(), command: received.request().postDataJSON() })
+    if (received.status() === 409) { undo = false; await idle(page); continue }
+    assert.equal(received.status(), 200, 'The original local plan could not be rechecked after input-name restoration.')
+    result = await received.json(); break
+  }
+  assert.ok(result, 'The original local queue remains unresolved.')
+  assertPlan(result.plan, source.plan, 'Undo did not restore the original complete local plan.')
+  await resetQueue(page, 0)
+  evidence.primary_pin_probe.local_cleanup = { attempts, queue_empty: true, original_plan_restored: true }
+  persist()
+}
 try {
   assert.ok(!inputCompanion || editingProbe, 'Primary load timing/pin/retry qualification is pending; only the explicit adapter editing probe is enabled.')
   assert.ok(!importOnly || mode === 'solo', 'Concurrent initial import is not_run: an empty target has no shared editor state.')
@@ -483,7 +547,11 @@ try {
     evidence.phase = 'real_input_editor_warmup'; persist()
     inputEditors = startInputEditors()
     await inputEditors.ready
-    if (editingProbe) await finishInputEditors()
+    if (editingProbe) {
+      if (primaryPinProbe) await primaryInputPinProbe()
+      await finishInputEditors()
+      if (primaryPinProbe) await cleanPrimaryInputPinProbe()
+    }
   }
   for (const operation of editingProbe ? [] : operations) {
     assert.ok(operation in manifest.gates_seconds, 'Unknown measured operation.')

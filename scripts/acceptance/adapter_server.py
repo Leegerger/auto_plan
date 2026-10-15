@@ -10,9 +10,33 @@ from pathlib import Path
 import subprocess
 import sys
 import tempfile
+from threading import local
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 from scripts.acceptance.validate import load
+from tests.plan_support import MemoryPlanStore
+
+
+class BrowserPlanStore(MemoryPlanStore):
+    """Pin read inputs once while leaving input writers on their own lock."""
+    def __init__(self, inputs):
+        self._read_inputs = local()
+        super().__init__(inputs)
+
+    @property
+    def inputs(self):
+        pinned = getattr(self._read_inputs, 'value', None)
+        return pinned if pinned is not None else super().inputs
+
+    def read(self, actor, action):
+        with self.lock:
+            if getattr(self._read_inputs, 'value', None) is not None:
+                return action(self)
+            self._read_inputs.value = self.input_store.read()
+            try:
+                return action(self)
+            finally:
+                self._read_inputs.value = None
 
 
 def application(fixtures, scenario_id, port):
@@ -24,14 +48,13 @@ def application(fixtures, scenario_id, port):
     from auto_plan.settings import Settings
     from auto_plan.job_process import JobController
     from tests.input_support import MemoryInputStore
-    from tests.plan_support import MemoryPlanStore
     from tests.jobs_support import MemoryJobStore
     from tests.support import MemoryAccessStore, CompanyAuthentication
     scenario = next(row for row in json.loads((fixtures / 'manifest.json').read_text())['scenarios'] if row['id'] == scenario_id)
     source = load(fixtures, scenario['source'])
     inputs, access = MemoryInputStore(), MemoryAccessStore()
     inputs.versions[1] = InputSnapshot.model_validate(source['inputs']); inputs.version = 1
-    plans = MemoryPlanStore(inputs)
+    plans = BrowserPlanStore(inputs)
     plans.plan = Plan.model_validate(source['plan'])
     plans.context = PlanningContext(execution=source['execution'], reset=source['reset'], locks=source['locks'], coverage=source['baseline']['coverage'])
     plans.revision = plans.adoption = 1
