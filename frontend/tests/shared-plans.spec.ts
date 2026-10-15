@@ -1,13 +1,22 @@
 import { test, expect } from '@playwright/test'
-const headers = { Origin:'https://localhost:8774', 'X-Auto-Plan-Request':'1' }
+const headers = { Origin:`https://localhost:${process.env.AUTO_PLAN_BROWSER_PORT ?? '8774'}`, 'X-Auto-Plan-Request':'1' }
 test('typed edit save, adopt, conflict, lost responses, reload and readonly verification', async ({page}) => {
   test.skip(process.env.AUTO_PLAN_BROWSER_TRANSACTIONS_FIXTURE !== '1', 'Requires explicit frozen shared-plan fixture')
   await page.goto('/planning/login')
   await page.getByRole('textbox',{name:'公司账号'}).fill('SHARED_EDITOR')
   await page.getByLabel('公司密码',{exact:true}).fill('company-secret')
   await page.getByRole('button',{name:'登录',exact:true}).click()
-  await page.getByRole('link',{name:'共享计划',exact:true}).click()
   const current=async()=>await(await page.request.get('/planning/api/plans/current')).json()
+  const seed=await current()
+  const seeded=await page.request.post('/planning/api/plans/save',{headers,data:{
+    base_revision:seed.revision,input_version:seed.input_version,latest_adoption:seed.latest_adoption,
+    operation_id:crypto.randomUUID(),pending:true,operations:[{kind:'replace_plan',plan:{segments:[
+      {id:'shared-a',date:'2026-10-15',line_code:'L',model_code:'M',quantity:200,hours:'5',order:0},
+      {id:'shared-b',date:'2026-10-15',line_code:'L',model_code:'N',quantity:217,hours:'5',order:1},
+    ]}}],
+  }})
+  expect(seeded.ok()).toBeTruthy()
+  await page.getByRole('link',{name:'共享计划',exact:true}).click()
   const initial=await current()
   async function append(quantity:string){
     await page.getByLabel('手动操作',{exact:true}).selectOption('append_fill')

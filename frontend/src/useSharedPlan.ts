@@ -33,7 +33,7 @@ const recoveryRecords=ref<RecoveryRecord[]>([]), recoveryCandidate=ref<RecoveryR
 const recoveryChanges=ref<Record<string,unknown>[]>([]),recoveryInputChanges=ref<Record<string,unknown>[]>([]),recoveryCompareError=ref('')
 const ownsDraft=ref(false), leaseIssue=ref(''), storage=draftStorage(basePath,principal.value?.user_id ?? '')
 let lease:ReturnType<typeof draftLease>|null=null,stopLease:(()=>void)|undefined,initialized=false,suspendLocal=false
-const readonly = computed(() => !editor.value || busy.value || unknown.value || !online.value || !ownsDraft.value || !!recoveryCandidate.value || (recovered.value && !!recoveryCompareError.value))
+const readonly = computed(() => !editor.value || !head.value || busy.value || unknown.value || !online.value || !ownsDraft.value || !!recoveryCandidate.value || (recovered.value && !!recoveryCompareError.value))
 const recoveryDifferences=computed(()=>recovered.value && draftBase.value && head.value ? [
   `原共享修订 ${draftBase.value.base_revision} / 当前 ${head.value.revision}`,
   `原输入版本 ${draftBase.value.input_version} / 当前 ${head.value.input_version}`,
@@ -188,12 +188,17 @@ async function verify() {
 onMounted(async () => {
   busy.value = true
   try {
-    refreshRecords();openLease();await load()
+    refreshRecords()
+    const unresolved=recoveryRecords.value.find(value=>value.record?.outstanding)
+    if(unresolved)localDraftId.value=unresolved.id
+    openLease()
     const row=recoveryRecords.value.find(value=>value.id===localDraftId.value)
     if(row?.record?.outstanding){
       // Preserve the unresolved key immediately; verification is an explicit recovery choice.
-      restoreDraft(row.record.draft);pending.value=row.record.pending;outstanding.value=row.record.outstanding;unknown.value=true;recovered.value=true;localState.value='已暂存本机，前次保存结果待核实';await compareRecovery()
+      restoreDraft(row.record.draft);pending.value=row.record.pending;outstanding.value=row.record.outstanding;unknown.value=true;recovered.value=true;localState.value='已暂存本机，前次保存结果待核实'
     }else if(row && (!row.record || row.record.draft.operations.length))recoveryCandidate.value=row
+    await load(!outstanding.value)
+    if(outstanding.value)await compareRecovery()
   } catch (e) { showError(e) } finally { initialized=true;busy.value = false }
 })
 

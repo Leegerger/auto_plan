@@ -7,7 +7,7 @@ test('quantity change previews and undoes one whole chain before sharing', async
   await page.getByLabel('公司密码',{exact:true}).fill('company-secret')
   await page.getByRole('button',{name:'登录',exact:true}).click()
   const base=await(await page.request.get('/planning/api/plans/current')).json()
-  const headers={Origin:'https://localhost:8778','X-Auto-Plan-Request':'1'}
+  const headers={Origin:`https://localhost:${process.env.AUTO_PLAN_BROWSER_PORT ?? '8774'}`,'X-Auto-Plan-Request':'1'}
   const seeded=await page.request.post('/planning/api/plans/save',{headers,data:{base_revision:base.revision,input_version:base.input_version,latest_adoption:base.latest_adoption,operation_id:crypto.randomUUID(),pending:true,operations:[{kind:'replace_plan',plan:{segments:[{id:'quantity-a',date:'2026-10-15',line_code:'L',model_code:'M',quantity:600,hours:'15',order:0},{id:'quantity-b',date:'2026-10-15',line_code:'L',model_code:'N',quantity:400,hours:'9',order:1}]}}]}})
   expect(seeded.ok()).toBeTruthy()
   await page.getByRole('link',{name:'共享计划',exact:true}).click()
