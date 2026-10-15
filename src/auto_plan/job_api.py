@@ -76,6 +76,11 @@ def jobs(request: Request, principal=Depends(require_viewer)):
     return call(lambda: service(request).list(principal.user_id, request.app.state.clock()))
 
 
+@router.get('/jobs/source')
+def source(request: Request, principal=Depends(require_editor)):
+    return call(lambda: JSONResponse(service(request).source(principal.user_id, request.app.state.clock())))
+
+
 @router.get('/jobs/{job_id}')
 def get(job_id: UUID, request: Request, principal=Depends(require_viewer)):
     return call(lambda: service(request).get(str(job_id), principal.user_id, request.app.state.clock()))
