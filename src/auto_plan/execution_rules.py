@@ -86,7 +86,8 @@ def active_plan(plan,time,inputs,execution=None,*,origin_start=None):
             recipes={models.get(r.model_code) for r in rows if r.date==last}
             if len(recipes)!=1 or None in recipes: continue
             recipe=next(iter(recipes))
-            later_switch=any(r.line_code==line and any(a.date>=last for a in r.allocations) and any(a.date<time.window_start for a in r.allocations) for r in plan.switches)
+            later_switch=any(r.line_code==line and any(a.date>=last for a in r.allocations) and any(a.date<time.window_start for a in r.allocations)
+                and not (max(a.date for a in r.allocations)==last and r.to_recipe==recipe) for r in plan.switches)
             later_work=any(r.line_code==line and r.date>=last and models.get(r.model_code)!=recipe for r in historical)
             if later_switch or later_work: continue
             states[line]=recipe
