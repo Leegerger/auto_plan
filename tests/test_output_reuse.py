@@ -119,6 +119,12 @@ def test_reuse_matches_complete_default_evaluator_after_dependency_or_invalid_st
                         'models': [model] * (2 if change == 'duplicate_reset' else 1)}
     changed = EvaluationSnapshot.model_validate(raw)
     expected = evaluate(changed).model_dump(mode='json')
+    from auto_plan.rules import _evaluation_json
+    owned_json = _evaluation_json(changed, output_cache=cache)
+    assert owned_json == expected
+    if owned_json['output_sources']:
+        owned_json['output_sources'][0]['portions'].clear()
+    assert _evaluation_json(changed, output_cache=cache) == expected
     first = evaluate(changed, output_cache=cache)
     assert first.model_dump(mode='json') == expected
     if first.output_sources:
@@ -126,7 +132,9 @@ def test_reuse_matches_complete_default_evaluator_after_dependency_or_invalid_st
     assert evaluate(changed, output_cache=cache).model_dump(mode='json') == expected
 
 
-@pytest.mark.parametrize('limits', [(1, 10000, 10000), (10, 64, 64), (0, 10000, 10000)])
+# The eviction case must admit one complete immutable object graph. Its
+# accounted memory includes rows/keys/containers, beyond serialized JSON bytes.
+@pytest.mark.parametrize('limits', [(1, 100000, 100000), (10, 64, 64), (0, 10000, 10000)])
 def test_reuse_bounds_entries_and_bytes_without_changing_results_and_owns_concurrent_values(limits):
     from concurrent.futures import ThreadPoolExecutor
     from auto_plan.output_reuse import OutputReuse

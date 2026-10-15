@@ -9,6 +9,19 @@ from .plan_models import (EvaluationSnapshot, EvaluationResult, RuleIssue, Recip
 
 
 def evaluate(snapshot: EvaluationSnapshot, *, output_cache=None) -> EvaluationResult:
+    return EvaluationResult(**_evaluate_fields(snapshot, output_cache=output_cache))
+
+
+def _evaluation_json(snapshot, *, output_cache=None):
+    """Private service assembly; every returned JSON container is owned."""
+    values = _evaluate_fields(snapshot, output_cache=output_cache, json_mode=True)
+    fields = ('output_sources', 'attributions', 'weekly_results')
+    derived = {field: values.pop(field) for field in fields}
+    result = EvaluationResult(**values).model_dump(mode='json')
+    return result | derived
+
+
+def _evaluate_fields(snapshot, *, output_cache=None, json_mode=False):
     index = InputIndex(snapshot.inputs)
     issues: list[RuleIssue] = []
 
@@ -169,7 +182,7 @@ def evaluate(snapshot: EvaluationSnapshot, *, output_cache=None) -> EvaluationRe
                for line in sorted(all_lines)]
     valid = not any(i.severity == 'error' for i in issues)
     from .output_rules import output_evaluation
-    output = output_evaluation(snapshot, index, output_cache=output_cache if not issues else None)
+    output = output_evaluation(snapshot, index, output_cache=output_cache if not issues else None, json_mode=json_mode)
     issues.extend(output.pop('issues'))
     from .stability import compare_stability
     stability=compare_stability(snapshot)
@@ -179,6 +192,6 @@ def evaluate(snapshot: EvaluationSnapshot, *, output_cache=None) -> EvaluationRe
         elif week.state=='zero_baseline':
             issues.append(RuleIssue(code='stability_zero_addition',reason=f'原计划为零，新增 {week.added} 片，请核对',severity='warning',demand_week=week.week))
     complete = not any(i.severity == 'incomplete' for i in issues)
-    return EvaluationResult(time=snapshot.time, capacity_valid=valid, computation_complete=complete, executable=not any(i.severity == 'error' for i in issues) and complete,
+    return dict(time=snapshot.time, capacity_valid=valid, computation_complete=complete, executable=not any(i.severity == 'error' for i in issues) and complete,
         issues=issues, days=result_days, switches=switch_results, initial_states=initial,
         switch_count=sum(s.from_recipe != s.to_recipe for s in snapshot.plan.switches), stability=stability, **output)

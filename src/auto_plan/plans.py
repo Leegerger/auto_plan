@@ -8,7 +8,6 @@ from .input_models import InputRow, Pieces, InputSnapshot
 from .plan_models import (Plan, EvaluationSnapshot, EvaluationTime, ExecutionContext, ResetContext,
                           EvaluationPreferences, ExecutionCoverage, PlanCell, AdoptedBaseline)
 from .plan_operations import replay_result, OperationContext
-from .rules import evaluate
 from .exact import hours
 from .production_time import week_label
 from .input_lookup import InputIndex
@@ -279,8 +278,9 @@ class PlanService:
     def __init__(self, store):
         self.store=store
 
-    def _evaluate(self,snapshot):
-        return evaluate(snapshot,output_cache=getattr(self.store,'output_cache',None))
+    def _evaluation_json(self,snapshot):
+        from .rules import _evaluation_json
+        return _evaluation_json(snapshot,output_cache=getattr(self.store,'output_cache',None))
 
     def _snapshot(self, unit, plan, now):
         from .execution_rules import freeze_associations
@@ -358,7 +358,7 @@ class PlanService:
         if effects&changed:
             raise PlanProblem(409,'合并后的关联范围已变化',revision=unit.revision,conflicts=sorted(effects&changed))
         protect(unit.plan,merged,merged_snapshot,allow_past_input=initial_import)
-        result=self._evaluate(merged_snapshot)
+        result=self._evaluation_json(merged_snapshot)
         return {'revision':unit.revision,'input_version':unit.inputs.input_version,'latest_adoption':unit.adoption,
                 'context':merged_context.model_dump(mode='json'),
                 'execution_segments':execution_segments(merged,merged_snapshot.execution),
@@ -368,7 +368,7 @@ class PlanService:
                 'reset_reference':replayed.lineage.get('reset_reference'),
                 'context_changes':differences(unit.context.model_dump(mode='json'),merged_context.model_dump(mode='json')),
                 'plan':merged.model_dump(mode='json'),'snapshot':merged_snapshot.model_dump(mode='json'),'hour_display':plan_hour_display(merged),
-                'evaluation':result.model_dump(mode='json'),'effects':[list(k) for k in sorted(effects)],
+                'evaluation':result,'effects':[list(k) for k in sorted(effects)],
                 'changes':plan_differences(unit.plan.model_dump(mode='json'),merged.model_dump(mode='json')),
                 'unallocated':replayed.unallocated, 'operation_issues':replayed.issues,
                 'adoption_blocked':any(issue.get('blocks_adoption',issue.get('severity')=='error') for issue in replayed.issues), 'merged':command.base_revision!=unit.revision,
@@ -464,7 +464,7 @@ class PlanService:
                     'time':snapshot.time.model_dump(mode='json'),'hour_display':plan_hour_display(unit.plan),
                     'weeks': [{'number':week+1,'label':week_label(snapshot.time.window_start+timedelta(days=week*7)),'start_date':(snapshot.time.window_start+timedelta(days=week*7)).isoformat(),
                         'dates':[(snapshot.time.window_start+timedelta(days=week*7+day)).isoformat() for day in range(7)]} for week in range(15)],
-                    'evaluation':self._evaluate(snapshot).model_dump(mode='json')}
+                    'evaluation':self._evaluation_json(snapshot)}
         return self.store.read(actor,current)
 
     def compare(self, base_revision, input_version, actor):
