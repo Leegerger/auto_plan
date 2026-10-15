@@ -330,9 +330,14 @@ class PlanService:
             current=unit.get_revision(unit.revision)
             # Inputs, adopted baseline, association freeze and time are shared
             # by both replays in this pinned unit; only the plan differs.
-            replayed=replay_result(unit.plan,command.operations,OperationContext(
-                snapshot.model_copy(update={'plan':unit.plan}),command.base_revision,current.get('unallocated',[]),
-                current.get('operation_issues',[]),current.get('lineage',{})|unit.context.lineage,actor=actor,history=unit,latest_adoption=unit.adoption,current_revision=unit.revision,allow_past_input=initial_import))
+            if command.base_revision==unit.revision:
+                # This immutable revision and its replay context are identical
+                # to the first replay. Merged-context effects still run below.
+                replayed=original_result
+            else:
+                replayed=replay_result(unit.plan,command.operations,OperationContext(
+                    snapshot.model_copy(update={'plan':unit.plan}),command.base_revision,current.get('unallocated',[]),
+                    current.get('operation_issues',[]),current.get('lineage',{})|unit.context.lineage,actor=actor,history=unit,latest_adoption=unit.adoption,current_revision=unit.revision,allow_past_input=initial_import))
             merged=replayed.plan
         except ValueError as error: raise PlanProblem(409,str(error)) from None
         if snapshot.execution!=unit.context.execution:
