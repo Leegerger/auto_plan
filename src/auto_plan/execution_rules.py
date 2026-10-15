@@ -56,7 +56,7 @@ def confirmed_day_capacity(snapshot,line_code):
     return next((r for r in candidates if r.basis_digest==basis),None)
 
 
-def active_plan(plan,time):
+def active_plan(plan,time,inputs,execution=None,*,origin_start=None):
     from .plan_models import Plan
     inside=lambda day:time.window_start<=day<=time.window_end
     switches=[]
@@ -64,9 +64,19 @@ def active_plan(plan,time):
         allocations=[a for a in row.allocations if inside(a.date)]
         if allocations: switches.append(row.model_copy(update={'allocations':allocations}))
     from .plan_models import InitialRecipeState
-    expired_lines={r.line_code for r in plan.segments if r.date<time.window_start}|{r.line_code for r in plan.switches if any(a.date<time.window_start for a in r.allocations)}
-    initial=[r for r in plan.initial_states if r.line_code not in expired_lines]
-    initial.extend(InitialRecipeState(line_code=line,recipe_code=None) for line in sorted(expired_lines))
+    models={r.code:r.recipe_code for r in inputs.masters.models}
+    states={r.line_code:r.recipe_code for r in plan.initial_states}
+    unresolved={r.line_code for r in plan.switches if any(a.date<time.window_start for a in r.allocations)}
+    historical=[r for r in plan.segments if r.date<time.window_start and r.quantity]
+    if execution is not None:
+        historical += [r for r in execution.facts if r.quantity and r.date<time.window_start and (origin_start is None or r.date>=origin_start)]
+    for row in historical:
+        # Work that was merely planned cannot establish an executed Recipe.
+        # An established state survives elapsed work of that same Recipe.
+        if states.get(row.line_code) is None or models.get(row.model_code)!=states[row.line_code]:
+            unresolved.add(row.line_code)
+    initial=[r for r in plan.initial_states if r.line_code not in unresolved]
+    initial.extend(InitialRecipeState(line_code=line,recipe_code=None) for line in sorted(unresolved))
     return Plan(current_day_witnesses=[r for r in plan.current_day_witnesses if inside(r.date)],segments=[r for r in plan.segments if inside(r.date)],switches=switches,
         initial_states=initial,ordinary_idle=[r for r in plan.ordinary_idle if inside(r.date)])
 

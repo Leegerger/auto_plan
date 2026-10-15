@@ -23,6 +23,64 @@ def fact(quantity,model='M',day='2026-10-14',line='L'):
     return {'date':day,'line_code':line,'model_code':model,'quantity':quantity}
 
 
+def test_adopting_a_new_planned_week_establishes_blank_zero_cells_and_survives_later_clearing(shared_client):
+    client,plans,_=shared_client
+    from auto_plan.plan_models import ExecutionCoverage
+    original={'start_date':'2026-10-15','end_date':'2026-10-15','line_codes':['L'],'model_codes':['M'],'blanks_are_zero':True}
+    plans.context=plans.context.model_copy(update={'coverage':[ExecutionCoverage.model_validate(original)]})
+    operation=patch(row('new',day='2026-10-20'))
+    assert post(client,'save',current_command(client,operation)).status_code==200
+    assert head(client)['coverage']==[original]
+    assert post(client,'adopt',current_command(client)).status_code==200
+    adopted=client.get('/auto_plan/api/plans/adoptions/1').json()
+    assert original in adopted['coverage']
+    added=patch(row('blank','N','2026-10-21','B'))
+    checked=preview(client,added).json()['evaluation']['stability']
+    assert checked['weeks'][1]['baseline_complete'] is True
+    assert checked['weighted_cost']=='300'
+    assert checked['weeks'][2]['state']=='new_plan'
+    assert post(client,'adopt',current_command(client,{'kind':'patch_plan','remove_segments':['new']})).status_code==200
+    after=preview(client,added).json()['evaluation']['stability']['weeks'][1]
+    assert (after['state'],after['baseline_complete'],after['added'])==('zero_baseline',True,100)
+
+
+def test_rollover_retains_known_recipe_through_unchanged_expired_work_but_never_infers_an_unknown_state(shared_client):
+    client,plans,_=shared_client
+    from datetime import datetime, timezone
+    from auto_plan.plan_models import ExecutionCoverage
+    plans.context=plans.context.model_copy(update={'coverage':[ExecutionCoverage(start_date='2026-10-12',end_date='2026-10-25',line_codes=['L','B'],model_codes=['M','N','P'],blanks_are_zero=True)]})
+    source={'initial_states':[{'line_code':'L','recipe_code':'R'},{'line_code':'B','recipe_code':None}],
+        'segments':[row('past-known',day='2026-10-15'),row('past-unknown',day='2026-10-15',line='B'),
+                    row('future-known',day='2026-10-20'),row('future-unknown',day='2026-10-20',line='B')]}
+    assert post(client,'adopt',current_command(client,{'kind':'replace_plan','plan':source})).status_code==200
+    client.app.state.clock=lambda:datetime(2026,10,19,tzinfo=timezone.utc)
+    assert client.post('/auto_plan/api/auth/login',json={'username':'EDITOR','password':'company-secret'}).status_code==200
+    execution={'kind':'record_execution','rows':[],'coverage':[{'start_date':'2026-10-19','end_date':'2026-10-19','line_codes':['L','B'],'model_codes':['M','N','P'],'blanks_are_zero':True}],'cutoff':'2026-10-19T08:00:00+08:00'}
+    snapshot=reset_snapshot(0)|{'production_week':'2026-10-19','cutoff':'2026-10-19T08:00:00+08:00'}
+    checked=preview(client,execution,reset_operation(snapshot=snapshot,scope={'start_date':'2026-10-19','end_date':'2027-01-31','line_codes':['L','B'],'model_codes':[]}))
+    assert checked.status_code==200,checked.text
+    states={r['line_code']:r['recipe_code'] for r in checked.json()['plan']['initial_states']}
+    assert states=={'L':'R','B':None}
+    assert all(r['date']>='2026-10-19' for r in checked.json()['plan']['segments'])
+
+
+def test_reset_participants_exclude_retired_unused_models_and_include_source_and_fact_models(shared_client):
+    client,_,_=shared_client
+    assert post(client,'adopt',current_command(client,patch(row()))).status_code==200
+    inputs=client.get('/auto_plan/api/inputs').json()
+    models=[r|{'active':False} for r in inputs['masters']['models']]
+    models.append({'code':'RETIRED','name':'Unused retired model','recipe_code':'R','active':False})
+    applied=client.post('/auto_plan/api/inputs/apply',json={'base_version':inputs['input_version'],'changes':{'models':models}})
+    assert applied.status_code==200,applied.text
+    execution={'kind':'record_execution','rows':[fact(0,'N')],'cutoff':'2026-10-14T08:00:00+08:00'}
+    checked=preview(client,execution)
+    assert checked.status_code==200,checked.text
+    assert checked.json()['reset_participants']['current']=={'source_adoption':1,'model_codes':['M','N']}
+    assert post(client,'save',current_command(client,execution)).status_code==200
+    assert head(client)['reset_participants']['current']=={'source_adoption':1,'model_codes':['M','N']}
+    assert head(client)['reset_participants']['correction'] is None
+
+
 def test_cumulative_facts_replace_omissions_survive_and_segment_associations_are_audited(shared_client):
     client,_,_=shared_client
     rows=[row('one',day='2026-10-14',quantity=500)|{'hours':'12'},row('two',day='2026-10-14',quantity=500)|{'order':1,'hours':'12'}]
@@ -258,6 +316,11 @@ def test_reset_preserves_current_rows_outside_authorized_scope_and_requires_expa
 def test_partial_old_source_coverage_stops_deduction_without_treating_absent_cells_as_zero(shared_client):
     client,plans,_=shared_client
     seed_reset_source(client,plans)
+    from auto_plan.plan_models import ExecutionCoverage
+    # The second week is an explicitly partial imported range. A subsequent
+    # adoption must preserve that boundary rather than invent blank zero days.
+    plans.context=plans.context.model_copy(update={'coverage':plans.context.coverage+[
+        ExecutionCoverage(start_date='2026-10-20',end_date='2026-10-20',line_codes=['L','B'],model_codes=['M'],blanks_are_zero=True)]})
     next_week=row('next',day='2026-10-20',quantity=900)|{'hours':'22'}
     assert post(client,'adopt',current_command(client,patch(next_week))).status_code==200
     checked=preview(client,reset_operation(2500,source_adoption=2))

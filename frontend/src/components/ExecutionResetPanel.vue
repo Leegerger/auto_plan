@@ -23,7 +23,8 @@ const external=computed(()=>{
   const marker=context.value?.lineage.external_reset as {production_week:string;already_applied:boolean}|undefined
   return marker?.already_applied && marker.production_week===week.value
 })
-const source=computed(()=>correction.value ? reset.value?.source_adoption ?? head.value?.latest_adoption ?? 0 : head.value?.latest_adoption ?? 0)
+const participants=computed(()=>(props.shared.proposal.value?.reset_participants ?? head.value?.reset_participants)?.[correction.value ? 'correction' : 'current'])
+const source=computed(()=>participants.value?.source_adoption ?? 0)
 const associationRows=computed(()=>{
   const facts=context.value?.execution.facts ?? []
   return (props.shared.rows.value ?? []).filter(row=>facts.some(fact=>fact.date===row.date && fact.line_code===row.line_code && fact.model_code===row.model_code))
@@ -52,23 +53,24 @@ watch(head,async value=>{
   const existing=value.context.reset
   batch.value=existing?.production_week===week.value ? existing.batch_id : `week-${week.value}`
   correction.value=false;decisions.value={};pendingFacts.value=[]
-  snapshotRows.value=models.value.map(row=>{
-    const old=existing?.production_week===week.value ? existing.models.find(model=>model.model_code===row.code) : undefined
-    return {model_code:row.code,wip:old ? String(old.wip) : '',net_balance:old ? String(old.net_balance) : ''}
+  snapshotRows.value=(participants.value?.model_codes ?? []).map(code=>{
+    const old=existing?.production_week===week.value ? existing.models.find(model=>model.model_code===code) : undefined
+    return {model_code:code,wip:old ? String(old.wip) : '',net_balance:old ? String(old.net_balance) : ''}
   })
   try{
     const input=await api<{masters:{lines:{code:string;name:string}[];models:{code:string;name:string}[];recipes:{code:string;name:string}[]}}>(`/inputs?version=${value.input_version}`)
     lines.value=input.masters.lines;models.value=input.masters.models;recipes.value=input.masters.recipes
     line.value ||= lines.value[0]?.code ?? '';model.value ||= models.value[0]?.code ?? '';currentRecipe.value ||= recipes.value[0]?.code ?? ''
     coverageLines.value=lines.value.map(row=>row.code);coverageModels.value=models.value.map(row=>row.code);scopeLines.value=[...coverageLines.value]
-    snapshotRows.value=models.value.map(row=>{
-      const entered=snapshotRows.value.find(value=>value.model_code===row.code)
-      if(entered)return entered
-      const old=existing?.production_week===week.value ? existing.models.find(model=>model.model_code===row.code) : undefined
-      return {model_code:row.code,wip:old ? String(old.wip) : '',net_balance:old ? String(old.net_balance) : ''}
-    })
   }catch(e){error.value=e instanceof Error ? e.message : '执行资料读取失败'}
 },{immediate:true})
+watch(participants,value=>{
+  snapshotRows.value=(value?.model_codes ?? []).map(code=>{
+    const entered=snapshotRows.value.find(row=>row.model_code===code)
+    const old=context.value?.reset?.production_week===week.value ? context.value.reset.models.find(row=>row.model_code===code) : undefined
+    return entered ?? {model_code:code,wip:old ? String(old.wip) : '',net_balance:old ? String(old.net_balance) : ''}
+  })
+})
 watch(reset,value=>{for(const row of value?.adjustments ?? [])if(decisions.value[row.revision]===undefined)decisions.value[row.revision]=row.decision===null ? '' : row.decision ? 'keep' : 'retract'},{immediate:true})
 function integer(value:string,signed=false){
   if(!(signed ? /^-?\d+$/ : /^\d+$/).test(value.trim()) || !Number.isSafeInteger(Number(value)))throw new Error(signed ? '最终净余额必须填写完整整数，可正可负' : '数量必须填写完整非负整数，空白不表示零')

@@ -289,6 +289,14 @@ class PlanService:
         return EvaluationSnapshot(time=EvaluationTime.at(now),inputs=unit.inputs,plan=plan,
             execution=freeze_associations(unit.plan,context.execution),reset=context.reset,locks=context.locks,baseline=baseline,preferences=context.preferences)
 
+    def _reset_participants(self,unit,snapshot,lineage):
+        from .reset_operations import participating_models
+        def selected(number):
+            source=snapshot.baseline.plan if snapshot.baseline and number==unit.adoption else Plan.model_validate(unit.get_adoption(number)['snapshot']['plan']) if number else Plan()
+            return {'source_adoption':number,'model_codes':sorted(participating_models(snapshot.inputs,source,snapshot.execution,snapshot.time.window_start))}
+        record=lineage.get('resets',{}).get(snapshot.time.window_start.isoformat())
+        return {'current':selected(unit.adoption),'correction':selected(record['source_adoption']) if record and record.get('effective_adoption') else None}
+
     def _prepare(self, unit, command, now, actor=''):
         if command.input_version!=unit.inputs.input_version:
             try: old=unit.get_inputs(command.input_version).model_dump(mode='json')
@@ -348,6 +356,7 @@ class PlanService:
                 'execution_segments':execution_segments(merged,merged_snapshot.execution),
                 'execution_surplus':execution_surplus(merged,merged_snapshot.execution),
                 'reset_preview':replayed.lineage.get('reset_preview'),
+                'reset_participants':self._reset_participants(unit,merged_snapshot,unit.context.lineage|replayed.lineage),
                 'reset_reference':replayed.lineage.get('reset_reference'),
                 'context_changes':differences(unit.context.model_dump(mode='json'),merged_context.model_dump(mode='json')),
                 'plan':merged.model_dump(mode='json'),'snapshot':merged_snapshot.model_dump(mode='json'),'hour_display':plan_hour_display(merged),
@@ -362,6 +371,24 @@ class PlanService:
     def preview(self, command, actor, now):
         return self.store.read(actor,lambda unit:self._prepare(unit,command,now,actor))
 
+    def _adopted_coverage(self,unit,prepared):
+        from .production_time import production_week
+        old=unit.get_adoption(unit.adoption)['coverage'] if unit.adoption else []
+        coverage=[ExecutionCoverage.model_validate(row) for row in old+prepared['coverage']]
+        plan=Plan.model_validate(prepared['plan'])
+        time=EvaluationTime.model_validate(prepared['snapshot']['time'])
+        lines=sorted({r.code for r in unit.inputs.masters.lines if r.active}|{r.line_code for r in plan.segments})
+        models=sorted({r.code for r in unit.inputs.masters.models if r.active}|{r.model_code for r in plan.segments})
+        # Imported partial coverage stays partial. Only a newly planned week
+        # without an imported boundary gains explicit adopted blank-zero cells.
+        for week in sorted({production_week(r.date) for r in plan.segments if r.quantity and time.window_start<=r.date<=time.window_end}):
+            end=week+timedelta(days=6)
+            if any(r.start_date<=end and r.end_date>=week for r in coverage):
+                continue
+            coverage.append(ExecutionCoverage(start_date=week,end_date=end,line_codes=lines,model_codes=models,blanks_are_zero=True))
+        unique={r.model_dump_json():r.model_dump(mode='json') for r in coverage}
+        return list(unique.values())
+
     def submit(self, command, actor, now, kind='save'):
         def action(unit):
             if kind=='adopt' and command.latest_adoption!=unit.adoption:
@@ -374,6 +401,8 @@ class PlanService:
                 return saved|{'already_effective':True,**reference}
             if kind=='adopt' and (not prepared['evaluation']['executable'] or prepared['adoption_blocked']):
                 raise PlanProblem(422,'存在硬冲突、未完成计算或必要确认，不能采用',evaluation=prepared['evaluation'])
+            if kind=='adopt':
+                prepared['coverage']=self._adopted_coverage(unit,prepared)
             if kind=='save' and not command.pending and (not prepared['evaluation']['executable'] or prepared['adoption_blocked']):
                 raise PlanProblem(422,'请明确保存为待处理草稿',evaluation=prepared['evaluation'])
             if kind=='adopt' and prepared.get('reset_preview'):
@@ -422,6 +451,7 @@ class PlanService:
                     'execution_segments':execution_segments(unit.plan,snapshot.execution),
                     'execution_surplus':execution_surplus(unit.plan,snapshot.execution),
                     'reset_preview':lineage.get('reset_preview'),
+                    'reset_participants':self._reset_participants(unit,snapshot,lineage),
                     'time':snapshot.time.model_dump(mode='json'),'hour_display':plan_hour_display(unit.plan),
                     'weeks': [{'number':week+1,'label':week_label(snapshot.time.window_start+timedelta(days=week*7)),'start_date':(snapshot.time.window_start+timedelta(days=week*7)).isoformat(),
                         'dates':[(snapshot.time.window_start+timedelta(days=week*7+day)).isoformat() for day in range(7)]} for week in range(15)],
