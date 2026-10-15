@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
 import { api, principal, online, type Authorization, type Role } from '../api'
+import KnownJobStop from '../components/KnownJobStop.vue'
 const users = ref<Authorization[]>([])
 const username = ref('')
 const roles = ref<Role[]>([])
@@ -37,6 +38,7 @@ onMounted(load)
       <el-form-item label="授权状态"><el-switch v-model="active" active-text="有效" inactive-text="已停用" :disabled="busy || !online" /></el-form-item>
       <el-button type="primary" native-type="submit" :loading="busy" :disabled="!username.trim() || !online">保存授权</el-button>
     </el-form></el-card>
+    <KnownJobStop />
   </section>
   <el-alert v-else title="没有管理账号授权的权限" type="error" :closable="false" />
 </template>
