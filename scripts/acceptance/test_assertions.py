@@ -57,6 +57,22 @@ def test_candidate_requires_matching_live_frozen_snapshot_request_and_all_33_obj
         assert_provenance(wrong_revision, source, action, evaluation)
 
 
+def test_candidate_snapshots_must_use_the_actual_accepted_input_pin():
+    source, action = load(FIXTURES, SCENARIO['source']), load(FIXTURES, SCENARIO['action'])
+    evaluation = known_evaluation()
+    snapshot = deepcopy(source)
+    # A later displayed input read cannot be substituted for the accepted v1,
+    # even when its quantities happen to match and both snapshots agree with it.
+    snapshot['inputs']['input_version'] = 2
+    proof = {'candidate': {'source_revision': 7, 'input_version': 1, 'latest_adoption': 1,
+                          'request': action['request'], 'snapshot': deepcopy(snapshot),
+                          'objective': ['0'] * 30 + ['418', '0', '0'], 'evaluation': evaluation},
+             'submitted': {'base_revision': 7, 'input_version': 1, 'latest_adoption': 1, 'request': action['request']},
+             'source': {'snapshot': deepcopy(snapshot), 'head': {'revision': 7, 'input_version': 1, 'latest_adoption': 1}}}
+    with pytest.raises(AssertionError, match='accepted input|input pin'):
+        assert_provenance(proof, source, action, evaluation)
+
+
 def test_frozen_workbook_public_roundtrip_retains_all_rows_and_does_not_write(tmp_path):
     from scripts.acceptance.validate import public_client
     from scripts.acceptance.workbook import workbook
