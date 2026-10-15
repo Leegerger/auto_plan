@@ -7,6 +7,7 @@ No minimum hour grid or fixed epsilon participates in the construction.
 from collections import defaultdict
 from datetime import timedelta
 from fractions import Fraction
+from math import lcm
 from typing import Sequence
 from .input_lookup import InputIndex
 from .input_models import InputSnapshot
@@ -104,9 +105,19 @@ def construct_hour_certificate(inputs: InputSnapshot, segments: list[SourceSegme
         # interval [start,end], suffix_start[prefix_end] gives the duration
         # forced inside it. This keeps the certificate check quadratic in
         # the 105-day window, rather than multiplying by every production gap.
-        required_in_interval = [[Fraction(0) for _ in dates] for _ in dates]
+        # Use exact integer units for ordinary denominators. Very large common
+        # denominators keep the Fraction path to bound matrix integer sizes.
+        denominator = 1
+        for value in [*bounds, *(job['total'] for job in jobs)]:
+            denominator = lcm(denominator, value.denominator)
+            if denominator.bit_length() > 512:
+                denominator = None
+                break
+        interval_bounds = [value.numerator * (denominator // value.denominator) for value in bounds] if denominator else bounds
+        required_in_interval = [[0 if denominator else Fraction(0) for _ in dates] for _ in dates]
         for job in jobs:
-            required_in_interval[job['start']][job['end']] += job['total']
+            value = job['total']
+            required_in_interval[job['start']][job['end']] += value.numerator * (denominator // value.denominator) if denominator else value
         for start in range(len(dates)):
             for end in range(1, len(dates)):
                 required_in_interval[start][end] += required_in_interval[start][end - 1]
@@ -115,18 +126,24 @@ def construct_hour_certificate(inputs: InputSnapshot, segments: list[SourceSegme
                 required_in_interval[start][end] += required_in_interval[start + 1][end]
         margin = None
         for start in range(len(dates)):
-            capacity_sum = Fraction(0)
+            capacity_sum = 0 if denominator else Fraction(0)
             positive_days = 0
             for end in range(start, len(dates)):
-                capacity_sum += bounds[end]
+                capacity_sum += interval_bounds[end]
                 positive_days += productive[end]
                 required = required_in_interval[start][end]
                 slack = capacity_sum - required
                 if slack < 0 or positive_days and slack <= 0:
                     raise CertificateError([RuleIssue(code='certificate_capacity', reason='此顺序和投入量没有满足严格容量边界的工时依据', date=dates[end], line_code=line)])
                 if positive_days:
-                    candidate = slack / positive_days
-                    margin = candidate if margin is None else min(margin, candidate)
+                    if denominator:
+                        if margin is None or slack * margin[1] < margin[0] * positive_days:
+                            margin = (slack, positive_days)
+                    else:
+                        candidate = slack / positive_days
+                        margin = candidate if margin is None else min(margin, candidate)
+        if denominator and margin is not None:
+            margin = Fraction(margin[0], denominator * margin[1])
         reserve = (margin / 2) if margin is not None else Fraction(0)
         remaining = [bound - (reserve if positive else 0) for bound, positive in zip(bounds, productive)]
         for day in dates:
