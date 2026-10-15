@@ -1,5 +1,5 @@
 from uuid import UUID
-from fastapi import APIRouter, Depends, Request, HTTPException
+from fastapi import APIRouter, Depends, Request, HTTPException, Query
 from fastapi.responses import JSONResponse
 from .app import require_editor, require_viewer
 from .input_models import InputRow
@@ -30,6 +30,11 @@ def invoke(action):
 @router.get('/plans/current')
 def current(request:Request,principal=Depends(require_viewer)):
     return invoke(lambda:service(request).current(principal.user_id,request.app.state.clock()))
+
+
+@router.get('/plans/compare')
+def compare(request:Request,base_revision:int=Query(ge=0),input_version:int=Query(ge=0),principal=Depends(require_viewer)):
+    return invoke(lambda:service(request).compare(base_revision,input_version,principal.user_id))
 
 
 @router.get('/plans/revisions/{revision}')
