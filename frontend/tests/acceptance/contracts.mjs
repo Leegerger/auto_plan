@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { resolveInputCompanion } from './input-load.mjs'
 
 function fraction(value) {
   const text = String(value)
@@ -40,12 +41,15 @@ export function stateValue(state) {
     coverage: state.head.coverage, context: state.head.context, lineage: state.head.lineage,
     unallocated: state.head.unallocated, operation_issues: state.head.operation_issues, pending: state.head.pending })
 }
-export function assertState(actual, initial, allowedPlans = [initial.snapshot.plan]) {
-  assert.equal(actual.head.input_version, initial.head.input_version, 'Input version changed.')
+export function assertState(actual, initial, allowedPlans = [initial.snapshot.plan], options = {}) {
+  assert.equal(actual.head.input_version, actual.snapshot.inputs.input_version, 'Head and immutable input snapshot pins differ.')
+  const inputState = options.inputCompanion ? resolveInputCompanion(options.inputCompanion, initial.snapshot.inputs, actual.snapshot.inputs) : null
+  if (!inputState) assert.equal(actual.head.input_version, initial.head.input_version, 'Input version changed.')
   assert.equal(actual.head.latest_adoption, initial.head.latest_adoption, 'Adopted baseline changed.')
   const value = stateValue(actual)
   const matches = allowedPlans.some(plan => {
     const expected = stateValue(initial); expected.plan = planValue(plan)
+    if (inputState) expected.inputs = canonical({ ...inputState.inputs, input_version: actual.head.input_version })
     try { assert.deepEqual(value, expected); return true } catch { return false }
   })
   assert.ok(matches, 'Full input/context/baseline/plan or retained result state changed outside the declared primary edit.')

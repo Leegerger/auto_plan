@@ -36,7 +36,7 @@ function asset(pointer) {
 }
 const source = asset(scenario.source), action = asset(scenario.action), output = resolve(flags.output)
 mkdirSync(output, { recursive: false })
-const helperFiles = ['frontend/tests/acceptance/navigation.mjs', 'frontend/tests/acceptance/contracts.mjs', 'scripts/acceptance/check_result.py', 'scripts/acceptance/assertions.py', 'scripts/acceptance/compare.py', 'scripts/acceptance/workbook.py']
+const helperFiles = ['frontend/tests/acceptance/navigation.mjs', 'frontend/tests/acceptance/contracts.mjs', 'frontend/tests/acceptance/input-load.mjs', 'scripts/acceptance/check_result.py', 'scripts/acceptance/assertions.py', 'scripts/acceptance/compare.py', 'scripts/acceptance/workbook.py']
 const requiredEnvironment = ['image_digest', 'source_commit', 'migration_versions', 'python', 'native_libraries', 'server_hardware', 'client_hardware', 'cgroup_cpu_max', 'cgroup_memory_max', 'solver_threads', 'worker_count', 'oracle_pool_maximum', 'oracle_pool_observed_usage', 'network_proxy_path', 'peak_cpu_memory']
 const missingEnvironment = requiredEnvironment.filter(key => config.environment?.[key] === null || config.environment?.[key] === undefined || config.environment[key] === '')
 const evidence = { schema_version: 2, kind: config.target.kind === 'adapter' ? 'external browser with explicit test adapters' : 'external browser to operator-attested disposable PLAN_TEST',
