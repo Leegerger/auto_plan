@@ -177,9 +177,14 @@ try {
     await page.goto(config.origin + config.base_path + '/login')
     await page.getByRole('textbox', { name: '公司账号', exact: true }).fill(accounts[index].username)
     await page.getByLabel('公司密码', { exact: true }).fill(accounts[index].password)
+    evidence.phase = `login_acknowledgment_editor_${index}`
+    const loginResponse = page.waitForResponse(response => response.url() === api('/auth/login') && response.request().method() === 'POST')
     await page.getByRole('button', { name: '登录', exact: true }).click()
-    await shared(page)
+    if (!(await loginResponse).ok()) throw new Error('Login was not acknowledged.')
     accounts[index].password = ''
+    await expect(page.getByRole('button', { name: '退出登录', exact: true })).toBeVisible({ timeout: 30000 })
+    evidence.phase = `shared_page_editor_${index}`
+    await shared(page)
   }
   evidence.phase = 'frozen_source_preflight'
   const head = await json(pages[0], '/plans/current')
