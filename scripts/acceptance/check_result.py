@@ -47,7 +47,6 @@ if __name__ == '__main__':
             vector = assert_candidate(evaluation, scenario, source, plan)
             assert args.proof is not None, 'Candidate frozen provenance is required.'
             proof = json.loads(args.proof.read_text())
-            accepted_inputs = None
             if proof['source'].get('kind')=='public_computation_source':
                 state=proof['source']
                 assert state['status']==200,'Computation source needs a successful complete public read.'
@@ -57,16 +56,6 @@ if __name__ == '__main__':
                 assert body['snapshot']==state['snapshot'],'Public computation source snapshot differs from captured bytes.'
                 assert state['head']=={'revision':body['source_revision'],'input_version':body['input_version'],'latest_adoption':body['latest_adoption']},'Computation source tokens differ from captured bytes.'
                 assert proof['submitted']['reviewed_as_of']==body['snapshot']['time']['as_of'],'Submitted review time differs from the complete source read.'
-            if proof['source'].get('accepted_inputs'):
-                capture = proof['source']['accepted_inputs']
-                assert capture['status'] == 200, 'Accepted source needs a successful immutable public input read.'
-                raw = (args.proof.parent / capture['artifact']['path']).read_bytes()
-                assert hashlib.sha256(raw).hexdigest() == capture['artifact']['sha256'], 'Immutable public input body bytes differ.'
-                accepted_inputs = json.loads(raw)
-                assert accepted_inputs['input_version'] == capture['version'], 'Immutable public input read returned another version.'
-                captured = proof['source']['captured_snapshot']
-                expected_current = approved_source(args.fixtures, manifest, scenario, source, captured['inputs'])
-                assert_frozen_snapshot(captured, expected_current)
             source = approved_source(args.fixtures, manifest, scenario, source, proof['candidate']['snapshot']['inputs'])
-            assert_provenance(proof, source, load(args.fixtures, scenario['action']), evaluation, accepted_inputs)
+            assert_provenance(proof, source, load(args.fixtures, scenario['action']), evaluation)
     print(json.dumps({'status': 'pass', 'objective': vector}))

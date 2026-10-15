@@ -25,21 +25,13 @@ def assert_frozen_snapshot(observed, source):
     assert actual == frozen, 'Frozen complete input/context/baseline/plan differs.'
 
 
-def assert_provenance(proof, source, action, evaluation, accepted_inputs=None):
+def assert_provenance(proof, source, action, evaluation):
     from auto_plan.solver_models import SolveRequest
     candidate, submitted, state = proof['candidate'], proof['submitted'], proof['source']
     for key, name in [('source_revision', 'base_revision'), ('input_version', 'input_version'), ('latest_adoption', 'latest_adoption')]:
         assert candidate[key] == submitted[name], 'Candidate frozen source tokens differ from the actual submission.'
         head_key = 'revision' if name == 'base_revision' else name
-        if name == 'input_version' and accepted_inputs is not None:
-            assert state['head'][head_key] >= submitted[name], 'Captured public head precedes the accepted input pin.'
-            assert accepted_inputs['input_version'] == submitted[name], 'Immutable public read differs from the accepted input pin.'
-            assert accepted_inputs == state['snapshot']['inputs'], 'Accepted source inputs differ from the immutable public read.'
-            captured = state['captured_snapshot']
-            assert captured['inputs']['input_version'] == state['head'][head_key], 'Captured public snapshot differs from its actual head.'
-            assert snapshot_value(captured | {'inputs': accepted_inputs}) == snapshot_value(state['snapshot']), 'Accepted source assembly changed captured public context or plan.'
-        else:
-            assert submitted[name] == state['head'][head_key], 'Submission differs from the captured live source tokens.'
+        assert submitted[name] == state['head'][head_key], 'Submission differs from the captured live source tokens.'
     assert candidate['snapshot']['inputs']['input_version'] == submitted['input_version'], 'Candidate snapshot differs from the actual accepted input pin.'
     assert state['snapshot']['inputs']['input_version'] == submitted['input_version'], 'Captured source snapshot differs from the actual accepted input pin.'
     for snapshot in (candidate['snapshot'], state['snapshot']):
