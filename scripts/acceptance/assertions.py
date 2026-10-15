@@ -32,6 +32,8 @@ def assert_provenance(proof, source, action, evaluation):
         assert candidate[key] == submitted[name], 'Candidate frozen source tokens differ from the actual submission.'
         head_key = 'revision' if name == 'base_revision' else name
         assert submitted[name] == state['head'][head_key], 'Submission differs from the captured live source tokens.'
+    assert candidate['snapshot']['inputs']['input_version'] == submitted['input_version'], 'Candidate snapshot differs from the actual accepted input pin.'
+    assert state['snapshot']['inputs']['input_version'] == submitted['input_version'], 'Captured source snapshot differs from the actual accepted input pin.'
     expected_request = SolveRequest.model_validate(action['request']).model_dump(mode='json')
     assert SolveRequest.model_validate(submitted['request']).model_dump(mode='json') == expected_request, 'Submitted mode/scope/budget differs from frozen action.'
     assert SolveRequest.model_validate(candidate['request']).model_dump(mode='json') == expected_request, 'Candidate mode/scope/budget differs from frozen action.'
