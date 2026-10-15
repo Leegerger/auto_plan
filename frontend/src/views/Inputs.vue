@@ -15,6 +15,7 @@ const error = ref('')
 const status = ref('')
 const editor = computed(() => principal.value?.roles.includes('editor') ?? false)
 const editable = computed(() => editor.value && online.value && !busy.value)
+const choices: Record<string, {value:string;label:string}[]> = {kind:[{value:'material',label:'物料确认'},{value:'shipping',label:'出货确认'}],status:[{value:'allowed',label:'允许'},{value:'pending',label:'待确认'},{value:'forbidden',label:'整周跨周禁令'},{value:'revoked',label:'撤销／解除本批禁令'}]}
 const boolFields = ['active','allowed','holiday','enabled']
 const refs: Record<string, string> = {recipe_code:'recipes',from_recipe:'recipes',to_recipe:'recipes',model_code:'models',line_code:'lines'}
 function fieldName(field: string) { return field.split(',').map(f => fieldNames[f] ?? f).join('、') }
@@ -102,7 +103,8 @@ onMounted(load)
           <td v-for="field in category.fields" :key="field">
             <select v-if="boolFields.includes(field)" :aria-label="`${fieldName(field)} 第${index+1}行`" :value="String(row[field])" @change="update(row,field,($event.target as HTMLSelectElement).value)" :disabled="!editable"><option value="true">是</option><option value="false">否</option></select>
             <select v-else-if="refs[field]" :aria-label="`${fieldName(field)} 第${index+1}行`" :value="String(row[field] ?? '')" @change="update(row,field,($event.target as HTMLSelectElement).value)" :disabled="!editable || (existing[index] && category.keys.includes(field))"><option value="">请选择</option><option v-for="master in referenceOptions(field,row[field] ?? null)" :key="String(master.code)" :value="String(master.code)">{{ master.code }} · {{ master.name }}{{ master.active ? '' : ' (停用)' }}</option></select>
-            <el-input v-else :aria-label="`${fieldName(field)} 第${index+1}行`" :model-value="String(row[field] ?? '')" @update:model-value="update(row,field,$event)" :disabled="!editable || (existing[index] && category.keys.includes(field))" :placeholder="field === 'percent' ? '95.50 表示 95.50%' : field === 'month' ? 'YYYY-MM' : field === 'date' ? 'YYYY-MM-DD' : ''" />
+            <select v-else-if="choices[field]" :aria-label="`${fieldName(field)} 第${index+1}行`" :value="String(row[field] ?? '')" @change="update(row,field,($event.target as HTMLSelectElement).value)" :disabled="!editable || (existing[index] && category.keys.includes(field))"><option value="">请选择</option><option v-for="choice in choices[field]" :key="choice.value" :value="choice.value">{{ choice.label }}</option></select>
+            <el-input v-else :aria-label="`${fieldName(field)} 第${index+1}行`" :model-value="String(row[field] ?? '')" @update:model-value="update(row,field,$event)" :disabled="!editable || (existing[index] && category.keys.includes(field))" :placeholder="field === 'percent' ? '95.50 表示 95.50%' : field === 'month' ? 'YYYY-MM' : ['date','week'].includes(field) ? 'YYYY-MM-DD' : ''" />
           </td>
           <td><el-button v-if="!existing[index]" @click="rows.splice(index,1); existing.splice(index,1); invalidate()" :disabled="!editable">撤回新增</el-button><span v-else>已存资料</span></td>
         </tr></tbody>

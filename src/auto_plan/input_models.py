@@ -3,7 +3,7 @@ import re
 from decimal import Decimal
 from datetime import date
 from typing import Annotated, Literal
-from pydantic import BaseModel, ConfigDict, Field, BeforeValidator
+from pydantic import BaseModel, ConfigDict, Field, BeforeValidator, field_validator
 
 
 def code_value(value):
@@ -164,12 +164,61 @@ class Calendar(InputRow):
     experiments: list[Occupancy] = Field(default_factory=list)
 
 
+class WeeklyDemand(InputRow):
+    model_code: Code
+    week: ProductionDate
+    quantity: Pieces
+
+    @field_validator('week')
+    @classmethod
+    def monday(cls, value):
+        if value.weekday() != 0:
+            raise ValueError('需求周必须填写周一生产日期')
+        return value
+
+
+class ConfirmationBatch(InputRow):
+    model_code: Code
+    week: ProductionDate
+    kind: Literal['material', 'shipping']
+    batch_id: Code
+    status: Literal['allowed', 'pending', 'forbidden', 'revoked']
+    date: ProductionDate | None = Field(default=None, validate_default=True)
+    quantity: Pieces | None = Field(default=None, validate_default=True)
+    note: str = Field(default='', max_length=1000)
+
+    @field_validator('date', 'quantity', mode='before')
+    @classmethod
+    def allowed_limits(cls, value, info):
+        if value is None or value == '':
+            if info.data.get('status') == 'allowed':
+                raise ValueError('允许批次必须填写日期限制和本批非负整数数量')
+            return None
+        return value
+
+    @field_validator('note', mode='before')
+    @classmethod
+    def blank_note(cls, value):
+        return '' if value is None else value
+
+    @field_validator('week')
+    @classmethod
+    def monday(cls, value):
+        return WeeklyDemand.monday(value)
+
+
+class BusinessInputs(InputRow):
+    demands: list[WeeklyDemand] = Field(default_factory=list)
+    confirmations: list[ConfirmationBatch] = Field(default_factory=list)
+
+
 class InputSnapshot(InputRow):
     schema_version: Literal[1] = 1
     input_version: int = Field(default=0, ge=0, strict=True)
     masters: Masters = Field(default_factory=Masters)
     parameters: Parameters = Field(default_factory=Parameters)
     calendar: Calendar = Field(default_factory=Calendar)
+    business: BusinessInputs = Field(default_factory=BusinessInputs)
 
 
 def normalize_snapshot(payload: dict) -> InputSnapshot:

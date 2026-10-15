@@ -3,7 +3,7 @@ from copy import deepcopy
 from datetime import datetime
 from typing import Any, Callable, Protocol
 from pydantic import ValidationError
-from .input_models import InputSnapshot, Master, Model, Capability, LineYield, ModelYield, Capacity, CycleTime, SwitchDuration, Holiday, OpeningException, Occupancy, normalize_snapshot
+from .input_models import InputSnapshot, Master, Model, Capability, LineYield, ModelYield, Capacity, CycleTime, SwitchDuration, Holiday, OpeningException, Occupancy, ConfirmationBatch, normalize_snapshot
 
 ROW_TYPES = {'recipes': Master, 'lines': Master, 'models': Model, 'capabilities': Capability}
 SECTIONS = {kind: 'masters' for kind in ROW_TYPES}
@@ -14,6 +14,10 @@ KEYS.update(line_yields=('month',), model_yields=('month', 'model_code'), capaci
 ROW_TYPES.update(holidays=Holiday, opening_exceptions=OpeningException, maintenance=Occupancy, experiments=Occupancy)
 SECTIONS.update({kind: 'calendar' for kind in ['holidays', 'opening_exceptions', 'maintenance', 'experiments']})
 KEYS.update(holidays=('date',), opening_exceptions=('date', 'line_code'), maintenance=('date', 'line_code'), experiments=('date', 'line_code'))
+
+ROW_TYPES['confirmations'] = ConfirmationBatch
+SECTIONS['confirmations'] = 'business'
+KEYS['confirmations'] = ('model_code', 'week', 'kind', 'batch_id')
 
 
 class InputConflict(Exception):

@@ -29,7 +29,7 @@ def workbook_bytes(snapshot=None):
             cell.font = Font(bold=True, color='FFFFFF')
             cell.fill = PatternFill('solid', fgColor='315B83')
             sheet.column_dimensions[cell.column_letter].width = 24
-            cell.comment = Comment('必填。日期 YYYY-MM-DD；月份 YYYY-MM；百分数填95.50表示95.50%；数量与占用小时为非负整数；CT和切机时间最多两位小数；布尔值 true/false。', 'Auto Plan')
+            cell.comment = Comment(('允许批次必填，其他状态可留空。' if kind == 'confirmations' and header in {'date','quantity'} else '备注可留空。' if kind == 'confirmations' and header == 'note' else '必填。') + '日期 YYYY-MM-DD；月份 YYYY-MM；百分数填95.50表示95.50%；数量与占用小时为非负整数；CT和切机时间最多两位小数；布尔值 true/false。', 'Auto Plan')
             if header in {'active', 'allowed', 'holiday', 'enabled'}:
                 validation = DataValidation(type='list', formula1='"true,false"')
                 sheet.add_data_validation(validation)

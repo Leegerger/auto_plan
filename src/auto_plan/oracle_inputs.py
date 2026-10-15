@@ -56,26 +56,39 @@ class OracleInputStore:
         except (ValueError, zlib.error):
             raise StoreUnavailable from None
 
+    def read_in_transaction(self, cursor, version=None, *, lock=False):
+        """Read with a caller-owned cursor; never commit or continue months.
+
+        Caller locks plan head first when composing a plan write. The input
+        guard then protects the complete version until the outer commit.
+        """
+        current_version = self._head(cursor, lock=lock)
+        return self._read(cursor, current_version if version is None else version)
+
+    def update_in_transaction(self, cursor, actor, now, transform):
+        """Persist one immutable input revision inside the caller transaction."""
+        version = self._head(cursor, lock=True)
+        if actor != 'SYSTEM_MONTH_CONTINUATION':
+            cursor.execute('SELECT EDITOR, ACTIVE FROM AP_AUTHORIZATION WHERE USER_ID=:actor', actor=actor)
+            authorization = cursor.fetchone()
+            if not authorization or not authorization[0] or not authorization[1]:
+                raise AuthorizationDenied
+        current = self._read(cursor, version)
+        candidate = transform(current)
+        if candidate == current:
+            return current
+        if candidate.input_version != version + 1:
+            raise ValueError('Input transform must create the next version')
+        document = json.dumps(candidate.model_dump(mode='json'), ensure_ascii=False, sort_keys=True, separators=(',', ':')).encode()
+        cursor.setinputsizes(snapshot=oracledb.DB_TYPE_BLOB)
+        cursor.execute('INSERT INTO AP_INPUT_REVISION (INPUT_VERSION, SNAPSHOT_BLOB, SHA256, ACTOR_ID, RECORDED_AT) VALUES (:version, :snapshot, :sha256, :actor, :now)', version=candidate.input_version, snapshot=zlib.compress(document), sha256=hashlib.sha256(document).hexdigest(), actor=actor, now=now)
+        cursor.execute('UPDATE AP_INPUT_HEAD SET CURRENT_VERSION=:version WHERE ID=1', version=candidate.input_version)
+        return candidate
+
     def read(self, version=None):
         with self.transaction() as cursor:
-            return self._read(cursor, self._head(cursor) if version is None else version)
+            return self.read_in_transaction(cursor, version)
 
     def update(self, actor, now, transform):
         with self.transaction() as cursor:
-            version = self._head(cursor, lock=True)
-            if actor != 'SYSTEM_MONTH_CONTINUATION':
-                cursor.execute('SELECT EDITOR, ACTIVE FROM AP_AUTHORIZATION WHERE USER_ID=:actor', actor=actor)
-                authorization = cursor.fetchone()
-                if not authorization or not authorization[0] or not authorization[1]:
-                    raise AuthorizationDenied
-            current = self._read(cursor, version)
-            candidate = transform(current)
-            if candidate == current:
-                return current
-            if candidate.input_version != version + 1:
-                raise ValueError('Input transform must create the next version')
-            document = json.dumps(candidate.model_dump(mode='json'), ensure_ascii=False, sort_keys=True, separators=(',', ':')).encode()
-            cursor.setinputsizes(snapshot=oracledb.DB_TYPE_BLOB)
-            cursor.execute('INSERT INTO AP_INPUT_REVISION (INPUT_VERSION, SNAPSHOT_BLOB, SHA256, ACTOR_ID, RECORDED_AT) VALUES (:version, :snapshot, :sha256, :actor, :now)', version=candidate.input_version, snapshot=zlib.compress(document), sha256=hashlib.sha256(document).hexdigest(), actor=actor, now=now)
-            cursor.execute('UPDATE AP_INPUT_HEAD SET CURRENT_VERSION=:version WHERE ID=1', version=candidate.input_version)
-            return candidate
+            return self.update_in_transaction(cursor, actor, now, transform)
