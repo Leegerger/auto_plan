@@ -151,6 +151,8 @@ class OraclePlanUnit:
 class OraclePlanStore:
     def __init__(self,pool):
         self.pool=pool; self.input_store=OracleInputStore(pool)
+        from .output_reuse import OutputReuse
+        self.output_cache=OutputReuse()
         from .oracle_operation_keys import OracleOperationKeys
         self.operation_keys=OracleOperationKeys(self)
 
