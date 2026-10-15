@@ -154,4 +154,5 @@ from . import lock_operations  # noqa: E402,F401
 from . import execution_operations  # noqa: E402,F401
 
 from . import reset_operations  # noqa: E402,F401
+from . import candidate_operations  # noqa: E402,F401
 from . import history_operations  # noqa: E402,F401

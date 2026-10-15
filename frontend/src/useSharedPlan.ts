@@ -147,7 +147,12 @@ async function check(latest = false) {
   if (readonly.value) return
   busy.value = true; error.value = ''; conflict.value = null; differences.value = []; proposal.value=null
   try {
-    if (latest) { await load(false); draftBase.value={base_revision:head.value!.revision,input_version:head.value!.input_version,latest_adoption:head.value!.latest_adoption};persistLocal() }
+    if (latest) {
+      await load(false)
+      // Retained candidates stay pinned to their frozen source, including retries.
+      if(!operations.value.some(operation=>operation.kind==='apply_candidate'))draftBase.value={base_revision:head.value!.revision,input_version:head.value!.input_version,latest_adoption:head.value!.latest_adoption}
+      persistLocal()
+    }
     const {operation_id: _, pending: __, ...payload} = command()
     const result = await api<PreviewResult>('/plans/preview', {method: 'POST', body: JSON.stringify(payload)})
     proposal.value = result; message.value = '预览完成，尚未共享'

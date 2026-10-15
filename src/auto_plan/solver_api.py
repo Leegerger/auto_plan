@@ -6,7 +6,6 @@ from .input_models import InputRow, Pieces
 from .plans import PlanProblem
 from .shared_plan_api import service, invoke
 from .solver_models import FrozenSolveInput, SolveRequest
-from .solver import solve
 
 router = APIRouter()
 
@@ -29,7 +28,4 @@ def freeze(planner, payload, actor, now):
 
 @router.post('/plans/candidates/preview')
 def preview(payload: CandidatePreview, request: Request, principal=Depends(require_editor)):
-    def action():
-        frozen = freeze(service(request), payload, principal.user_id, request.app.state.clock())
-        return JSONResponse(solve(frozen).model_dump(mode='json'))
-    return invoke(action)
+    return JSONResponse({'detail': '请通过持久计算任务提交', 'replacement': '/jobs'}, status_code=410)
