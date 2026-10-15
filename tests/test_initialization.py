@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import datetime, timezone, time, timedelta
 from uuid import uuid4
 from copy import deepcopy
 from fastapi.testclient import TestClient
@@ -187,6 +187,27 @@ def test_standard_workbook_and_paste_preview_share_initial_import_validation(imp
     assert invalid.json()['valid'] is False
     assert any(e['field']=='order' for e in invalid.json()['errors'])
     assert client.get('/auto_plan/api/plans/current').json()['revision']==0
+
+
+@pytest.mark.parametrize('cell_value,echoed',[
+    (time(9,30),'09:30:00'),
+    (timedelta(hours=27,minutes=15),98100.0),
+])
+def test_invalid_workbook_time_values_keep_field_errors_and_json_payload_without_writing(import_client,cell_value,echoed):
+    from io import BytesIO
+    from openpyxl import load_workbook
+    before=import_client.get('/auto_plan/api/plans/current').json()
+    book=load_workbook(BytesIO(import_client.get('/auto_plan/api/initialization/template.xlsx').content))
+    book['initial_states'].append(['L',cell_value])
+    book['settings'].append([True,'2026-10-14T08:00:00+08:00'])
+    out=BytesIO();book.save(out)
+    response=import_client.post('/auto_plan/api/initialization/excel/preview?base_revision=0&input_version=0&latest_adoption=0',content=out.getvalue())
+    assert response.status_code==200,response.text
+    result=response.json()
+    assert result['valid'] is False
+    assert any(row['sheet']=='initial_states' and row['field']=='recipe_code' for row in result['errors'])
+    assert result['payload']['initial_states'][0]['recipe_code']==echoed
+    assert import_client.get('/auto_plan/api/plans/current').json()==before
 
 
 def test_initialization_rejects_duplicate_facts_and_segments_outside_declared_old_coverage(import_client):
