@@ -17,3 +17,8 @@ def production_week(day: date) -> date:
 
 def production_cutoff(day: date) -> datetime:
     return datetime(day.year, day.month, day.day, 8, tzinfo=BEIJING)
+
+
+def week_label(day: date) -> str:
+    year, week, _ = day.isocalendar()
+    return f'W{year:04d}{week:02d}'

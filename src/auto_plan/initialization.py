@@ -6,7 +6,7 @@ from .input_models import InputRow, Pieces, WeeklyDemand
 from .inputs import preview as preview_inputs, error
 from .plan_models import SourceSegment, InitialRecipeState, ExecutionCoverage, ExecutionContext, ResetContext, EvaluationSnapshot, EvaluationTime
 from .plans import PlanningContext, PlanProblem
-from .production_time import BEIJING, production_cutoff
+from .production_time import BEIJING, production_cutoff, week_label
 from .certificate import construct_hour_certificate, CertificateError
 from .rules import evaluate
 
@@ -23,11 +23,6 @@ class InitialImport(InputRow):
     reset: dict[str,Any]
     execution: dict[str,Any]
     initial_states: list[dict[str,Any]] = Field(default_factory=list)
-
-
-def week_label(day):
-    year,week,_=day.isocalendar()
-    return f'W{year:04d}{week:02d}'
 
 
 def typed_rows(model, rows, sheet, errors):
