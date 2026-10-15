@@ -42,20 +42,36 @@ const editingProbe = flags['editing-contract-probe'] === 'true'
 const primaryPinProbe = flags['primary-pin-probe'] === 'true'
 assert.ok(!editingProbe || mode !== 'solo' && config.target.kind === 'adapter', 'The editing-contract probe requires five disposable adapter accounts.')
 assert.ok(!primaryPinProbe || editingProbe, 'The primary-pin probe is part of the explicit adapter correctness workflow.')
-let inputCompanion
+let inputCompanion, companionApproval
 if (mode !== 'solo') {
   assert.ok(config.input_companion?.path && config.input_companion.sha256, 'New five-editor runs require their frozen maintained-input companion.')
   const bytes = readFileSync(resolve(config.input_companion.path))
   assert.equal(sha(bytes), config.input_companion.sha256, 'Input companion bytes differ from their run configuration.')
   inputCompanion = JSON.parse(bytes)
   assert.equal(inputCompanion.scenario, scenario.id, 'The input companion names another scenario.')
-  assert.equal(inputCompanion.source_manifest_sha256, sha(manifestBytes), 'The input companion names another manifest.')
+  if (scenario.input_companion) {
+    const approved = scenario.input_companion
+    assert.equal(approved.encoding, 'json', 'Unknown approved companion encoding.')
+    const approvedBytes = readFileSync(resolve(fixtures, approved.path))
+    assert.equal(sha(approvedBytes), approved.sha256, 'Manifest-approved companion bytes differ.')
+    assert.equal(config.input_companion.sha256, approved.sha256, 'Run configuration names an unapproved input companion.')
+    const predecessor = scenario.predecessor.manifest
+    const predecessorBytes = readFileSync(resolve(fixtures, predecessor.path))
+    assert.equal(sha(predecessorBytes), predecessor.sha256, 'Predecessor manifest bytes differ.')
+    assert.equal(inputCompanion.source_manifest_sha256, predecessor.sha256, 'The input companion names another predecessor manifest.')
+    companionApproval = { kind: 'manifest_successor', manifest_sha256: sha(manifestBytes),
+      predecessor_manifest_sha256: predecessor.sha256, predecessor_scenario: scenario.predecessor.scenario }
+  } else {
+    assert.ok(editingProbe && config.target.kind === 'adapter', 'Fixed-scale input load needs an explicit manifest-approved successor.')
+    assert.equal(inputCompanion.source_manifest_sha256, sha(manifestBytes), 'The adapter input companion names another manifest.')
+    companionApproval = { kind: 'adapter_correctness_probe', manifest_sha256: sha(manifestBytes) }
+  }
   assert.equal(inputCompanion.source_fixture_sha256, scenario.source.sha256, 'The input companion names another frozen source.')
   resolveInputCompanion(inputCompanion, source.inputs, source.inputs)
   writeFileSync(resolve(output, 'input-companion.json'), bytes)
   mkdirSync(resolve(output, 'input-bodies'))
 }
-const helperFiles = ['frontend/tests/acceptance/navigation.mjs', 'frontend/tests/acceptance/contracts.mjs', 'frontend/tests/acceptance/input-load.mjs', 'frontend/tests/acceptance/input-editors.mjs', 'scripts/acceptance/check_result.py', 'scripts/acceptance/assertions.py', 'scripts/acceptance/compare.py', 'scripts/acceptance/workbook.py']
+const helperFiles = ['frontend/tests/acceptance/navigation.mjs', 'frontend/tests/acceptance/contracts.mjs', 'frontend/tests/acceptance/input-load.mjs', 'frontend/tests/acceptance/input-editors.mjs', 'scripts/acceptance/check_result.py', 'scripts/acceptance/input_companion.py', 'scripts/acceptance/assertions.py', 'scripts/acceptance/compare.py', 'scripts/acceptance/workbook.py']
 const requiredEnvironment = ['image_digest', 'source_commit', 'migration_versions', 'python', 'native_libraries', 'server_hardware', 'client_hardware', 'cgroup_cpu_max', 'cgroup_memory_max', 'solver_threads', 'worker_count', 'oracle_pool_maximum', 'oracle_pool_observed_usage', 'network_proxy_path', 'peak_cpu_memory']
 const missingEnvironment = requiredEnvironment.filter(key => config.environment?.[key] === null || config.environment?.[key] === undefined || config.environment[key] === '')
 const evidence = { schema_version: inputCompanion ? 3 : 2, kind: editingProbe ? 'public browser input-editing correctness probe; no timed acceptance' : config.target.kind === 'adapter' ? 'external browser with explicit test adapters' : 'external browser to operator-attested disposable PLAN_TEST',
@@ -68,7 +84,7 @@ const evidence = { schema_version: inputCompanion ? 3 : 2, kind: editingProbe ? 
   repeats: [], editor_actions: [], request_spans: [], operations: [], submissions: [], jobs: [], acceptance: 'not_run',
   real_user_acceptance: { status: 'not_run', reason: 'Synthetic contexts do not establish five humans, twenty real accounts, company authentication or user-confirmed reference quality.' } }
 if (inputCompanion) {
-  evidence.input_companion = { path: 'input-companion.json', sha256: config.input_companion.sha256 }
+  evidence.input_companion = { path: 'input-companion.json', sha256: config.input_companion.sha256, approval: companionApproval }
   evidence.editor_schedule = 'Four actual Inputs browsers alternate their assigned existing names through preview/apply. First previews synchronize to exercise actual optimistic conflicts. Each actor waits after its first commit until all four have committed; this is premeasurement warmup. Later iterations continue independently with public reload/retry. Every genuine changed immutable version and raw request/reply is retained. Names are restored after stopping. Primary-operation load qualification remains pending.'
   evidence.input_history = []
   evidence.input_editing_contract = { status: 'not_run', continuing_activity: 'not_qualified', probe_only: editingProbe }
