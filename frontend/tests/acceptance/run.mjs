@@ -147,12 +147,12 @@ async function compute(page, measuredMode, stem) {
 }
 async function editorLoop(page, row, index) {
   while (!stopped) {
-    const entry = { editor: index, started_ms: performance.now() }
+    const entry = { editor: index, started_ms: performance.now(), phase: 'shared_page' }
     try {
-      await shared(page); await selectRow(page, row)
-      await change(page, row.quantity - 1)
-      await change(page, row.quantity)
-      const result = await save(page)
+      await shared(page); entry.phase = 'select_segment'; await selectRow(page, row)
+      entry.phase = 'preview_decrease'; await change(page, row.quantity - 1)
+      entry.phase = 'preview_restore'; await change(page, row.quantity)
+      entry.phase = 'shared_save'; const result = await save(page)
       const current = await json(page, '/plans/current')
       if (current.plan.segments.find(item => item.id === row.id)?.quantity !== row.quantity) throw new Error('Load edit failed to restore source quantity.')
       entry.status = 'pass'; entry.committed_revision = result.revision
@@ -164,7 +164,7 @@ try {
   if (importOnly && mode !== 'solo') throw new Error('A fresh initial-import target has no shared state for concurrent editors; this load observation is not_run.')
   browser = await chromium.launch({ headless: true })
   evidence.client = { chromium: browser.version(), node: process.version, platform: process.platform }
-  evidence.phase = 'login_and_shared_page'
+  evidence.phase = 'login_and_shared_page'; persist()
   for (let index = 0; index < count; index++) {
     const context = await browser.newContext({ ignoreHTTPSErrors: config.allow_test_certificate === true })
     contexts.push(context)
@@ -177,16 +177,16 @@ try {
     await page.goto(config.origin + config.base_path + '/login')
     await page.getByRole('textbox', { name: '公司账号', exact: true }).fill(accounts[index].username)
     await page.getByLabel('公司密码', { exact: true }).fill(accounts[index].password)
-    evidence.phase = `login_acknowledgment_editor_${index}`
+    evidence.phase = `login_acknowledgment_editor_${index}`; persist()
     const loginResponse = page.waitForResponse(response => response.url() === api('/auth/login') && response.request().method() === 'POST')
     await page.getByRole('button', { name: '登录', exact: true }).click()
     if (!(await loginResponse).ok()) throw new Error('Login was not acknowledged.')
     accounts[index].password = ''
     await expect(page.getByRole('button', { name: '退出登录', exact: true })).toBeVisible({ timeout: 30000 })
-    evidence.phase = `shared_page_editor_${index}`
+    evidence.phase = `shared_page_editor_${index}`; persist()
     await shared(page)
   }
-  evidence.phase = 'frozen_source_preflight'
+  evidence.phase = 'frozen_source_preflight'; persist()
   const head = await json(pages[0], '/plans/current')
   evidence.initial_tokens = { source_revision: head.revision, input_version: head.input_version, latest_adoption: head.latest_adoption }
   if (!importOnly && JSON.stringify(evidence.initial_tokens) !== JSON.stringify(config.bindings)) throw new Error('Prepared shared tokens differ from frozen run configuration.')
@@ -205,13 +205,24 @@ try {
   for (const operation of operations) {
     if (!(operation in manifest.gates_seconds)) throw new Error('Unknown measured operation.')
     for (let repeat = 1; repeat <= 5; repeat++) {
-      evidence.phase = `${operation}_repeat_${repeat}`
-      const page = pages[0], entry = { operation, repeat, first: repeat === 1, gate_seconds: manifest.gates_seconds[operation], status: 'fail' }
+      evidence.phase = `${operation}_repeat_${repeat}`; persist()
+      const page = pages[0], entry = { operation, repeat, first: repeat === 1, gate_seconds: manifest.gates_seconds[operation], status: 'fail', phase: 'setup_shared_page' }
       let loadJob
       try {
         if (stopped) throw new Error('An editor load action failed.')
-        if (!importOnly) { await shared(page); await selectRow(page, row) }
+        if (!importOnly) { await shared(page); entry.phase = 'setup_selected_segment'; await selectRow(page, row) }
+        if (operation === 'day') {
+          const targetWeek = Math.floor((Date.parse(row.date) - Date.parse(source.time.window_start)) / 604800000)
+          const other = source.plan.segments.find(item => item.line_code === row.line_code && item.date !== row.date && Math.floor((Date.parse(item.date) - Date.parse(source.time.window_start)) / 604800000) === targetWeek)
+          if (!other) throw new Error('A different same-week day is required for navigation timing.')
+          await page.getByRole('button', { name: `${other.date} ${other.line_code} 日内详情`, exact: true }).click()
+          await expect(page.getByLabel('选择生产段 ' + other.id, { exact: true })).toBeVisible()
+          await expect(page.getByLabel('选择生产段 ' + row.id, { exact: true })).toHaveCount(0)
+          entry.navigation_from = { date: other.date, line_code: other.line_code, segment: other.id }
+          entry.navigation_to = { date: row.date, line_code: row.line_code, segment: row.id }
+        }
         if (mode !== 'solo' && !['local', 'new_week', 'all_replan'].includes(operation)) {
+          entry.phase = 'setup_running_computation'
           const current = await json(page, '/plans/current')
           const request = { ...action.request, time_limit_seconds: 90 }
           const submitted = await json(page, '/jobs', { submission_id: randomUUID(), base_revision: current.revision, input_version: current.input_version, latest_adoption: current.latest_adoption, request })
@@ -229,6 +240,7 @@ try {
           await page.getByLabel('手动操作', { exact: true }).selectOption('clear_segments')
         }
         if (operation === 'shared_save') { await change(page, row.quantity); saveBefore = await json(page, '/plans/current') }
+        entry.phase = 'measured_action'
         entry.clicked_ms = performance.now()
         if (operation === 'selection') {
           const control = page.getByLabel('选择生产段 ' + row.id, { exact: true })
@@ -239,7 +251,7 @@ try {
         } else if (operation === 'day') {
           await page.getByRole('button', { name: `${row.date} ${row.line_code} 日内详情`, exact: true }).click()
           await expect(page.getByRole('heading', { name: `${row.date} · ${row.line_code} 日内详情`, exact: true })).toBeVisible()
-          await expect(page.getByRole('table', { name: '日内生产顺序', exact: true })).toContainText(row.model_code)
+          await expect(page.getByLabel('选择生产段 ' + row.id, { exact: true })).toBeVisible()
         } else if (operation === 'single_cell') {
           const result = await change(page, row.quantity - 1)
           if (!result.evaluation.computation_complete || !result.evaluation.capacity_valid) throw new Error('Preview is incomplete or invalid.')
@@ -287,7 +299,7 @@ try {
         entry.status = entry.seconds <= entry.gate_seconds ? 'pass' : 'fail'
         if (loadJob && (await json(page, '/jobs/' + loadJob)).state !== 'running') { entry.status = 'fail'; entry.reason = 'Computation did not remain active through the complete measured interval.' }
         await page.screenshot({ path: resolve(output, `${operation}-${repeat}.png`), fullPage: true })
-      } catch (error) { entry.reason = error.name; entry.seconds = (performance.now() - (entry.clicked_ms ?? performance.now())) / 1000 }
+      } catch (error) { entry.reason = error.name; entry.seconds = entry.clicked_ms === undefined ? null : (performance.now() - entry.clicked_ms) / 1000; entry.measurement_started = entry.clicked_ms !== undefined }
       finally {
         if (loadJob) {
           await json(page, '/jobs/' + loadJob + '/stop', {}).catch(() => {})
