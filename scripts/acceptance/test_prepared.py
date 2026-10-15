@@ -80,3 +80,20 @@ def test_combined_wip_source_import_preserves_the_frozen_physical_quantity(tmp_p
         assert response.status_code == 200 and response.json()['valid'] is True
         assert response.json()['context']['reset']['models'] == [{'model_code': 'M00', 'wip': 3, 'net_balance': 0}]
         assert response.json()['evaluation']['output_totals']['expected'] == 4
+
+
+def test_external_adapter_retains_a_complete_adopted_history_instead_of_masking_the_view():
+    from scripts.acceptance.adapter_server import application
+    app=application(ROOT/'docs/acceptance/frozen','r20-loose',8776)
+    with TestClient(app,base_url='https://localhost:8776') as client:
+        client.headers.update({'Origin':'https://localhost:8776','X-Auto-Plan-Request':'1'})
+        assert client.post('/planning/api/auth/login',json={'username':'ACCEPTANCE0','password':'company-secret'}).status_code==200
+        history=client.get('/planning/api/plans/history')
+        assert history.status_code==200
+        assert history.json()['items'][0]['adoption']==1
+        adoption=client.get('/planning/api/plans/adoptions/1')
+        assert adoption.status_code==200
+        record=adoption.json()
+        assert len(record['snapshot']['plan']['segments'])==4200
+        assert record['evaluation']['output_totals']['expected']==420000
+        assert record['evaluation']['output_totals']['gap']==0

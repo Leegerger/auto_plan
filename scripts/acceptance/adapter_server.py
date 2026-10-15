@@ -18,7 +18,8 @@ from scripts.acceptance.validate import load
 def application(fixtures, scenario_id, port):
     from auto_plan.app import create_app
     from auto_plan.input_models import InputSnapshot
-    from auto_plan.plan_models import Plan
+    from auto_plan.plan_models import Plan, EvaluationSnapshot
+    from auto_plan.rules import evaluate
     from auto_plan.plans import PlanningContext
     from auto_plan.settings import Settings
     from auto_plan.job_process import JobController
@@ -36,7 +37,11 @@ def application(fixtures, scenario_id, port):
     plans.revision = plans.adoption = 1
     plans.revisions[1] = {'snapshot': deepcopy(source), 'coverage': source['baseline']['coverage'], 'lineage': {}, 'operations': [], 'effects': [],
                           'pending': False, 'kind': 'adopt', 'actor': 'ACCEPTANCE0', 'revision': 1, 'recorded_at': source['time']['as_of']}
-    plans.adoptions[1] = {'snapshot': {'plan': source['baseline']['plan']}, 'coverage': source['baseline']['coverage']}
+    # Supply the same complete stored-history shape as the public Oracle flow.
+    # Independent expected values remain frozen by the stdlib-only generator.
+    plans.revisions[1].update(input_version=1,latest_adoption=1,
+        evaluation=evaluate(EvaluationSnapshot.model_validate(source)).model_dump(mode='json'))
+    plans.adoptions[1] = deepcopy(plans.revisions[1])
     for number in range(5):
         name = f'ACCEPTANCE{number}'
         access.users[name] = {'user_id': name, 'roles': ['editor'], 'active': True}
