@@ -64,9 +64,12 @@ function fixture(directory) {
     acceptance: 'not_run', purpose: 'Five-model public editing regression; not a fixed-scale acceptance family.' }
   const manifest = { schema_version: 1, scenarios: [scenario], gates_seconds: originalManifest.gates_seconds,
     reference_confirmation: { status: 'not_run', reason: 'Correctness adapter; no user quality or timing acceptance.' } }
-  const manifestBytes = Buffer.from(JSON.stringify(manifest))
-  writeFileSync(resolve(directory, 'manifest.json'), manifestBytes)
-  return { initial: source.inputs, scenario, manifestBytes }
+  const predecessorBytes = Buffer.from(JSON.stringify(manifest))
+  writeFileSync(resolve(directory, 'predecessor-manifest.json'), predecessorBytes)
+  const successor = { ...structuredClone(scenario), id: 'input-editors-adapter-v1-input-names-v1',
+    predecessor: { scenario: scenario.id, manifest: { path: 'predecessor-manifest.json', sha256: sha(predecessorBytes) } } }
+  return { initial: source.inputs, scenario: successor,
+    manifest: { ...manifest, scenarios: [successor] }, predecessorBytes }
 }
 
 async function stop(child, finished, exited) {
@@ -92,7 +95,7 @@ test(primaryPinProbe ? 'a primary preview retains its accepted input pin and ori
     assert.ok(Number.isInteger(port) && port >= 1024 && port < 65536)
     const output = mkdtempSync(resolve(tmpdir(), 'auto-plan-input-editors-contract-'))
     const fixtures = resolve(output, 'fixtures'); mkdirSync(fixtures)
-    const { initial, scenario, manifestBytes } = fixture(fixtures)
+    const { initial, scenario, manifest, predecessorBytes } = fixture(fixtures)
     const config = { origin: 'https://localhost:' + port, base_path: '/planning', fixtures,
       target: { kind: 'adapter', disposable: true, production: false }, scenario: scenario.id,
       bindings: { source_revision: 1, input_version: 1, latest_adoption: 1 },
@@ -103,7 +106,7 @@ test(primaryPinProbe ? 'a primary preview retains its accepted input pin and ori
       return { editor: index + 1, kind: 'models', code, names: [code, code + ' · editor' + (index + 1)] }
     })
     const companion = { schema_version: 1, kind: 'maintained_input_names', digest_algorithm: INPUT_CONTENT_DIGEST_ALGORITHM,
-      scenario: scenario.id, source_manifest_sha256: sha(manifestBytes), source_fixture_sha256: scenario.source.sha256,
+      scenario: scenario.id, source_manifest_sha256: sha(predecessorBytes), source_fixture_sha256: scenario.source.sha256,
       source_inputs_sha256: inputContentDigest(initial), targets,
       states: Array.from({ length: 16 }, (_, mask) => {
         const inputs = structuredClone(initial)
@@ -112,6 +115,8 @@ test(primaryPinProbe ? 'a primary preview retains its accepted input pin and ori
       }) }
     const companionPath = resolve(output, 'companion.json'), childConfigPath = resolve(output, 'config.json')
     writeFileSync(companionPath, JSON.stringify(companion) + '\n')
+    scenario.input_companion = { path: '../companion.json', encoding: 'json', sha256: sha(readFileSync(companionPath)) }
+    writeFileSync(resolve(fixtures, 'manifest.json'), JSON.stringify(manifest))
     writeFileSync(childConfigPath, JSON.stringify({ ...config,
       primary_segment: 'S-2027-01-24-M00',
       load_segments: targets.map(target => 'S-2027-01-24-' + target.code),
@@ -157,12 +162,19 @@ test(primaryPinProbe ? 'a primary preview retains its accepted input pin and ori
       }
       assert.ok(exited, 'The editing-contract probe did not finish: ' + output)
       const [code, signal] = await finished
+      assert.ok(existsSync(reportPath), 'The approved companion run ended before reporting its source contract: ' +
+        readFileSync(resolve(output, 'runner.log'), 'utf8') + '\nArtifacts: ' + output)
       report = JSON.parse(readFileSync(reportPath))
       assertNoLegacy(report)
       assert.equal(signal, null); assert.equal(code, 0, 'The editor probe failed; retained artifacts: ' + output)
       assert.equal(report.acceptance, 'not_run')
       assert.deepEqual(report.repeats, [], 'A focused editing probe must not fabricate timed repeats.')
       assert.equal(report.input_editing_contract?.status, 'pass')
+      assert.equal(report.input_companion.approval.kind, 'manifest_successor')
+      assert.equal(report.input_companion.approval.manifest_sha256, sha(readFileSync(resolve(fixtures, 'manifest.json'))))
+      assert.equal(report.input_companion.approval.predecessor_manifest_sha256, sha(predecessorBytes))
+      assert.equal(report.input_companion.approval.predecessor_scenario, 'input-editors-adapter-v1')
+      assert.ok(report.helper_sha256['scripts/acceptance/input_companion.py'])
       assert.deepEqual([...new Set(report.editor_actions.filter(row => row.commit?.kind === 'modified_input_name').map(row => row.editor))].sort(), [1, 2, 3, 4])
       assert.ok(report.editor_actions.some(row => row.response_status === 409), 'The synchronized first public previews must exercise actual optimistic conflict/reload.')
       const accepted = resolveInputCompanion(companion, initial, report.input_editing_contract.last_modified_inputs,
