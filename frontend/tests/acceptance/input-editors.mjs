@@ -2,7 +2,8 @@
 import assert from 'node:assert/strict'
 import { expect } from '@playwright/test'
 import { performance } from 'node:perf_hooks'
-import { resolveInputCompanion } from './input-load.mjs'
+import { setTimeout as delay } from 'node:timers/promises'
+import { inputContentDigest, resolveInputCompanion } from './input-load.mjs'
 
 const pendingResponse = (page, predicate) => {
   const pending = page.waitForResponse(predicate, { timeout: 180000 })
@@ -30,6 +31,7 @@ export async function inputEditorLoop({ page, editor, declaration, initialInputs
   }
 
   async function submit(phase, button, started) {
+    const submittedBefore = before
     const endpoint = url('/inputs/' + phase)
     const requestPending = page.waitForRequest(request => request.url() === endpoint && request.method() === 'POST', { timeout: 180000 })
     requestPending.catch(() => {})
@@ -43,8 +45,16 @@ export async function inputEditorLoop({ page, editor, declaration, initialInputs
     entry.command = JSON.parse(rawCommand)
     entry.request_artifact = captureBody(rawCommand)
     entry.request_started_epoch_ms = request.timing().startTime
+    let requestFailed
     try {
-      const received = await responsePending
+      const failure = new Promise((_, reject) => {
+        requestFailed = failed => {
+          if (failed === request) reject(new Error(failed.failure()?.errorText ?? 'The input request failed before its reply.'))
+        }
+        page.on('requestfailed', requestFailed)
+        if (request.failure()) requestFailed(request)
+      })
+      const received = await Promise.race([responsePending, failure])
       const bytes = await received.body()
       entry.response_status = received.status()
       entry.response_artifact = captureBody(bytes)
@@ -54,11 +64,57 @@ export async function inputEditorLoop({ page, editor, declaration, initialInputs
       return entry
     } catch (error) {
       entry.finished_ms = performance.now()
+      entry.unknown_observed_ms = entry.finished_ms
+      entry.request_timing = request.timing()
+      entry.request_failure = request.failure()
       entry.failure = String(error.message).split('\n')[0].slice(0, 300)
-      entry.before = before
+      entry.before = submittedBefore
+      if (phase === 'apply' && [null, 200].includes(entry.response_status)) {
+        try { return await reconcile(entry, submittedBefore) }
+        catch (reconciliationError) {
+          entry.reconciliation_failure = reconciliationError.message.split('\n')[0]
+          onAttempt(entry); throw new Error(entry.reconciliation_failure)
+        }
+      }
       onAttempt(entry)
       throw error
+    } finally {
+      if (requestFailed) page.off('requestfailed', requestFailed)
     }
+  }
+
+  async function reconcile(entry, submittedBefore) {
+    const until = performance.now() + 10000
+    const resolution = entry.resolution = { kind: 'immutable_input_version', result: 'unknown', observations: [],
+      head_path: '/inputs', version_path: '/inputs?version=' + (entry.command.base_version + 1) }
+    while (performance.now() < until) {
+      const headResponse = await page.request.get(url(resolution.head_path), { headers: { Origin: origin, 'X-Auto-Plan-Request': '1' },
+        timeout: Math.max(1, until - performance.now()) })
+      const headBytes = await headResponse.body(), head = JSON.parse(headBytes)
+      resolution.head_status = headResponse.status(); resolution.head_artifact = captureBody(headBytes)
+      assert.equal(resolution.head_status, 200, 'Unknown input outcome could not read the public head.')
+      resolveInputCompanion(declaration, initialInputs, head)
+      resolution.head_input_version = head.input_version
+      resolution.observations.push({ input_version: head.input_version, artifact: resolution.head_artifact, observed_ms: performance.now() })
+      if (head.input_version <= entry.command.base_version) { await delay(100); continue }
+      const response = await page.request.get(url(resolution.version_path),
+        { headers: { Origin: origin, 'X-Auto-Plan-Request': '1' }, timeout: Math.max(1, until - performance.now()) })
+      const bytes = await response.body(), immutable = JSON.parse(bytes)
+      resolution.version_status = response.status(); resolution.version_artifact = captureBody(bytes)
+      assert.equal(resolution.version_status, 200, 'Unknown input outcome could not read the immutable next version.')
+      assert.equal(immutable.input_version, entry.command.base_version + 1, 'Unknown input outcome returned another immutable version.')
+      resolveInputCompanion(declaration, initialInputs, immutable)
+      const expected = structuredClone(submittedBefore)
+      const submitted = entry.command.changes[target.kind].filter(row => row.code === target.code)
+      assert.equal(submitted.length, 1, 'The unknown input command has no unique assigned name.')
+      expected.masters[target.kind].find(row => row.code === target.code).name = submitted[0].name
+      expected.input_version = immutable.input_version
+      resolution.result = inputContentDigest(immutable) === inputContentDigest(expected) ? 'committed' : 'obsolete_without_commit'
+      resolution.finished_ms = performance.now()
+      if (resolution.result === 'committed') entry.after = immutable
+      return entry
+    }
+    throw new Error('The original input apply outcome remains unknown; no retry or restoration is permitted.')
   }
 
   await load(true)
@@ -85,21 +141,28 @@ export async function inputEditorLoop({ page, editor, declaration, initialInputs
     if (first) { await firstPreview(); first = false }
     if (stopped()) break
     const applied = await submit('apply', '确认提交整批', started)
+    if (applied.resolution?.result === 'obsolete_without_commit') {
+      applied.status = 'obsolete'; applied.finished_ms = performance.now(); onAttempt(applied)
+      await load(); continue
+    }
     if (applied.response_status === 409) {
       applied.status = 'conflict'; applied.finished_ms = performance.now(); onAttempt(applied)
       await expect(page.getByRole('button', { name: '确认提交整批', exact: true })).toBeDisabled()
       await load(); continue
     }
-    assert.equal(applied.response_status, 200, 'The real input apply request failed.')
-    const after = applied.response
+    assert.ok(applied.response_status === 200 || applied.resolution?.result === 'committed', 'The real input apply request failed.')
+    const after = applied.after ?? applied.response, committedBefore = applied.before ?? before
     const resolved = resolveInputCompanion(declaration, initialInputs, after,
-      { transition: { editor, before, command: applied.command, response_status: applied.response_status } })
-    await expect(page.getByText(`已提交资料版本 ${after.input_version}`, { exact: true })).toBeVisible()
-    await expect(page.getByLabel(`名称 第${index + 1}行`, { exact: true })).toHaveValue(nextName)
+      { transition: { editor, before: committedBefore, command: applied.command, response_status: applied.response_status, resolution: applied.resolution } })
+    if (!applied.resolution) {
+      await expect(page.getByText(`已提交资料版本 ${after.input_version}`, { exact: true })).toBeVisible()
+      await expect(page.getByLabel(`名称 第${index + 1}行`, { exact: true })).toHaveValue(nextName)
+    }
     applied.status = 'pass'; applied.commit = resolved.transition
-    applied.before = before; applied.after = after; applied.finished_ms = performance.now()
+    applied.before = committedBefore; applied.after = after; applied.finished_ms = performance.now()
     onAttempt(applied); onCommit(applied)
-    before = after
+    if (applied.resolution) await load()
+    else before = after
     if (!firstCommitted) { firstCommitted = true; await firstCommit() }
   }
 }

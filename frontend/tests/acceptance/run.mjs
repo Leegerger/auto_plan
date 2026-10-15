@@ -404,7 +404,8 @@ function startInputEditors() {
       onCommit: entry => {
         evidence.input_history.push({ editor: entry.editor, before: entry.before, after: entry.after,
           command: entry.command, response_status: entry.response_status,
-          request_artifact: entry.request_artifact, response_artifact: entry.response_artifact })
+          request_artifact: entry.request_artifact, response_artifact: entry.response_artifact,
+          resolution: entry.resolution })
         committed.add(entry.editor)
         if (committed.size === 4) ready.resolve()
         persist()
@@ -422,8 +423,7 @@ async function finishInputEditors() {
   stopped = true; await Promise.all(loadPromises)
   const contract = evidence.input_editing_contract
   contract.status = 'fail'
-  // Unknown write replies require their own reconciliation slice. They cannot
-  // earn credit or trigger a blind resubmission/restoration here.
+  // Only terminal immutable-version proof can settle a missing apply reply.
   assert.ok(!contract.unknown_request, 'An original input request is unresolved; no blind input write was attempted.')
   const current = await json(pages[0], '/inputs')
   contract.last_modified_inputs = current
