@@ -88,7 +88,7 @@ def demand_verify(payload:DemandVerification,request:Request,principal=Depends(r
 
 
 from fastapi import HTTPException
-from fastapi.responses import Response
+from fastapi.responses import Response, JSONResponse
 from pydantic import Field
 from .input_models import Pieces
 
@@ -122,11 +122,16 @@ async def upload_bytes(request):
 @router.post('/initialization/excel/preview')
 async def initial_excel(request:Request,base_revision:int,input_version:int,latest_adoption:int,principal=Depends(require_editor)):
     from .initialization_tables import excel_bundle
+    from fastapi.encoders import jsonable_encoder
     from starlette.concurrency import run_in_threadpool
     content=await upload_bytes(request)
     def action():
         payload,errors=excel_bundle(content,{'base_revision':base_revision,'input_version':input_version,'latest_adoption':latest_adoption})
-        return adapted_initial(request,payload,errors,principal.user_id)
+        result=adapted_initial(request,payload,errors,principal.user_id)
+        # Validate original Excel types before normalizing the echoed payload.
+        # Prepared plan/evaluation values are already in JSON mode.
+        result['payload']=jsonable_encoder(result['payload'])
+        return JSONResponse(result)
     return await run_in_threadpool(lambda:invoke(action))
 
 

@@ -189,6 +189,23 @@ def test_standard_quantities_can_generate_exact_certificate_without_a_minimum_ho
     assert preview(inputs_client, replay)['capacity_valid'] is True
 
 
+def test_certificate_preserves_exact_witness_with_a_large_capacity_denominator(inputs_client):
+    # One two-piece source needs more than 24/capacity hours. Half of the
+    # remaining day gives the independently worked witness 12 + 12/capacity.
+    capacity=10**200+1
+    data=snapshot()
+    for row in data['inputs']['parameters']['capacities']:
+        if row['recipe_code']=='R' and row['line_code']=='L': row['pieces']=capacity
+    data['plan']={'segments':[{'id':'large','date':'2026-10-15','line_code':'L','model_code':'M','order':0,'quantity':2}],
+        'initial_states':[{'line_code':'L','recipe_code':'R'}]}
+    response=inputs_client.post('/auto_plan/api/plans/certificate/preview',json={'snapshot':data})
+    assert response.status_code==200,response.text
+    result=response.json()
+    assert result['evaluation']['capacity_valid'] and result['evaluation']['computation_complete']
+    assert result['plan']['segments'][0]['hours']==f'{12*(capacity+1)}/{capacity}'
+    assert result['plan']['switches']==[]
+
+
 def test_certificate_cross_day_switch_uses_exact_idle_days_and_reports_true_open_boundary_failure(inputs_client):
     data = snapshot()
     data['inputs']['calendar'] = {'maintenance': [{'date': day, 'line_code': 'L', 'hours': 23} for day in ('2026-10-14', '2026-10-17')],

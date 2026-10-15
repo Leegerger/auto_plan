@@ -1,4 +1,38 @@
 import { test, expect } from '@playwright/test'
+
+for(const mode of ['initialization','demands']){
+ test(`HTTP 408 keeps the original ${mode} operation read-only through reload and verification`,async({page})=>{
+  let submitted=''
+  await page.route('**/api/ready',route=>route.fulfill({json:{status:'ready'}}))
+  await page.route('**/api/auth/me',route=>route.fulfill({json:{user_id:'TIMEOUT_EDITOR',roles:['editor']}}))
+  await page.route('**/api/plans/current',route=>route.fulfill({json:{revision:0,input_version:1,latest_adoption:0}}))
+  await page.route(`**/api/${mode}/paste/preview`,route=>route.fulfill({json:{valid:true,errors:[],payload:{rows:[]}}}))
+  await page.route(`**/api/${mode}/apply`,async route=>{
+   submitted=route.request().postDataJSON().operation_id
+   await route.fulfill({status:408,json:{detail:'请求超时'}})
+  })
+  await page.route(`**/api/${mode==='initialization'?'plans':'demands'}/verify`,async route=>{
+   expect(route.request().postDataJSON()).toEqual({operation_id:submitted})
+   await route.fulfill({json:{status:'ABORTED_VOID',operation_id:submitted}})
+  })
+  await page.goto('/planning/initialize')
+  if(mode==='demands')await page.getByText('按日需求变更',{exact:true}).click()
+  await page.locator('textarea').fill(mode==='demands'?'model_code\tweek\tweek_label\tdelta\nM\t2026-10-12\tW202642\t1':'id\tdate\tline_code\torder\tmodel_code\tquantity')
+  await page.getByRole('button',{name:'读取粘贴并预览',exact:true}).click()
+  await expect(page.getByRole('status')).toHaveText('预览通过，尚未写入。')
+  const apply=page.getByRole('button',{name:mode==='initialization'?'确认导入待处理草稿':'确认替换整日需求文件',exact:true})
+  await apply.click()
+  await expect(page.getByText('前次导入结果待核实，当前只读。核实完成后才能继续提交。')).toBeVisible()
+  await expect(apply).toBeDisabled()
+  expect(await page.evaluate(()=>JSON.parse(localStorage.getItem('auto-plan-import-pending:/planning:TIMEOUT_EDITOR')!))).toEqual({operation_id:submitted,mode})
+  await page.reload()
+  await expect(page.getByText('前次导入结果待核实，当前只读。核实完成后才能继续提交。')).toBeVisible()
+  await page.getByRole('button',{name:'核实前次导入',exact:true}).click()
+  await expect(page.getByText('前次导入已作废，可重新预览后提交。')).toBeVisible()
+  expect(await page.evaluate(()=>localStorage.getItem('auto-plan-import-pending:/planning:TIMEOUT_EDITOR'))).toBeNull()
+ })
+}
+
 test('import full standard workbook as pending then replace demand date with independent duplicate rows',async({page})=>{
  test.skip(process.env.AUTO_PLAN_BROWSER_INITIALIZATION_FIXTURE!=='1','Requires explicit initialization fixture')
  await page.goto('/planning/login')

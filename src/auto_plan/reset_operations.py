@@ -260,6 +260,10 @@ def _apply_explicit_metadata(plan,change,scope,context,*,retract=False):
     return plan
 
 
+def participating_models(inputs,source,execution,week):
+    return {r.code for r in inputs.masters.models if r.active}|{r.model_code for r in source.segments}|{r.model_code for r in execution.facts if r.date>=week}
+
+
 def weekly_reset(plan,command,context):
     from .plans import PlanProblem, protect
     week=context.time.window_start;key=week.isoformat();reset=command.snapshot
@@ -279,7 +283,7 @@ def weekly_reset(plan,command,context):
         raise PlanProblem(409,'重置来源采用版已变化，请重新核对来源与快照',source_adoption=source_number,latest_adoption=context.latest_adoption)
     source_record=context.history.get_adoption(source_number)
     source=Plan.model_validate(source_record['snapshot']['plan'])
-    participating={r.code for r in index.models.values() if r.active}|{r.model_code for r in source.segments}|{r.model_code for r in context.execution.facts if r.date>=week}
+    participating=participating_models(context.inputs,source,context.execution,week)
     codes=[r.model_code for r in reset.models]
     if len(codes)!=len(set(codes)) or set(codes)!=participating: raise ValueError('同批快照须逐机种完整填写在制品与最终净余额，包含零值')
     snapshot_data=reset.model_dump(mode='json');snapshot_digest=digest(snapshot_data)
@@ -287,8 +291,10 @@ def weekly_reset(plan,command,context):
     batch_revision=next((n+1 for n,r in enumerate(versions) if r['digest']==snapshot_digest),None)
     if batch_revision is None:
         versions.append({'digest':snapshot_digest,'snapshot':snapshot_data});batch_revision=len(versions)
-    result=active_plan(source,context.time)
-    projected_current=active_plan(plan,context.time)
+    source_start=date.fromisoformat(source_record['snapshot']['time']['window_start'])
+    current_start=date.fromisoformat(context.history.get_revision(context.current_revision)['snapshot']['time']['window_start'])
+    result=active_plan(source,context.time,context.inputs,context.execution,origin_start=source_start)
+    projected_current=active_plan(plan,context.time,context.inputs,context.execution,origin_start=current_start)
     inside_switch=lambda s:s.line_code in command.scope.line_codes and all(command.scope.start_date<=a.date<=command.scope.end_date for a in s.allocations)
     result=result.model_copy(update={
         'segments':[r for r in result.segments if command.scope.contains(r)]+[r for r in plan.segments if context.time.window_start<=r.date<=context.time.window_end and not command.scope.contains(r)],

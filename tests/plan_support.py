@@ -25,6 +25,8 @@ class MemoryPlanStore:
         return self.contexts[max(eligible)].model_copy(deep=True) if eligible else PlanningContext()
     def get_revision(self,identity): return deepcopy(self.revisions[identity])
     def get_adoption(self,identity): return deepcopy(self.adoptions[identity])
+    def get_planning_revision(self,identity): return self.get_revision(identity)
+    def get_planning_adoption(self,identity): return self.get_adoption(identity)
     def list_history(self,cutoff,before,limit):
         from datetime import datetime
         adoption_by_revision={record['revision']:number for number,record in self.adoptions.items()}

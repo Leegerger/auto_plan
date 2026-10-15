@@ -233,6 +233,35 @@ def test_decrement_keeps_other_authorized_lines_and_their_switch_work_unchanged(
     assert result.json()['plan']['switches'] == original['switches']
 
 
+def test_certificate_preview_and_later_failed_action_preserve_complete_shared_and_adopted_source(shared_client):
+    client,_,_=shared_client
+    initial={'initial_states':[{'line_code':'L','recipe_code':'R'},{'line_code':'B','recipe_code':'R'}],
+        'segments':[row(quantity=600)|{'hours':'15'},row('other','P',line='B',day='2026-10-17',quantity=100)|{'order':7}],
+        'switches':[{'id':'nested-switch','line_code':'B','from_recipe':'R','to_recipe':'S','allocations':[
+            {'date':'2026-10-16','order':0,'hours':'0.4','idle_hours':'0.4'},
+            {'date':'2026-10-17','order':6,'hours':'0.55','idle_hours':'0'}]}],
+        'ordinary_idle':[{'date':'2026-10-16','line_code':'B','hours':'0.4'}]}
+    adopted=post(client,'adopt',command({'kind':'replace_plan','plan':initial}))
+    assert adopted.status_code==200,adopted.text
+    original=client.get('/auto_plan/api/plans/current').json()
+    revision=client.get('/auto_plan/api/plans/revisions/1').json()
+    adoption=client.get('/auto_plan/api/plans/adoptions/1').json()
+    actions=[change(500,'2026-10-15')|{'action_id':'quantity-ownership'},
+        {'kind':'copy_segments','action_id':'copy-ownership','segment_ids':['a'],'target_start_date':'2026-10-16',
+         'line_mapping':{'L':'L'},'scope':scope('2026-10-15','2026-10-17')}]
+    result=preview(client,*actions,base=1)
+    assert result.status_code==200,result.text
+    assert result.json()['evaluation']['capacity_valid']
+    assert result.json()['plan']['switches']==original['plan']['switches']
+    assert preview(client,*actions,base=1).json()==result.json()
+    invalid={'kind':'move_segment','segment_id':'missing','target_date':'2026-10-16','target_line':'L','target_order':0,
+        'scope':scope('2026-10-15','2026-10-17')}
+    assert preview(client,*actions,invalid,base=1).status_code==422
+    assert client.get('/auto_plan/api/plans/current').json()==original
+    assert client.get('/auto_plan/api/plans/revisions/1').json()==revision
+    assert client.get('/auto_plan/api/plans/adoptions/1').json()==adoption
+
+
 def test_extra_plan_does_not_reassign_an_existing_segments_overplan_actual(shared_client):
     from auto_plan.plans import PlanningContext
     client, plans, inputs = shared_client

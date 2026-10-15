@@ -14,6 +14,9 @@ interface HourDisplay {segments:Record<string,{exact:string;display:string}>;swi
 interface Head {time:{as_of:string;window_start:string};reset_preview:ResetPreview|null;execution_segments:{segment_id:string;executed:number;remaining:number}[];execution_surplus:ExecutionCell[];hour_display:HourDisplay; pending: boolean; kind: string; revision: number; input_version: number; latest_adoption: number; plan: Plan; evaluation: OutputEvaluation; unallocated:Unallocated[]; operation_issues:Record<string,unknown>[]; weeks:{number:number;label:string;start_date:string;dates:string[]}[];context:PlanningContext }
 interface PreviewResult {reset_reference?:{effective_adoption:number;effective_revision:number}|null;adoption_blocked:boolean;reset_preview:ResetPreview|null;execution_segments:{segment_id:string;executed:number;remaining:number}[];execution_surplus:ExecutionCell[];context:PlanningContext;context_changes:Record<string,unknown>[];hour_display:HourDisplay;plan:Plan;evaluation:OutputEvaluation;changes:Record<string,unknown>[];effects:unknown[][];unallocated:Unallocated[];operation_issues:Record<string,unknown>[]}
 export interface Draft {data_version:number;base_revision:number;input_version:number;latest_adoption:number;operations:BusinessOperation[];selected_actions?:string[]}
+export interface ResetParticipation {source_adoption:number;model_codes:string[]}
+interface Head {reset_participants:{current:ResetParticipation;correction:ResetParticipation|null}}
+interface PreviewResult {reset_participants:{current:ResetParticipation;correction:ResetParticipation|null}}
 interface Command { base_revision: number; input_version: number; latest_adoption: number; operations: BusinessOperation[]; operation_id: string; pending: boolean }
 type Stored = Outstanding
 interface Result { status: 'COMMITTED' | 'ABORTED_VOID'; revision?: number; latest_adoption?: number }
