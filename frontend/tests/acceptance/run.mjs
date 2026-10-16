@@ -13,6 +13,7 @@ import { canonical, assertPlan, assertState, manualRows, scopeFor, assertManualR
 import { inputEditorLoop } from './input-editors.mjs'
 import { assertSmallPrivateEpochResult } from './private-shared-epoch.mjs'
 import { assertSharedEpoch, FULL_SHARED_ID, FULL_SHARED_CONTRACT } from './private-shared-workload.mjs'
+import { privateObservation } from './private-observation.mjs'
 import { captureExpectedState } from './expected-source.mjs'
 import { inputContentDigest, resolveInputCompanion } from './input-load.mjs'
 
@@ -129,7 +130,7 @@ if (mode !== 'solo' && !localWorkload) {
   writeFileSync(resolve(output, 'input-companion.json'), bytes)
   mkdirSync(resolve(output, 'input-bodies'))
 }
-const helperFiles = ['frontend/tests/acceptance/private-shared-workload.mjs', ...(fullSharedSave ? ['frontend/tests/acceptance/private-shared-fixture.mjs', 'scripts/acceptance/job_lifecycle_observer.py'] : []), 'frontend/tests/acceptance/private-shared-epoch.mjs', 'frontend/tests/acceptance/expected-source.mjs', 'scripts/acceptance/materialize_source.py', 'frontend/tests/acceptance/navigation.mjs', 'frontend/tests/acceptance/contracts.mjs', 'frontend/tests/acceptance/input-load.mjs', 'frontend/tests/acceptance/input-editors.mjs', 'scripts/acceptance/check_result.py', 'scripts/acceptance/input_companion.py', 'scripts/acceptance/assertions.py', 'scripts/acceptance/compare.py', 'scripts/acceptance/workbook.py']
+const helperFiles = ['frontend/tests/acceptance/private-shared-workload.mjs', ...(fullSharedSave ? ['frontend/tests/acceptance/private-shared-fixture.mjs', 'frontend/tests/acceptance/private-observation.mjs', 'scripts/acceptance/job_lifecycle_observer.py'] : []), 'frontend/tests/acceptance/private-shared-epoch.mjs', 'frontend/tests/acceptance/expected-source.mjs', 'scripts/acceptance/materialize_source.py', 'frontend/tests/acceptance/navigation.mjs', 'frontend/tests/acceptance/contracts.mjs', 'frontend/tests/acceptance/input-load.mjs', 'frontend/tests/acceptance/input-editors.mjs', 'scripts/acceptance/check_result.py', 'scripts/acceptance/input_companion.py', 'scripts/acceptance/assertions.py', 'scripts/acceptance/compare.py', 'scripts/acceptance/workbook.py']
 const requiredEnvironment = ['image_digest', 'source_commit', 'migration_versions', 'python', 'native_libraries', 'server_hardware', 'client_hardware', 'cgroup_cpu_max', 'cgroup_memory_max', 'solver_threads', 'worker_count', 'oracle_pool_maximum', 'oracle_pool_observed_usage', 'network_proxy_path', 'peak_cpu_memory']
 const missingEnvironment = requiredEnvironment.filter(key => config.environment?.[key] === null || config.environment?.[key] === undefined || config.environment[key] === '')
 const evidence = { schema_version: localWorkload ? 4 : inputCompanion ? 3 : 2, kind: localEditingProbe ? 'public browser private-draft correctness probe; no timed acceptance' : editingProbe ? 'public browser input-editing correctness probe; no timed acceptance' : config.target.kind === 'adapter' ? 'external browser with explicit test adapters' : 'external browser to operator-attested disposable PLAN_TEST',
@@ -183,7 +184,13 @@ async function holdSaveAdmission(entry) {
   try { await expect.poll(() => inFlightSaves, { timeout: 30000 }).toBe(0) } catch (error) { saveAdmissionHeld = false; throw error }
   return () => { saveAdmissionHeld = false; entry.save_admission_resumed_ms = performance.now() }
 }
-async function json(page, path, data) {
+async function json(page, path, data, observation, phase) {
+  if (observation) {
+    const metadata = { method: data === undefined ? 'GET' : 'POST', path: path.split('?')[0] }
+    const response = await observation.step(phase + '_headers', () => data === undefined ? page.request.get(api(path), { headers }) : page.request.post(api(path), { headers, data }), metadata)
+    observation.sync(phase + '_status', () => assert.ok(response.ok(), `Public ${path.split('?')[0]} returned HTTP ${response.status()}.`), metadata)
+    return observation.step(phase + '_body_json', () => response.json(), metadata)
+  }
   const response = data === undefined ? await page.request.get(api(path), { headers }) : await page.request.post(api(path), { headers, data })
   assert.ok(response.ok(), `Public ${path.split('?')[0]} returned HTTP ${response.status()}.`)
   return response.json()
@@ -453,7 +460,16 @@ function captureLocalBody(bytes) {
   writeFileSync(resolve(output, path), bytes)
   return { path, sha256: digest }
 }
-async function privateSource() {
+async function privateSource(observation, phase) {
+  if (observation) {
+    const metadata = { method: 'GET', path: '/jobs/source' }
+    const response = await observation.step(phase + '_headers', () => pages[0].request.get(api('/jobs/source'), { headers }), metadata)
+    observation.sync(phase + '_status', () => assert.equal(response.status(), 200, 'Complete public computation source read failed.'), metadata)
+    const bytes = await observation.step(phase + '_body', () => response.body(), metadata)
+    const value = observation.sync(phase + '_parse', () => JSON.parse(bytes), metadata)
+    const artifact = observation.sync(phase + '_capture', () => captureLocalBody(bytes), metadata)
+    return { value, artifact }
+  }
   const response = await pages[0].request.get(api('/jobs/source'), { headers })
   assert.equal(response.status(), 200, 'Complete public computation source read failed.')
   const bytes = await response.body()
@@ -475,6 +491,10 @@ async function privateSharedSaveContract(before, job, observe) {
   const record = evidence.private_shared_save = { acknowledgment_status: null, epochs: { before: { revision: before.value.source_revision, source_artifact: before.artifact } }, clock: {}, events: [] }
   const edit = { editor: 0, segment_id: row.id, before_quantity: 100, changed_quantity: 99, status: 'fail', events: [], phase: 'primary_shared_edit', started_ms: performance.now() }
   evidence.editor_actions.push(edit)
+  const observation = fullSharedSave ? privateObservation(record) : null
+  const step = (phase, work) => observation ? observation.step(phase, work) : work()
+  const check = (phase, work) => observation ? observation.sync(phase, work) : work()
+  let primaryError, hasPrimaryError = false
   let forwarded = 0, restoreNeeded = false, primaryPlan
   const dropped = deferred()
   const interceptor = async route => {
@@ -489,24 +509,26 @@ async function privateSharedSaveContract(before, job, observe) {
   }
   const restore = async () => {
     if (!restoreNeeded) return
-    const resolved = await json(page, '/plans/verify', { operation_id: record.submitted.operation_id })
+    const resolved = await json(page, '/plans/verify', { operation_id: record.submitted.operation_id }, observation, 'cleanup_verify_S0')
     record.cleanup_original_resolution = resolved
-    assert.equal(resolved.status, 'COMMITTED'); assert.equal(resolved.revision, 2)
+    check('cleanup_verify_S0_assertions', () => { assert.equal(resolved.status, 'COMMITTED'); assert.equal(resolved.revision, 2) })
     const command = { base_revision: 2, input_version: 1, latest_adoption: 1, operation_id: randomUUID(), pending: false, operations: [{ kind: 'replace_plan', plan: source.plan }] }
     const operation = registerOperation(command, 'private_shared_save_explicit_restoration')
-    record.restoration = { submitted: command, result: await json(page, '/plans/save', command) }
+    record.restoration = { submitted: command, result: await json(page, '/plans/save', command, observation, 'cleanup_save_T0') }
     const result = record.restoration.result
-    assert.equal(result.status, 'COMMITTED'); assert.equal(result.revision, 3)
-    operation.resolution = await json(page, '/plans/verify', { operation_id: command.operation_id }); operation.status = operation.resolution.status
-    assert.equal(operation.status, 'COMMITTED'); assert.equal(operation.resolution.revision, 3)
-    const revision = await json(page, '/plans/revisions/3')
-    assertPlan(revision.snapshot.plan, source.plan); assert.deepEqual(canonical(revision.operations), canonical(command.operations))
-    const restored = await privateSource()
-    assert.deepEqual(restored.value, { ...before.value, source_revision: 3 })
-    assert.deepEqual(await json(page, '/plans/revisions/1'), record.original_revision, 'The original immutable revision changed.')
-    assert.deepEqual(await json(page, '/plans/adoptions/1'), record.original_adoption, 'The original adoption changed.')
-    record.epochs.restored = { revision: 3, source_artifact: restored.artifact, revision_artifact: captureLocalBody(Buffer.from(JSON.stringify(revision))) }
-    record.shared_history = await json(page, '/plans/history')
+    check('cleanup_save_T0_assertions', () => { assert.equal(result.status, 'COMMITTED'); assert.equal(result.revision, 3) })
+    operation.resolution = await json(page, '/plans/verify', { operation_id: command.operation_id }, observation, 'cleanup_verify_T0'); operation.status = operation.resolution.status
+    check('cleanup_verify_T0_assertions', () => { assert.equal(operation.status, 'COMMITTED'); assert.equal(operation.resolution.revision, 3) })
+    const revision = await json(page, '/plans/revisions/3', undefined, observation, 'cleanup_revision_R3')
+    check('cleanup_revision_R3_assertions', () => { assertPlan(revision.snapshot.plan, source.plan); assert.deepEqual(canonical(revision.operations), canonical(command.operations)) })
+    const restored = await privateSource(observation, 'cleanup_source_R3')
+    check('cleanup_source_R3_assertions', () => assert.deepEqual(restored.value, { ...before.value, source_revision: 3 }))
+    const originalRevision = await json(page, '/plans/revisions/1', undefined, observation, 'cleanup_revision_R1')
+    check('cleanup_revision_R1_assertions', () => assert.deepEqual(originalRevision, record.original_revision, 'The original immutable revision changed.'))
+    const originalAdoption = await json(page, '/plans/adoptions/1', undefined, observation, 'cleanup_adoption_A1')
+    check('cleanup_adoption_A1_assertions', () => assert.deepEqual(originalAdoption, record.original_adoption, 'The original adoption changed.'))
+    record.epochs.restored = { revision: 3, source_artifact: restored.artifact, revision_artifact: check('cleanup_revision_R3_capture', () => captureLocalBody(Buffer.from(JSON.stringify(revision)))) }
+    record.shared_history = await json(page, '/plans/history', undefined, observation, 'cleanup_history')
     restoreNeeded = false
   }
   try {
@@ -543,38 +565,54 @@ async function privateSharedSaveContract(before, job, observe) {
     record.readonly_unknown_observed = true
     const verification = responseFor(page, response => response.url() === api('/plans/verify') && response.request().method() === 'POST')
     await page.getByRole('button', { name: '核实前次操作', exact: true }).click()
-    const response = await verification, bytes = await response.body()
-    record.verification_command = response.request().postDataJSON(); record.resolution = JSON.parse(bytes)
-    record.verification_artifact = captureLocalBody(bytes)
-    assert.deepEqual(record.verification_command, { operation_id: record.submitted.operation_id })
-    assert.equal(record.resolution.status, 'COMMITTED'); assert.equal(record.resolution.revision, 2)
+    const response = await step('verify_S0_headers', () => verification), bytes = await step('verify_S0_body', () => response.body())
+    record.verification_command = response.request().postDataJSON(); record.resolution = check('verify_S0_parse', () => JSON.parse(bytes))
+    record.verification_artifact = check('verify_S0_capture', () => captureLocalBody(bytes))
+    check('verify_S0_assertions', () => {
+      assert.deepEqual(record.verification_command, { operation_id: record.submitted.operation_id })
+      assert.equal(record.resolution.status, 'COMMITTED'); assert.equal(record.resolution.revision, 2)
+    })
     operation.resolution = record.resolution; operation.status = 'COMMITTED'; operation.revision = 2
-    await expect(page.getByText('已核实前次操作成功，共享修订 2', { exact: true })).toBeVisible()
-    await idle(page); await expect(queue(page)).toHaveCount(0)
-    await expect(page.getByRole('button', { name: '核实前次操作', exact: true })).toHaveCount(0)
-    const saved = await privateSource(), revision = await json(page, '/plans/revisions/2')
-    assert.deepEqual(saved.value, { ...before.value, source_revision: 2, snapshot: { ...before.value.snapshot, plan: primaryPlan } })
-    assertPlan(revision.snapshot.plan, primaryPlan); assert.deepEqual(canonical(revision.operations), canonical(record.submitted.operations))
-    record.epochs.saved = { revision: 2, source_artifact: saved.artifact, revision_artifact: captureLocalBody(Buffer.from(JSON.stringify(revision))) }
+    await step('verified_message_dom', () => expect(page.getByText('已核实前次操作成功，共享修订 2', { exact: true })).toBeVisible())
+    await step('verified_idle_dom', () => idle(page)); await step('verified_empty_queue_dom', () => expect(queue(page)).toHaveCount(0))
+    await step('verification_button_absent_dom', () => expect(page.getByRole('button', { name: '核实前次操作', exact: true })).toHaveCount(0))
+    const saved = await privateSource(observation, 'saved_source'), revision = await json(page, '/plans/revisions/2', undefined, observation, 'saved_revision_R2')
+    check('saved_source_assertions', () => {
+      assert.deepEqual(saved.value, { ...before.value, source_revision: 2, snapshot: { ...before.value.snapshot, plan: primaryPlan } })
+      assertPlan(revision.snapshot.plan, primaryPlan); assert.deepEqual(canonical(revision.operations), canonical(record.submitted.operations))
+    })
+    record.epochs.saved = { revision: 2, source_artifact: saved.artifact, revision_artifact: check('saved_revision_capture', () => captureLocalBody(Buffer.from(JSON.stringify(revision)))) }
     // The saved page displays the persisted plan; a real empty-queue preview
     // supplies its complete visible output without introducing a business write.
     const emptyPreview = responseFor(page, response => response.url() === api('/plans/preview') && response.request().method() === 'POST')
-    await page.getByRole('button', { name: '预览本机修改', exact: true }).click()
-    const displayed = await emptyPreview, displayBytes = await displayed.body(), result = JSON.parse(displayBytes)
-    assert.equal(displayed.status(), 200); assert.deepEqual(displayed.request().postDataJSON().operations, [])
-    assertPlan(result.plan, primaryPlan); assertPrivateEpochResult(result, displayed.request().postDataJSON(), null)
+    await step('saved_preview_click_dom', () => page.getByRole('button', { name: '预览本机修改', exact: true }).click())
+    const displayed = await step('saved_preview_headers', () => emptyPreview), displayBytes = await step('saved_preview_body', () => displayed.body()), result = check('saved_preview_parse', () => JSON.parse(displayBytes))
+    check('saved_preview_assertions', () => {
+      assert.equal(displayed.status(), 200); assert.deepEqual(displayed.request().postDataJSON().operations, [])
+      assertPlan(result.plan, primaryPlan); assertPrivateEpochResult(result, displayed.request().postDataJSON(), null)
+    })
     if (fullSharedSave) record.display_command = displayed.request().postDataJSON()
-    await idle(page); await assertDaily(page, row, 99); await assertOutput(page, result.evaluation); await rendered(page, clock)
-    record.display_artifact = captureLocalBody(displayBytes)
+    await step('saved_preview_idle_dom', () => idle(page)); await step('saved_daily_dom', () => assertDaily(page, row, 99)); await step('saved_output_dom', () => assertOutput(page, result.evaluation)); await step('saved_two_frames_dom', () => rendered(page, clock))
+    record.display_artifact = check('saved_display_capture', () => captureLocalBody(displayBytes))
     record.clock.rendered_epoch_ms = clock.browser_after_result_frames_epoch_ms; record.clock.seconds = clock.browser_after_result_frames_seconds
-    record.running_after_confirmed_paint = await observe(); assert.equal(record.running_after_confirmed_paint.body.state, 'running')
-    for (const key of ['job_id','generation','source_revision','input_version','latest_adoption','started_at']) assert.deepEqual(record.running_after_confirmed_paint.body[key], record.running_before_save.body[key])
-    assert.ok(record.running_before_save.epoch_ms <= record.clock.origin_epoch_ms && record.running_after_confirmed_paint.epoch_ms >= record.clock.rendered_epoch_ms)
+    record.running_after_confirmed_paint = await step('running_after_confirmed_paint', () => observe()); check('running_after_confirmed_paint_assertions', () => assert.equal(record.running_after_confirmed_paint.body.state, 'running'))
+    check('running_after_confirmed_paint_identity', () => {
+      for (const key of ['job_id','generation','source_revision','input_version','latest_adoption','started_at']) assert.deepEqual(record.running_after_confirmed_paint.body[key], record.running_before_save.body[key])
+      assert.ok(record.running_before_save.epoch_ms <= record.clock.origin_epoch_ms && record.running_after_confirmed_paint.epoch_ms >= record.clock.rendered_epoch_ms)
+    })
     record.forwarded_original_save_count = forwarded
     record.status = 'pass'
+  } catch (error) {
+    if (observation) { primaryError = error; hasPrimaryError = true; observation.primary(error) }
+    throw error
   } finally {
-    await page.unroute(api('/plans/save'), interceptor)
-    await restore(); edit.finished_ms = performance.now(); persist()
+    try {
+      await step('cleanup_unroute', () => page.unroute(api('/plans/save'), interceptor))
+      await restore(); edit.finished_ms = performance.now(); persist()
+    } catch (error) {
+      if (observation) { observation.cleanup(error); if (hasPrimaryError) throw primaryError }
+      throw error
+    }
   }
   await expect.poll(() => new Set(evidence.editor_actions.filter(row => row.editor > 0 && row.status === 'pass' && row.undo_parent_revision === 3).map(row => row.editor)).size, { timeout: 30000 }).toBe(4)
   await shared(page)
