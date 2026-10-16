@@ -16,7 +16,7 @@ const deferred = () => { let resolve; const promise = new Promise(done => { reso
 const twoFrames = page => page.evaluate(() => new Promise(done => requestAnimationFrame(() => requestAnimationFrame(() => done(performance.timeOrigin + performance.now())))))
 const body = async response => { const bytes = await response.body(); return { bytes, value: JSON.parse(bytes) } }
 
-export async function importBrowserContract({ pages, fixtures, output, origin, python, repo, report, uploadObservations }) {
+export async function importBrowserContract({ pages, fixtures, output, origin, python, repo, report, uploadObservations, onReady=()=>{} }) {
   const prefix = origin+'/planning/api', headers = { Origin: origin, 'X-Auto-Plan-Request': '1' }
   const manifest = JSON.parse(readFileSync(resolve(fixtures, 'manifest.json'))), scenario = manifest.scenarios[0]
   const journal = (phase, value={}) => appendFileSync(resolve(output,'events.ndjson'),JSON.stringify({phase,epoch_ms:epoch(),...value})+'\n')
@@ -124,6 +124,11 @@ export async function importBrowserContract({ pages, fixtures, output, origin, p
     await Promise.all([ready.promise, evaluationReady.promise])
     if (failure) throw failure
     assert.equal(committed.size, 4)
+    const completedEvaluation=evaluations.find(entry=>entry.status===200&&entry.response_artifact&&entry.validated_epoch_ms)
+    const readiness={commits:[1,2,3,4].map(editor=>{const entry=history.find(row=>row.editor===editor);assert.equal(entry.response_status,200);return {editor,input_version:entry.after.input_version,artifact:entry.response_artifact}}),
+      evaluation:{status:completedEvaluation.status,artifact:completedEvaluation.response_artifact}}
+    report.functional_readiness={...readiness,epoch_ms:epoch()}
+    onReady(readiness)
     // Primary deliberately retains its honestly reviewed I1. Editors continue.
     report.clock = {}
     for (let number=1; number<=4; number++) {
