@@ -11,6 +11,7 @@ import { performance } from 'node:perf_hooks'
 import { prepareWeekNavigation, navigateWeek, prepareDayNavigation, navigateDay, assertSelected, unselectSegment } from './navigation.mjs'
 import { canonical, assertPlan, assertState, manualRows, scopeFor, assertManualRequest, assertManualPlan, assertManualEvaluation, failEntry, terminal } from './contracts.mjs'
 import { inputEditorLoop } from './input-editors.mjs'
+import { captureExpectedState } from './expected-source.mjs'
 import { inputContentDigest, resolveInputCompanion } from './input-load.mjs'
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../../..')
@@ -124,7 +125,7 @@ if (mode !== 'solo' && !localWorkload) {
   writeFileSync(resolve(output, 'input-companion.json'), bytes)
   mkdirSync(resolve(output, 'input-bodies'))
 }
-const helperFiles = ['frontend/tests/acceptance/navigation.mjs', 'frontend/tests/acceptance/contracts.mjs', 'frontend/tests/acceptance/input-load.mjs', 'frontend/tests/acceptance/input-editors.mjs', 'scripts/acceptance/check_result.py', 'scripts/acceptance/input_companion.py', 'scripts/acceptance/assertions.py', 'scripts/acceptance/compare.py', 'scripts/acceptance/workbook.py']
+const helperFiles = ['frontend/tests/acceptance/expected-source.mjs', 'scripts/acceptance/materialize_source.py', 'frontend/tests/acceptance/navigation.mjs', 'frontend/tests/acceptance/contracts.mjs', 'frontend/tests/acceptance/input-load.mjs', 'frontend/tests/acceptance/input-editors.mjs', 'scripts/acceptance/check_result.py', 'scripts/acceptance/input_companion.py', 'scripts/acceptance/assertions.py', 'scripts/acceptance/compare.py', 'scripts/acceptance/workbook.py']
 const requiredEnvironment = ['image_digest', 'source_commit', 'migration_versions', 'python', 'native_libraries', 'server_hardware', 'client_hardware', 'cgroup_cpu_max', 'cgroup_memory_max', 'solver_threads', 'worker_count', 'oracle_pool_maximum', 'oracle_pool_observed_usage', 'network_proxy_path', 'peak_cpu_memory']
 const missingEnvironment = requiredEnvironment.filter(key => config.environment?.[key] === null || config.environment?.[key] === undefined || config.environment[key] === '')
 const evidence = { schema_version: localWorkload ? 4 : inputCompanion ? 3 : 2, kind: localEditingProbe ? 'public browser private-draft correctness probe; no timed acceptance' : editingProbe ? 'public browser input-editing correctness probe; no timed acceptance' : config.target.kind === 'adapter' ? 'external browser with explicit test adapters' : 'external browser to operator-attested disposable PLAN_TEST',
@@ -159,7 +160,7 @@ assert.ok(accounts.every(row => typeof row?.username === 'string' && row.usernam
 assert.equal(new Set(accounts.map(row => row.username.trim().toUpperCase())).size, count, 'Editor identities must be distinct.')
 const headers = { Origin: config.origin, 'X-Auto-Plan-Request': '1', 'Cache-Control': 'no-cache' }, api = path => config.origin + config.base_path + '/api' + path
 let browser, stopped = false, blocked = null, initialState, primaryPlans = [], loadPromises = [], saveAdmissionHeld = false, inFlightSaves = 0
-let inputEditors
+let inputEditors, sourceReadSequence = 0
 const pages = [], createdJobs = new Map()
 const importCaptureSessions = new WeakMap()
 function responseFor(page, predicate, options) { const pending = page.waitForResponse(predicate, options); pending.catch(() => {}); return pending }
@@ -188,8 +189,12 @@ async function readState(page, browserRead = false) {
   const head = await get('/plans/current')
   const inputs = await get('/inputs?version=' + head.input_version)
   const adopted = head.latest_adoption ? await get('/plans/adoptions/' + head.latest_adoption) : null
-  return { head, snapshot: { time: head.time, inputs, plan: head.plan, execution: head.context.execution, locks: head.context.locks, reset: head.context.reset, preferences: head.context.preferences,
+  const rawState = { head, adopted, snapshot: { time: head.time, inputs, plan: head.plan, execution: head.context.execution, locks: head.context.locks, reset: head.context.reset, preferences: head.context.preferences,
     baseline: adopted ? { version: head.latest_adoption, plan: adopted.snapshot.plan, coverage: adopted.coverage } : null } }
+  const captures = evidence.source_captures ??= []
+  const captured = await captureExpectedState(rawState, { root, output, stem: 'source-read-' + sourceReadSequence++, python: config.python })
+  captures.push(captured.capture)
+  return captured.state
 }
 function allowedPlans() { return [initialState.snapshot.plan, ...primaryPlans] }
 function assertAllowed(state, plans = allowedPlans()) { assertState(state, initialState, plans, { inputCompanion }) }
