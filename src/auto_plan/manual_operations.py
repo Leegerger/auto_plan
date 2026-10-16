@@ -97,9 +97,9 @@ def _bounded_certificate(plan,context,scope):
         outside_later=any(r.line_code==line and r.date>scope.end_date and r.quantity for r in original.segments) or any(s.line_code==line and any(a.date>scope.end_date for a in s.allocations) for s in original.switches)
         if outside_later and not _outgoing_compatible(original,index,line,scope.end_date,outgoing,old_outgoing):
             raise ValueError(f'{scope.end_date} {line} 调整会改变范围外 Recipe 衔接，请扩大范围后重新预览')
-        if scope.model_codes:
-            fixed_inside=[r for r in original.segments if r.line_code==line and scope.start_date<=r.date<=scope.end_date]
-            certificate=_preserve_fixed_models(certificate,fixed_inside,index,scope,line)
+        fixed_inside=[r for r in original.segments if r.line_code==line and scope.start_date<=r.date<=scope.end_date]
+        prior_switches=[s for s in original.switches if s.line_code==line and all(scope.start_date<=a.date<=scope.end_date for a in s.allocations)]
+        certificate=_preserve_fixed_models(certificate,fixed_inside,index,scope,line,requested=inside,prior_switches=prior_switches)
         # Unchanged days without switch work keep their original exact witness.
         # A wide authorization range does not itself authorize needless writes.
         preserved_days=set()
@@ -152,9 +152,30 @@ def _local_certificate(output,original,context,index,scope,line,incoming,inside)
     return certificate
 
 
-def _preserve_fixed_models(certificate,inside,index,scope,line,fixed_ids=None):
-    fixed={r.id:r for r in inside if r.id in fixed_ids} if fixed_ids is not None else {r.id:r for r in inside if r.model_code not in scope.model_codes}
-    if not fixed: return certificate
+def _matching_switches(certificate,requested,prior_switches):
+    def identity(switch,rows):
+        first=min((a.date,a.order) for a in switch.allocations)
+        last=max((a.date,a.order) for a in switch.allocations)
+        ordered=sorted((r for r in rows if r.line_code==switch.line_code),key=lambda r:(r.date,r.order))
+        before=[r.id for r in ordered if (r.date,r.order)<first]
+        after=[r.id for r in ordered if (r.date,r.order)>last]
+        return (switch.line_code,switch.from_recipe,switch.to_recipe,
+                tuple((a.date,a.hours,a.idle_hours) for a in switch.allocations),
+                before[-1] if before else None,after[0] if after else None)
+    old,new=defaultdict(list),defaultdict(list)
+    for switch in prior_switches: old[identity(switch,requested)].append(switch)
+    for switch in certificate.switches: new[identity(switch,certificate.segments)].append(switch)
+    occupied={r.id for r in certificate.segments}|{s.id for s in certificate.switches}
+    return {values[0].id:old[key][0] for key,values in new.items()
+            if len(values)==1 and len(old[key])==1 and
+            (old[key][0].id==values[0].id or old[key][0].id not in occupied)}
+
+
+def _preserve_fixed_models(certificate,inside,index,scope,line,fixed_ids=None,requested=None,prior_switches=()):
+    fixed={r.id:r for r in inside if r.id in fixed_ids} if fixed_ids is not None else {r.id:r for r in inside if scope.model_codes and r.model_code not in scope.model_codes}
+    requested=inside if requested is None else requested
+    desired={r.id:r.order for r in requested}
+    matched=_matching_switches(certificate,requested,prior_switches)
     rows={r.id:r for r in certificate.segments}
     # Preserve the integer event positions of all excluded models. Inserted
     # production and switch events can use only the remaining positions.
@@ -164,15 +185,26 @@ def _preserve_fixed_models(certificate,inside,index,scope,line,fixed_ids=None):
         for ordinal,allocation in enumerate(switch.allocations): events[allocation.date].append((allocation.order,'switch',switch.id,ordinal))
     switch_orders={}
     for day,daily in events.items():
+        daily=sorted(daily)
+        latest=None; upper={}
+        for n in range(len(daily)-1,-1,-1):
+            _,kind,identity,_=daily[n]
+            if kind=='segment' and identity in fixed: latest=fixed[identity].order
+            elif latest is not None: latest-=1
+            upper[n]=latest
         following=0
-        for _,kind,identity,ordinal in sorted(daily):
-            position=fixed[identity].order if kind=='segment' and identity in fixed else following
-            if position<following:
+        for n,(_,kind,identity,ordinal) in enumerate(daily):
+            preferred=desired.get(identity,following) if kind=='segment' else matched[identity].allocations[ordinal].order if identity in matched else following
+            position=fixed[identity].order if kind=='segment' and identity in fixed else max(following,preferred)
+            if upper[n] is not None and position>upper[n] and identity not in fixed: position=following
+            if position<following or upper[n] is not None and position>upper[n]:
                 raise ValueError(f'{day} {line} 插入切机或生产需要改动范围外顺序，请扩大机种范围')
             following=position+1
             if kind=='segment': rows[identity]=rows[identity].model_copy(update={'order':position})
             else: switch_orders[(identity,ordinal)]=position
-    switches=[s.model_copy(update={'allocations':[a.model_copy(update={'order':switch_orders[(s.id,n)]}) for n,a in enumerate(s.allocations)]}) for s in certificate.switches]
+    switches=[s.model_copy(update={'id':matched[s.id].id if s.id in matched else s.id,
+        'allocations':[a.model_copy(update={'order':switch_orders[(s.id,n)]}) for n,a in enumerate(s.allocations)]}) for s in certificate.switches]
+    if not fixed: return certificate.model_copy(update={'segments':list(rows.values()),'switches':switches})
     groups=defaultdict(list)
     for row in rows.values(): groups[(row.date,index.models[row.model_code].recipe_code)].append(row)
     by_day=defaultdict(list)
