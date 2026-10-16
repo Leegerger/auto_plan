@@ -39,7 +39,7 @@ class BrowserPlanStore(MemoryPlanStore):
                 self._read_inputs.value = None
 
 
-def application(fixtures, scenario_id, port):
+def application(fixtures, scenario_id, port, *, input_transitions=None):
     from auto_plan.app import create_app
     from auto_plan.input_models import InputSnapshot
     from auto_plan.plan_models import Plan, EvaluationSnapshot
@@ -79,10 +79,14 @@ def application(fixtures, scenario_id, port):
     clock = lambda: datetime.fromisoformat(source['time']['as_of'])
     jobs = MemoryJobStore(plans, access)
     controller = JobController(jobs, workers=1, clock=clock)
-    return create_app(Settings(public_origin=f'https://localhost:{port}', base_path='/planning', frontend_dist=ROOT / 'frontend/dist'),
+    app = create_app(Settings(public_origin=f'https://localhost:{port}', base_path='/planning', frontend_dist=ROOT / 'frontend/dist'),
         store=access, input_store=inputs, plan_store=plans, demand_store=MemoryDemandStore(plans) if empty else None,
         authenticator=CompanyAuthentication(), clock=clock,
         job_store=jobs, job_controller=controller)
+    if input_transitions is not None:
+        from scripts.acceptance.input_transition_observer import InputTransitionObserver
+        return InputTransitionObserver(app, input_transitions, base_path='/planning')
+    return app
 
 
 if __name__ == '__main__':
@@ -92,11 +96,12 @@ if __name__ == '__main__':
     parser.add_argument('--scenario', required=True)
     parser.add_argument('--port', type=int, default=8776)
     parser.add_argument('--upload-observations', type=Path, help='TEST-ONLY passive received upload evidence; disabled by default.')
+    parser.add_argument('--input-transitions', type=Path, help='TEST-ONLY passive input transition trace; disabled by default.')
     args = parser.parse_args()
     with tempfile.TemporaryDirectory(prefix='auto-plan-acceptance-adapter-') as directory:
         cert, key = Path(directory) / 'cert.pem', Path(directory) / 'key.pem'
         subprocess.run(['openssl', 'req', '-x509', '-newkey', 'rsa:2048', '-nodes', '-keyout', str(key), '-out', str(cert), '-days', '1', '-subj', '/CN=localhost'], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        app = application(args.fixtures, args.scenario, args.port)
+        app = application(args.fixtures, args.scenario, args.port, input_transitions=args.input_transitions)
         if args.upload_observations is not None:
             from scripts.acceptance.upload_observer import UploadReceiveObserver
             app = UploadReceiveObserver(app, args.upload_observations)
