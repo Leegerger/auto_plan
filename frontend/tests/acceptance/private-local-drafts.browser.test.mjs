@@ -16,7 +16,8 @@ import { assertPlan, canonical } from './contracts.mjs'
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../../..')
 const sha = value => createHash('sha256').update(value).digest('hex')
 const enabled = process.env.AUTO_PLAN_PRIVATE_DRAFT_EDITORS_BROWSER === '1'
-const primaryJobProbe = process.env.AUTO_PLAN_PRIVATE_DRAFT_PRIMARY_JOB_PROBE === '1'
+const sharedSaveProbe = process.env.AUTO_PLAN_PRIVATE_DRAFT_SHARED_SAVE_PROBE === '1'
+const primaryJobProbe = sharedSaveProbe || process.env.AUTO_PLAN_PRIVATE_DRAFT_PRIMARY_JOB_PROBE === '1'
 
 function fixture(directory) {
   const frozen = resolve(root, 'docs/acceptance/frozen')
@@ -56,7 +57,7 @@ function fixture(directory) {
     writeFileSync(resolve(directory, name + '.json.gz'), gzipSync(bytes))
     return { path: name + '.json.gz', sha256: sha(bytes) }
   }
-  const scenario = { id: primaryJobProbe ? 'private-draft-primary-source-adapter-v1' : 'private-draft-source-adapter-v1', kind: 'browser_private_draft_contract',
+  const scenario = { id: sharedSaveProbe ? 'private-draft-shared-save-source-adapter-v1' : primaryJobProbe ? 'private-draft-primary-source-adapter-v1' : 'private-draft-source-adapter-v1', kind: 'browser_private_draft_contract',
     source: asset('source', source), reference: asset('reference', source),
     action: asset('action', { request: { mode: 'all_replan', scope: {
       start_date: '2026-10-12', end_date: '2027-01-24', line_codes: lines, model_codes: models },
@@ -72,20 +73,38 @@ function fixture(directory) {
     reference_confirmation: { status: 'not_run', reason: 'Correctness fixture, no quality or timing acceptance.' } }
   const parentBytes = Buffer.from(JSON.stringify(parent))
   writeFileSync(resolve(directory, 'predecessor-manifest.json'), parentBytes)
-  const successor = { ...structuredClone(scenario), id: primaryJobProbe ? 'private-draft-primary-job-adapter-v1' : 'private-draft-editors-adapter-v2-shared-M00',
+  const successor = { ...structuredClone(scenario), id: sharedSaveProbe ? 'private-draft-shared-save-adapter-v1' : primaryJobProbe ? 'private-draft-primary-job-adapter-v1' : 'private-draft-editors-adapter-v2-shared-M00',
     predecessor: { scenario: scenario.id, manifest: { path: 'predecessor-manifest.json', sha256: sha(parentBytes) } } }
   const declaration = { schema_version: 1, kind: 'private_local_drafts_v1', scenario: successor.id,
     source_manifest_sha256: sha(parentBytes), source_fixture_sha256: scenario.source.sha256,
     reference_sha256: scenario.reference.sha256, action_sha256: scenario.action.sha256,
-    targets: models.map((_, editor) => ({ editor, segment_id: 'S-2027-01-24-M00',
+    targets: models.map((_, editor) => ({ editor, segment_id: sharedSaveProbe && editor > 0 ? 'S-2027-01-24-M02' : 'S-2027-01-24-M00',
       operation: { kind: 'change_quantity', quantity: 99 },
       expected: { quantity: 99, hours_lower_exclusive: '49/50', hours_upper_inclusive: '24',
         totals: { expected: 52499, on_time: 52499, late: 0, gap: 1, pending: 0, unallocated: 0, outside_window: 0 },
-        changed_week: { model_code: 'M00', week: '2027-01-18', demand: 700, on_time: 699, gap: 1 } },
-      restoration: 'undo_complete_action_to_origin' })) }
+        changed_week: { model_code: sharedSaveProbe && editor > 0 ? 'M02' : 'M00', week: '2027-01-18', demand: 700, on_time: 699, gap: 1 } },
+      restoration: sharedSaveProbe && editor === 0 ? 'ordinary_uuid_full_original_plan' : 'undo_complete_action_to_origin' })) }
+  if (sharedSaveProbe) declaration.shared_save = { kind: 'actual_commit_reply_loss_original_uuid', primary_model: 'M00', background_model: 'M02', revisions: [1,2,3], input_version: 1, latest_adoption: 1, shared_commits: 2, source_total: 52500, saved_total: 52499, background_saved_total: 52498, restore: 'separate_ordinary_uuid_full_original_plan', clock: 'first_native_save_click_through_verified_complete_result_two_frames' }
+  let workloadPath = 'editing-workload.json'
+  if (sharedSaveProbe) {
+    // Preserve the actually observed v1 declaration, including its inconsistent
+    // primary undo label, as an immutable predecessor rather than relabel it.
+    const observedV1 = structuredClone(declaration)
+    for (const target of observedV1.targets) target.restoration = 'undo_complete_action_to_origin'
+    const observedBytes = Buffer.from(JSON.stringify(observedV1))
+    writeFileSync(resolve(directory, 'editing-workload.json'), observedBytes)
+    const observedScenario = { ...structuredClone(successor), editing_workload: { path: 'editing-workload.json', encoding: 'json', sha256: sha(observedBytes) } }
+    const observedManifest = Buffer.from(JSON.stringify({ ...parent, scenarios: [observedScenario] }))
+    writeFileSync(resolve(directory, 'predecessor-v1-manifest.json'), observedManifest)
+    successor.id = 'private-draft-shared-save-adapter-v2'
+    successor.predecessor = { scenario: observedScenario.id, manifest: { path: 'predecessor-v1-manifest.json', sha256: sha(observedManifest) } }
+    declaration.scenario = successor.id; declaration.source_manifest_sha256 = sha(observedManifest)
+    for (const target of declaration.targets) target.restoration = target.editor === 0 ? 'ordinary_uuid_full_original_plan' : 'undo_complete_action_to_actual_shared_epoch'
+    workloadPath = 'editing-workload-v2.json'
+  }
   const bytes = Buffer.from(JSON.stringify(declaration))
-  writeFileSync(resolve(directory, 'editing-workload.json'), bytes)
-  successor.editing_workload = { path: 'editing-workload.json', encoding: 'json', sha256: sha(bytes) }
+  writeFileSync(resolve(directory, workloadPath), bytes)
+  successor.editing_workload = { path: workloadPath, encoding: 'json', sha256: sha(bytes) }
   writeFileSync(resolve(directory, 'manifest.json'), JSON.stringify({ ...parent, scenarios: [successor] }))
   return { scenario: successor, declaration, source }
 }
@@ -122,7 +141,7 @@ test(primaryJobProbe ? 'the primary genuinely edits during its accepted running 
       target: { kind: 'adapter', disposable: true, production: false }, scenario: scenario.id,
       bindings: { source_revision: 1, input_version: 1, latest_adoption: 1 }, python,
       allow_test_certificate: true, environment: {}, primary_segment: declaration.targets[0].segment_id,
-      editing_workload: { path: resolve(fixtures, 'editing-workload.json'), sha256: scenario.editing_workload.sha256 } }
+      editing_workload: { path: resolve(fixtures, scenario.editing_workload.path), sha256: scenario.editing_workload.sha256 } }
     const configPath = resolve(output, 'config.json'); writeFileSync(configPath, JSON.stringify(config))
     const env = { ...Object.fromEntries(Object.entries(process.env).filter(([key]) => !key.startsWith('AUTO_PLAN_'))), PYTHONPATH: 'src:.' }
     const serverLog = openSync(resolve(output, 'server.log'), 'w')
@@ -137,7 +156,7 @@ test(primaryJobProbe ? 'the primary genuinely edits during its accepted running 
       const runnerLog = openSync(resolve(output, 'runner.log'), 'w')
       const child = spawn(process.execPath, [resolve(root, 'frontend/tests/acceptance/run.mjs'), '--config', configPath,
         '--output', resolve(output, 'run'), '--mode', 'five_automated_editors_one_computation',
-        '--local-editing-contract-probe', 'true', ...(primaryJobProbe ? ['--private-primary-job-probe', 'true'] : [])], { cwd: root, detached: true, stdio: ['pipe', runnerLog, runnerLog], env })
+        '--local-editing-contract-probe', 'true', ...(primaryJobProbe ? ['--private-primary-job-probe', 'true'] : []), ...(sharedSaveProbe ? ['--private-shared-save-probe', 'true'] : [])], { cwd: root, detached: true, stdio: ['pipe', runnerLog, runnerLog], env })
       writeFileSync(resolve(output, 'owned-processes.json'), JSON.stringify({ controller_pid: process.pid,
         server_pid: server.pid, server_pgid: server.pid, runner_pid: child.pid, runner_pgid: child.pid }))
       child.stdin.end(JSON.stringify({ accounts: Array.from({ length: 5 }, (_, index) => ({ username: 'ACCEPTANCE' + index, password: 'company-secret' })) }))
@@ -158,6 +177,71 @@ test(primaryJobProbe ? 'the primary genuinely edits during its accepted running 
           const bytes = readFileSync(resolve(output, 'run', artifact.path))
           assert.equal(sha(bytes), artifact.sha256, 'Captured public response bytes differ.')
           return JSON.parse(bytes)
+        }
+        if (sharedSaveProbe && report.private_shared_save) {
+          const save = report.private_shared_save, job = report.private_primary_job
+          assert.equal(save.status, 'pass'); assert.equal(save.acknowledgment_status, null)
+          assert.equal(save.readonly_unknown_observed, true)
+          assert.equal(save.resolution.status, 'COMMITTED'); assert.equal(save.resolution.revision, 2)
+          assert.deepEqual(save.verification_command, { operation_id: save.submitted.operation_id })
+          assert.equal(save.clock.origin_epoch_ms, save.clock.first_clicked_epoch_ms)
+          assert.ok(save.clock.rendered_epoch_ms > save.clock.origin_epoch_ms)
+          const before = captured(save.epochs.before.source_artifact), saved = captured(save.epochs.saved.source_artifact), restored = captured(save.epochs.restored.source_artifact)
+          assert.equal(before.source_revision, 1); assert.equal(saved.source_revision, 2); assert.equal(restored.source_revision, 3)
+          assertPlan(before.snapshot.plan, source.plan)
+          assert.deepEqual(restored, { ...before, source_revision: 3 })
+          const expectedSaved = structuredClone(source.plan), actualSaved = structuredClone(saved.snapshot.plan)
+          expectedSaved.segments.find(row => row.id === 'S-2027-01-24-M00').quantity = 99
+          const witness = plan => {
+            const row = plan.segments.find(row => row.id === 'S-2027-01-24-M00')
+            const [n,d] = canonical({ hours: row.hours }).hours.split('/').map(BigInt)
+            assert.ok(100n*n > 98n*d && n <= 24n*d); delete row.hours
+          }
+          witness(actualSaved); delete expectedSaved.segments.find(row => row.id === 'S-2027-01-24-M00').hours
+          assertPlan(actualSaved, expectedSaved)
+          assert.deepEqual(saved, { ...before, source_revision: 2, snapshot: { ...before.snapshot, plan: saved.snapshot.plan } })
+          assertPlan(captured(save.epochs.saved.revision_artifact).snapshot.plan, saved.snapshot.plan)
+          assertPlan(captured(save.epochs.restored.revision_artifact).snapshot.plan, source.plan)
+          assert.deepEqual(captured(save.epochs.saved.revision_artifact).operations, save.submitted.operations)
+          assert.equal(save.restoration.result.revision, 3)
+          assert.notEqual(save.restoration.submitted.operation_id, save.submitted.operation_id)
+          assert.equal(report.operations.length, 2)
+          assert.ok(report.operations.every(row => row.status === 'COMMITTED'))
+          assert.equal(report.local_editing_contract.shared_source_restored, true)
+          const epoch = revision => { assert.ok([1,2,3].includes(revision)); return revision === 2 ? saved.snapshot.plan : source.plan }
+          for (let editor = 1; editor < 5; editor++) {
+            const cycles = report.editor_actions.filter(row => row.editor === editor)
+            assert.ok(cycles.length >= 2 && cycles.every(row => row.status === 'pass'))
+            for (const cycle of cycles) {
+              assert.equal(cycle.segment_id, 'S-2027-01-24-M02')
+              const changed = captured(cycle.changed_response_artifact), undo = captured(cycle.undo.response_artifact)
+              const expected = structuredClone(epoch(changed.parent_revision)), actual = structuredClone(changed.plan)
+              expected.segments.find(row => row.id === cycle.segment_id).quantity = 99
+              delete expected.segments.find(row => row.id === cycle.segment_id).hours
+              const selected = actual.segments.find(row => row.id === cycle.segment_id)
+              const [n,d] = canonical({ hours: selected.hours }).hours.split('/').map(BigInt)
+              assert.ok(100n*n > 98n*d && n <= 24n*d); delete selected.hours
+              assertPlan(actual, expected); assertPlan(undo.plan, epoch(undo.parent_revision))
+              assert.deepEqual(changed.snapshot, { ...before.snapshot, plan: changed.plan })
+              assert.deepEqual(undo.snapshot, { ...before.snapshot, plan: undo.plan })
+              assert.equal(cycle.undo.queue_empty, true)
+            }
+            assert.ok(cycles.some(row => row.undo_parent_revision === 3))
+            const events = cycles.flatMap(row => row.events)
+            assert.ok(Math.min(...events.filter(row => row.phase === 'native_quantity_submit').map(row => row.epoch_ms)) <= save.clock.origin_epoch_ms)
+            assert.ok(Math.max(...events.filter(row => row.phase === 'complete_undo').map(row => row.epoch_ms)) >= save.clock.rendered_epoch_ms)
+          }
+          for (const observed of [save.running_before_save, save.running_after_confirmed_paint]) {
+            assert.equal(observed.body.state, 'running'); assert.equal(observed.body.job_id, job.accepted.job_id)
+          }
+          assert.equal(save.running_before_save.body.generation, save.running_after_confirmed_paint.body.generation)
+          assert.ok(save.running_before_save.epoch_ms <= save.clock.origin_epoch_ms && save.running_after_confirmed_paint.epoch_ms >= save.clock.rendered_epoch_ms)
+          const frozen = captured(job.source_artifact), view = captured(job.candidate_artifact)
+          assert.deepEqual(frozen, before); assert.deepEqual(view.candidate.snapshot, before.snapshot)
+          assert.equal(view.job_id, job.accepted.job_id); assert.equal(view.candidate.source_revision, 1)
+          assert.deepEqual(view.candidate.objective, Array(33).fill('0')); assert.deepEqual(job.objective, Array(33).fill('0'))
+          assert.ok(['completed','stopped'].includes(job.cleanup.state))
+          return
         }
         for (const target of declaration.targets) {
           const cycle = report.editor_actions.find(row => row.editor === target.editor && row.status === 'pass')
@@ -251,6 +335,15 @@ test(primaryJobProbe ? 'the primary genuinely edits during its accepted running 
           assert.equal(candidate.evaluation.weekly_results.length, 75)
           assert.ok(candidate.evaluation.weekly_results.every(row => row.demand === 700 && row.on_time === 700 && row.gap === 0 && row.pending === 0 && row.late === 0))
           assert.ok(['completed', 'stopped'].includes(job.cleanup.state))
+        }
+        if (sharedSaveProbe) {
+          const save = report.private_shared_save
+          assert.ok(save?.submitted?.operation_id, 'The requested real shared save never submitted an original operation UUID: ' + output)
+          assert.equal(save.acknowledgment_status, null, 'The original lost reply must remain unknown.')
+          assert.equal(save.resolution?.status, 'COMMITTED')
+          assert.equal(save.verification_command.operation_id, save.submitted.operation_id)
+          assert.equal(save.epochs?.saved?.revision, 2)
+          assert.equal(save.epochs?.restored?.revision, 3)
         }
       } finally { await stop(child, finished, () => exited) }
     } finally { await stop(server, serverFinished, () => serverExited) }
