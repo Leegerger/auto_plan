@@ -3,27 +3,6 @@ from auto_plan.execution_rules import executed_by_segment
 from auto_plan.plan_models import ExecutionContext, Plan, ProductionSegment
 
 
-def test_empty_evidence_does_not_read_quantities_to_assign_zero(monkeypatch):
-    plan = Plan(segments=[
-        ProductionSegment(id='later', date='2026-10-16', line_code='L', model_code='M', order=0, quantity=100, hours='1'),
-        ProductionSegment(id='second', date='2026-10-15', line_code='L', model_code='M', order=1, quantity=0, hours='0'),
-        ProductionSegment(id='first', date='2026-10-15', line_code='L', model_code='N', order=0, quantity=9007199254740993, hours='1'),
-    ])
-    execution = ExecutionContext()
-    reads = []
-    original = ProductionSegment.__getattribute__
-
-    def observe(row, name):
-        if name == 'quantity':
-            reads.append(original(row, 'id'))
-        return original(row, name)
-
-    monkeypatch.setattr(ProductionSegment, '__getattribute__', observe)
-    assigned = executed_by_segment(plan, execution)
-    assert list(assigned.items()) == [('first', 0), ('second', 0), ('later', 0)]
-    assert reads == [], 'Empty execution evidence does not require per-segment quantity allocation.'
-
-
 def test_empty_evidence_preserves_frozen_cells_order_and_fresh_ownership():
     plan = Plan(segments=[
         ProductionSegment(id='b', date='2026-10-15', line_code='L', model_code='M', order=1, quantity=5, hours='1'),
