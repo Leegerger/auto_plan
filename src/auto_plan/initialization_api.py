@@ -1,21 +1,37 @@
 from uuid import UUID
+from dataclasses import dataclass
+from datetime import datetime
 from fastapi import APIRouter, Depends, Request
 from .app import require_editor, require_viewer
 from .shared_plan_api import service, invoke
 from .initialization import InitialImport, prepare_initial
 from .inputs import InputConflict
 from .plans import PlanProblem
-from .input_models import InputRow
+from .input_models import InputRow, InputSnapshot
 router=APIRouter()
 
 
-def prepare(request,payload,actor):
-    plans=service(request)
-    def read(unit):
-        head={'revision':unit.revision,'latest_adoption':unit.adoption}
-        try: return prepare_initial(unit.inputs,head,payload,request.app.state.clock())
+@dataclass(frozen=True)
+class _InitialSource:
+    """Request-owned values, with no unit/cursor retained after capture."""
+    inputs: InputSnapshot
+    revision: int
+    adoption: int
+    as_of: datetime
+
+    def prepare(self,payload):
+        head={'revision':self.revision,'latest_adoption':self.adoption}
+        try: return prepare_initial(self.inputs,head,payload,self.as_of)
         except InputConflict: raise PlanProblem(409,'输入资料已变化，请重新预览首次接入') from None
-    return plans.store.read(actor,read)
+
+
+def _initial_source(request,unit):
+    return _InitialSource(unit.inputs,unit.revision,unit.adoption,request.app.state.clock())
+
+
+def prepare(request,payload,actor,source=None):
+    if source is not None: return source.prepare(payload)
+    return service(request).store.read(actor,lambda unit:_initial_source(request,unit).prepare(payload))
 
 
 @router.post('/initialization/preview')
@@ -99,12 +115,12 @@ def initial_template(principal=Depends(require_viewer)):
     return Response(template_bytes(),media_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',headers={'Content-Disposition':'attachment; filename="auto-plan-initialization.xlsx"'})
 
 
-def adapted_initial(request,payload,errors,actor):
+def adapted_initial(request,payload,errors,actor,source=None):
     from pydantic import ValidationError
     try: typed=InitialImport.model_validate(payload)
     except ValidationError:
         return {'valid':False,'errors':errors+[{'sheet':'workbook','row':1,'field':'file','reason':'工作簿资料格式无效'}],'payload':payload}
-    result=prepare(request,typed,actor)
+    result=prepare(request,typed,actor,source)
     result['errors']=errors+result['errors'];result['valid']=result['valid'] and not result['errors']
     result['payload']=payload
     return result
@@ -126,8 +142,11 @@ async def initial_excel(request:Request,base_revision:int,input_version:int,late
     from starlette.concurrency import run_in_threadpool
     content=await upload_bytes(request)
     def action():
+        # The authorized store read pins R/A/V atomically and closes before
+        # workbook decoding. Later writers cannot change this owned preview.
+        source=service(request).store.read(principal.user_id,lambda unit:_initial_source(request,unit))
         payload,errors=excel_bundle(content,{'base_revision':base_revision,'input_version':input_version,'latest_adoption':latest_adoption})
-        result=adapted_initial(request,payload,errors,principal.user_id)
+        result=adapted_initial(request,payload,errors,principal.user_id,source)
         # Validate original Excel types before normalizing the echoed payload.
         # Prepared plan/evaluation values are already in JSON mode.
         result['payload']=jsonable_encoder(result['payload'])
