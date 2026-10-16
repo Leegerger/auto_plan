@@ -8,6 +8,7 @@ import { createHash } from 'node:crypto'
 import { gunzipSync } from 'node:zlib'
 import { spawnSync } from 'node:child_process'
 import { inputEditorLoop } from './input-editors.mjs'
+import { journalInputAttempt } from './input-trace-collector.mjs'
 import { INPUT_CONTENT_DIGEST_ALGORITHM, inputContentDigest } from './input-load.mjs'
 
 const sha = bytes => createHash('sha256').update(bytes).digest('hex')
@@ -96,7 +97,7 @@ export async function importBrowserContract({ pages, fixtures, output, origin, p
   const editorLoops = declaration.targets.map(target => inputEditorLoop({ page: pages[target.editor], editor: target.editor,
     declaration: helperDeclaration, initialInputs: declaration.live_inputs, origin, basePath: '/planning', stopped: () => stop, inputTrace,
     captureBody: capture, firstPreview: async () => {}, firstCommit: async () => {},
-    onAttempt: entry => { (report.editor_attempts ??= []).push(entry);journal('input_attempt',{editor:entry.editor,phase:entry.phase,status:entry.status,response_status:entry.response_status,request_artifact:entry.request_artifact,response_artifact:entry.response_artifact}) },
+    onAttempt: entry => { (report.editor_attempts ??= []).push(entry);journalInputAttempt(entry,journal,{trace:Boolean(inputTrace)}) },
     onCommit: entry => {
       history.push(entry);committed.add(entry.editor);journal('input_commit',{editor:entry.editor,input_version:entry.after.input_version,request_artifact:entry.request_artifact,response_artifact:entry.response_artifact})
       if(entry.response_status!==200 || !entry.response_artifact){failure??=new Error('Input acknowledgment requires a separately qualified reconciliation contract.');stop=true;ready.resolve()}
