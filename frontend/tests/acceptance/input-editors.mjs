@@ -4,6 +4,7 @@ import { expect } from '@playwright/test'
 import { performance } from 'node:perf_hooks'
 import { setTimeout as delay } from 'node:timers/promises'
 import { inputContentDigest, resolveInputCompanion } from './input-load.mjs'
+import { consumeInputResponse } from './input-trace-collector.mjs'
 
 const pendingResponse = (page, predicate) => {
   const pending = page.waitForResponse(predicate, { timeout: 180000 })
@@ -12,7 +13,7 @@ const pendingResponse = (page, predicate) => {
 }
 
 export async function inputEditorLoop({ page, editor, declaration, initialInputs, origin, basePath,
-  stopped, captureBody, firstPreview, firstCommit, onAttempt, onCommit }) {
+  stopped, captureBody, firstPreview, firstCommit, onAttempt, onCommit, inputTrace }) {
   const target = declaration.targets.find(row => row.editor === editor)
   assert.ok(target, 'The browser editor has no declared name assignment.')
   const url = path => origin + basePath + '/api' + path
@@ -55,10 +56,13 @@ export async function inputEditorLoop({ page, editor, declaration, initialInputs
         if (request.failure()) requestFailed(request)
       })
       const received = await Promise.race([responsePending, failure])
-      const bytes = await received.body()
-      entry.response_status = received.status()
-      entry.response_artifact = captureBody(bytes)
-      entry.response = JSON.parse(bytes)
+      if (inputTrace) await consumeInputResponse(received, entry, captureBody, inputTrace)
+      else {
+        const bytes = await received.body()
+        entry.response_status = received.status()
+        entry.response_artifact = captureBody(bytes)
+        entry.response = JSON.parse(bytes)
+      }
       entry.response_finished_ms = performance.now()
       entry.request_timing = request.timing()
       return entry

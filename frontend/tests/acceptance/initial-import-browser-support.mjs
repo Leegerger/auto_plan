@@ -16,7 +16,7 @@ const deferred = () => { let resolve; const promise = new Promise(done => { reso
 const twoFrames = page => page.evaluate(() => new Promise(done => requestAnimationFrame(() => requestAnimationFrame(() => done(performance.timeOrigin + performance.now())))))
 const body = async response => { const bytes = await response.body(); return { bytes, value: JSON.parse(bytes) } }
 
-export async function importBrowserContract({ pages, fixtures, output, origin, python, repo, report, uploadObservations, onReady=()=>{} }) {
+export async function importBrowserContract({ pages, fixtures, output, origin, python, repo, report, uploadObservations, inputTrace, onReady=()=>{} }) {
   const prefix = origin+'/planning/api', headers = { Origin: origin, 'X-Auto-Plan-Request': '1' }
   const manifest = JSON.parse(readFileSync(resolve(fixtures, 'manifest.json'))), scenario = manifest.scenarios[0]
   const journal = (phase, value={}) => appendFileSync(resolve(output,'events.ndjson'),JSON.stringify({phase,epoch_ms:epoch(),...value})+'\n')
@@ -94,7 +94,7 @@ export async function importBrowserContract({ pages, fixtures, output, origin, p
     listeners.push(()=>{page.off('request',requested);page.off('response',received);page.off('requestfailed',failed)})
   }
   const editorLoops = declaration.targets.map(target => inputEditorLoop({ page: pages[target.editor], editor: target.editor,
-    declaration: helperDeclaration, initialInputs: declaration.live_inputs, origin, basePath: '/planning', stopped: () => stop,
+    declaration: helperDeclaration, initialInputs: declaration.live_inputs, origin, basePath: '/planning', stopped: () => stop, inputTrace,
     captureBody: capture, firstPreview: async () => {}, firstCommit: async () => {},
     onAttempt: entry => { (report.editor_attempts ??= []).push(entry);journal('input_attempt',{editor:entry.editor,phase:entry.phase,status:entry.status,response_status:entry.response_status,request_artifact:entry.request_artifact,response_artifact:entry.response_artifact}) },
     onCommit: entry => {
