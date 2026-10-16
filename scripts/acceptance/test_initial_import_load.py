@@ -177,6 +177,25 @@ def test_rehashed_full_evaluation_cannot_drop_a_nonobjective_ledger(public_impor
         assert_initial_import_load(directory,scenario['id'],proof)
 
 
+@pytest.mark.parametrize('case', ['executable_integer','omitted_empty_confirmation_usage'])
+def test_rehashed_raw_response_must_equal_independent_complete_json(public_import,case):
+    from scripts.acceptance.initial_import_load import assert_initial_import_load
+    directory,scenario,_,_,original=public_import
+    proof=deepcopy(original)
+    entry=proof['evaluations'][0]
+    if case=='executable_integer':
+        assert entry['response']['executable'] is True
+        entry['response']['executable']=1
+    else:
+        assert entry['response']['confirmation_usage']==[]
+        del entry['response']['confirmation_usage']
+    raw=json.dumps(entry['response']).encode(); digest=hashlib.sha256(raw).hexdigest()
+    path='bodies/'+digest+'.json'; (directory/path).write_bytes(raw)
+    entry['response_artifact']={'path':path,'sha256':digest}
+    with pytest.raises(AssertionError):
+        assert_initial_import_load(directory,scenario['id'],proof)
+
+
 @pytest.mark.parametrize('case', ['wrong_pin', 'missing_version', 'changed_quantity', 'mutated_workbook', 'demand_history', 'incomplete_evaluation', 'context_lock'])
 def test_untrusted_import_proof_cannot_substitute_business_or_attribution(public_import, case):
     from scripts.acceptance.initial_import_load import assert_initial_import_load

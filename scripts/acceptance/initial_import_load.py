@@ -157,4 +157,5 @@ def assert_initial_import_load(fixtures, scenario_id, proof):
         assert_reference(response, scenario)
         assert len(response['weekly_results']) == len(source['inputs']['business']['demands'])
         assert response == independent, 'Complete full-snapshot evaluation ledgers differ from independent rules.'
+        assert json.dumps(evaluation['response'],sort_keys=True) == json.dumps(independent,sort_keys=True), 'Raw complete evaluation fields or scalar types differ from independent rules.'
     return {'accepted_input_version': accepted, 'final_input_version': last, 'evaluation_count': len(proof['evaluations']), 'acceptance': 'not_run'}
