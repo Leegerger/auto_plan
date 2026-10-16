@@ -12,6 +12,7 @@ import { prepareWeekNavigation, navigateWeek, prepareDayNavigation, navigateDay,
 import { canonical, assertPlan, assertState, manualRows, scopeFor, assertManualRequest, assertManualPlan, assertManualEvaluation, failEntry, terminal } from './contracts.mjs'
 import { inputEditorLoop } from './input-editors.mjs'
 import { assertSmallPrivateEpochResult } from './private-shared-epoch.mjs'
+import { assertSharedEpoch, FULL_SHARED_ID, FULL_SHARED_CONTRACT } from './private-shared-workload.mjs'
 import { captureExpectedState } from './expected-source.mjs'
 import { inputContentDigest, resolveInputCompanion } from './input-load.mjs'
 
@@ -44,6 +45,7 @@ const editingProbe = flags['editing-contract-probe'] === 'true'
 const localEditingProbe = flags['local-editing-contract-probe'] === 'true'
 const privatePrimaryProbe = flags['private-primary-job-probe'] === 'true'
 const privateSharedSaveProbe = flags['private-shared-save-probe'] === 'true'
+const fullSharedSave = privateSharedSaveProbe && config.scenario === FULL_SHARED_ID
 const privateEpochs = new Map()
 const primaryPinProbe = flags['primary-pin-probe'] === 'true'
 const primaryJobProbe = flags['primary-job-pin-probe'] === 'true'
@@ -80,7 +82,8 @@ if (config.editing_workload) {
   assert.equal(localWorkload.schema_version, 1); assert.equal(localWorkload.kind, 'private_local_drafts_v1')
   assert.equal(localWorkload.scenario, scenario.id)
   assert.equal(Boolean(localWorkload.shared_save), privateSharedSaveProbe, 'The declared shared-save workflow needs its explicit correctness route.')
-  if (privateSharedSaveProbe) assert.deepEqual(localWorkload.shared_save, {
+  if (fullSharedSave) assert.deepEqual(localWorkload.shared_save, FULL_SHARED_CONTRACT, 'Full shared epochs differ.')
+  else if (privateSharedSaveProbe) assert.deepEqual(localWorkload.shared_save, {
     kind: 'actual_commit_reply_loss_original_uuid', primary_model: 'M00', background_model: 'M02', revisions: [1,2,3],
     input_version: 1, latest_adoption: 1, shared_commits: 2, source_total: 52500, saved_total: 52499, background_saved_total: 52498,
     restore: 'separate_ordinary_uuid_full_original_plan', clock: 'first_native_save_click_through_verified_complete_result_two_frames'
@@ -126,7 +129,7 @@ if (mode !== 'solo' && !localWorkload) {
   writeFileSync(resolve(output, 'input-companion.json'), bytes)
   mkdirSync(resolve(output, 'input-bodies'))
 }
-const helperFiles = ['frontend/tests/acceptance/private-shared-epoch.mjs', 'frontend/tests/acceptance/expected-source.mjs', 'scripts/acceptance/materialize_source.py', 'frontend/tests/acceptance/navigation.mjs', 'frontend/tests/acceptance/contracts.mjs', 'frontend/tests/acceptance/input-load.mjs', 'frontend/tests/acceptance/input-editors.mjs', 'scripts/acceptance/check_result.py', 'scripts/acceptance/input_companion.py', 'scripts/acceptance/assertions.py', 'scripts/acceptance/compare.py', 'scripts/acceptance/workbook.py']
+const helperFiles = ['frontend/tests/acceptance/private-shared-workload.mjs', ...(fullSharedSave ? ['frontend/tests/acceptance/private-shared-fixture.mjs', 'scripts/acceptance/job_lifecycle_observer.py'] : []), 'frontend/tests/acceptance/private-shared-epoch.mjs', 'frontend/tests/acceptance/expected-source.mjs', 'scripts/acceptance/materialize_source.py', 'frontend/tests/acceptance/navigation.mjs', 'frontend/tests/acceptance/contracts.mjs', 'frontend/tests/acceptance/input-load.mjs', 'frontend/tests/acceptance/input-editors.mjs', 'scripts/acceptance/check_result.py', 'scripts/acceptance/input_companion.py', 'scripts/acceptance/assertions.py', 'scripts/acceptance/compare.py', 'scripts/acceptance/workbook.py']
 const requiredEnvironment = ['image_digest', 'source_commit', 'migration_versions', 'python', 'native_libraries', 'server_hardware', 'client_hardware', 'cgroup_cpu_max', 'cgroup_memory_max', 'solver_threads', 'worker_count', 'oracle_pool_maximum', 'oracle_pool_observed_usage', 'network_proxy_path', 'peak_cpu_memory']
 const missingEnvironment = requiredEnvironment.filter(key => config.environment?.[key] === null || config.environment?.[key] === undefined || config.environment[key] === '')
 const evidence = { schema_version: localWorkload ? 4 : inputCompanion ? 3 : 2, kind: localEditingProbe ? 'public browser private-draft correctness probe; no timed acceptance' : editingProbe ? 'public browser input-editing correctness probe; no timed acceptance' : config.target.kind === 'adapter' ? 'external browser with explicit test adapters' : 'external browser to operator-attested disposable PLAN_TEST',
@@ -461,7 +464,8 @@ function privateEpochPlan(revision) {
   assert.ok(privateEpochs.has(revision), 'A private preview pinned an undeclared shared epoch.')
   return privateEpochs.get(revision)
 }
-function assertPrivateEpochResult(result) {
+function assertPrivateEpochResult(result, command, target) {
+  if (fullSharedSave) return assertSharedEpoch(result, { snapshot: initialState.snapshot, context: initialState.head.context, epochs: privateEpochs, command, target })
   return assertSmallPrivateEpochResult(result, initialState, source)
 }
 
@@ -516,9 +520,10 @@ async function privateSharedSaveContract(before, job, observe) {
     const wanted = structuredClone(source.plan), actual = structuredClone(prepared.result.plan)
     wanted.segments.find(item => item.id === row.id).quantity = 99
     const chosen = actual.segments.find(item => item.id === row.id), [n,d] = canonical({ hours: chosen.hours }).hours.split('/').map(BigInt)
-    assert.ok(100n*n > 98n*d && n <= 24n*d)
+    assert.ok(100n*n > 98n*d && n <= (fullSharedSave ? 18n : 24n)*d)
     delete wanted.segments.find(item => item.id === row.id).hours; delete actual.segments.find(item => item.id === row.id).hours
-    assertPlan(actual, wanted); assertPrivateEpochResult(prepared.result)
+    assertPlan(actual, wanted); assertPrivateEpochResult(prepared.result, prepared.command, target)
+    if (fullSharedSave) { record.prepared_command = prepared.command; record.original_context = initialState.head.context }
     primaryPlan = prepared.result.plan; primaryPlans.push(primaryPlan)
     privateEpochs.set(2, primaryPlan); privateEpochs.set(3, source.plan)
     record.prepared_preview_artifact = edit.changed_response_artifact
@@ -557,7 +562,8 @@ async function privateSharedSaveContract(before, job, observe) {
     await page.getByRole('button', { name: '预览本机修改', exact: true }).click()
     const displayed = await emptyPreview, displayBytes = await displayed.body(), result = JSON.parse(displayBytes)
     assert.equal(displayed.status(), 200); assert.deepEqual(displayed.request().postDataJSON().operations, [])
-    assertPlan(result.plan, primaryPlan); assertPrivateEpochResult(result)
+    assertPlan(result.plan, primaryPlan); assertPrivateEpochResult(result, displayed.request().postDataJSON(), null)
+    if (fullSharedSave) record.display_command = displayed.request().postDataJSON()
     await idle(page); await assertDaily(page, row, 99); await assertOutput(page, result.evaluation); await rendered(page, clock)
     record.display_artifact = captureLocalBody(displayBytes)
     record.clock.rendered_epoch_ms = clock.browser_after_result_frames_epoch_ms; record.clock.seconds = clock.browser_after_result_frames_seconds
@@ -596,8 +602,9 @@ async function privateEditCycle(target) {
       delete actualRow.hours
       assertManualRequest(preview.command, [row], 'change_quantity', target.operation.quantity)
       assertPlan(actual, expected, 'Private preview changed another complete plan field.')
-      if (privateSharedSaveProbe) assertPrivateEpochResult(preview.result, expected, target)
+      if (privateSharedSaveProbe) assertPrivateEpochResult(preview.result, preview.command, target)
       else assert.deepEqual(Object.fromEntries(Object.keys(target.expected.totals).map(key => [key, preview.result.evaluation.output_totals[key]])), target.expected.totals, 'Independent private preview totals differ.')
+      if (fullSharedSave) entry.changed_command = preview.command
       assert.equal(preview.result.evaluation.output_totals.computation_complete, true)
       assert.ok(preview.result.evaluation.capacity_valid && preview.result.evaluation.computation_complete && preview.result.evaluation.executable, 'Private preview is incomplete or invalid.')
       const weeks = preview.result.evaluation.weekly_results
@@ -620,9 +627,9 @@ async function privateEditCycle(target) {
       await idle(page); await expect(queue(page)).toHaveCount(0); await settle(page)
       assertPlan(undone.plan, privateEpochPlan(undone.parent_revision), 'Private undo did not restore its actual complete shared epoch.')
       entry.undo_parent_revision = undone.parent_revision
-      if (privateSharedSaveProbe) assertPrivateEpochResult(undone, privateEpochPlan(undone.parent_revision))
+      if (privateSharedSaveProbe) assertPrivateEpochResult(undone, response.request().postDataJSON(), null)
       await assertDaily(page, row, row.quantity); await assertOutput(page, undone.evaluation)
-      entry.undo = { ...await resetQueue(page, 0), origin_restored: true, response_artifact: captureLocalBody(bytes) }
+      entry.undo = { ...await resetQueue(page, 0), origin_restored: true, response_artifact: captureLocalBody(bytes), ...(fullSharedSave ? { command: response.request().postDataJSON() } : {}) }
       entry.events.push({ phase: 'complete_undo', epoch_ms: await settle(page) })
       entry.status = 'pass'
     } catch (error) {
@@ -642,6 +649,13 @@ async function privatePrimaryJobContract(before) {
     } catch (error) { editorFailure ??= error; first.reject(error); stopEditing = true }
   })
   const observe = async () => {
+    if (fullSharedSave) {
+      const nonce=randomUUID(), request_started_epoch_ms=await page.evaluate(() => performance.timeOrigin + performance.now())
+      const response=await page.request.get(api('/jobs/' + record.accepted.job_id),{headers:{...headers,'X-Auto-Plan-Test-Job-Observation':nonce}})
+      assert.equal(response.status(),200)
+      const body=await response.json()
+      return {body,nonce,request_started_epoch_ms,epoch_ms:await page.evaluate(() => performance.timeOrigin + performance.now())}
+    }
     const body = await json(page, '/jobs/' + record.accepted.job_id)
     return { body, epoch_ms: await page.evaluate(() => performance.timeOrigin + performance.now()) }
   }
