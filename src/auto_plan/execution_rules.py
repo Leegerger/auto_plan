@@ -21,6 +21,8 @@ def freeze_associations(plan,execution):
 
 
 def executed_by_segment(plan,execution):
+    if not execution.facts and not execution.associations:
+        return {r.id:0 for r in sorted(plan.segments,key=lambda r:(r.date,r.line_code,r.order,r.id))}
     facts={(r.date,r.line_code,r.model_code):r.quantity for r in execution.facts}
     rows={r.id:r for r in plan.segments}
     explicit={r.segment_id:r.quantity for r in execution.associations}
