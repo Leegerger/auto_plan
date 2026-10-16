@@ -102,10 +102,31 @@ def assert_initial_import_load(fixtures, scenario_id, proof):
         expected_input['input_version'] = version
         assert transition['response_status'] == 200, 'Unacknowledged input commit needs its own qualified reconciliation proof.'
         assert transition['response'] == versions[str(version)]['body'] == expected_input, 'Attributed immutable input transition differs.'
+    from datetime import timedelta
+    from auto_plan.plan_models import Plan, EvaluationSnapshot, EvaluationTime
+    from auto_plan.plans import PlanningContext
+    from auto_plan.production_time import week_label
+    from auto_plan.rules import evaluate
+    empty_plan = Plan().model_dump(mode='json')
+    empty_context = PlanningContext().model_dump(mode='json')
+    time = EvaluationTime.model_validate(source['time'])
+    weeks = [{'number':week+1,'label':week_label(time.window_start+timedelta(days=week*7)),
+        'start_date':(time.window_start+timedelta(days=week*7)).isoformat(),
+        'dates':[(time.window_start+timedelta(days=week*7+day)).isoformat() for day in range(7)]}
+        for week in range(15)]
     for state in (before, after):
         assert state['head']['revision'] == state['head']['latest_adoption'] == 0, 'Import load initialized a Plan or adoption.'
         version = state['head']['input_version']
-        assert state['snapshot']['inputs'] == versions[str(version)]['body'], 'Observed head and immutable inputs differ.'
+        assert all(type(state['head'][key]) is int for key in ('revision','latest_adoption','input_version'))
+        inputs = versions[str(version)]['body']
+        assert state['snapshot'] == {'inputs':inputs,'plan':empty_plan,'context':empty_context}, 'Live source is not a never-initialized empty Plan/context.'
+        expected_head = {'revision':0,'latest_adoption':0,'input_version':version,'pending':False,'kind':'empty',
+            'unallocated':[],'operation_issues':[],'lineage':{},'coverage':[],'plan':empty_plan,'context':empty_context,
+            'execution_segments':[],'execution_surplus':[],'reset_preview':None,
+            'reset_participants':{'current':{'source_adoption':0,'model_codes':sorted(row['code'] for row in inputs['masters']['models'] if row['active'])},'correction':None},
+            'time':time.model_dump(mode='json'),'hour_display':{'segments':{},'switches':{}},'weeks':weeks,
+            'evaluation':evaluate(EvaluationSnapshot(time=time,inputs=inputs,plan=empty_plan)).model_dump(mode='json')}
+        assert json.dumps(state['head'],sort_keys=True) == json.dumps(expected_head,sort_keys=True), 'Live head differs from the complete frozen empty source.'
         assert state['demand_files'] == {'input_version': version, 'enablement_date': None, 'files': []}, 'Import load changed demand history.'
     assert {key: value for key, value in before['snapshot'].items() if key != 'inputs'} == {key: value for key, value in after['snapshot'].items() if key != 'inputs'}, 'Import load changed Plan/context contents.'
     assert {key: value for key, value in before['head'].items() if key != 'input_version'} == {key: value for key, value in after['head'].items() if key != 'input_version'}, 'Import load changed shared state outside input versions.'
@@ -118,7 +139,6 @@ def assert_initial_import_load(fixtures, scenario_id, proof):
     _assert_workbook_contents(prepared, expected, source, scenario, {'revision': 0, 'input_version': accepted, 'latest_adoption': 0})
     from datetime import datetime
     from zoneinfo import ZoneInfo
-    from auto_plan.plans import PlanningContext
     context = PlanningContext(execution=source['execution'], locks=source.get('locks', []), reset=expected['reset'],
         coverage=expected['coverage'], preferences=source.get('preferences', {}), lineage={
             'enablement_date': datetime.fromisoformat(source['time']['as_of']).astimezone(ZoneInfo('Asia/Shanghai')).date().isoformat(),
@@ -128,6 +148,7 @@ def assert_initial_import_load(fixtures, scenario_id, proof):
     assert prepared['context'] == context, 'Prepared complete context differs from frozen import expectations.'
     assert proof['evaluations'], 'No complete full-snapshot computation was observed.'
     from auto_plan.plan_models import EvaluationResult
+    independent = evaluate(EvaluationSnapshot.model_validate(source)).model_dump(mode='json')
     for evaluation in proof['evaluations']:
         _captured(fixtures, evaluation['request_artifact'], evaluation['payload'])
         _captured(fixtures, evaluation['response_artifact'], evaluation['response'])
@@ -135,4 +156,5 @@ def assert_initial_import_load(fixtures, scenario_id, proof):
         response = EvaluationResult.model_validate(evaluation['response']).model_dump(mode='json')
         assert_reference(response, scenario)
         assert len(response['weekly_results']) == len(source['inputs']['business']['demands'])
+        assert response == independent, 'Complete full-snapshot evaluation ledgers differ from independent rules.'
     return {'accepted_input_version': accepted, 'final_input_version': last, 'evaluation_count': len(proof['evaluations']), 'acceptance': 'not_run'}

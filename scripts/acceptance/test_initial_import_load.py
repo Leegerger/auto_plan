@@ -142,6 +142,41 @@ def test_accepted_public_body_hash_cannot_be_replaced(public_import):
         assert_initial_import_load(directory, scenario['id'], proof)
 
 
+@pytest.mark.parametrize('case', ['locks','reset','execution','coverage','preferences','lineage',
+    'segments','switches','initial_states','ordinary_idle','current_day_witnesses','kind','pending'])
+def test_symmetric_live_state_corruption_cannot_masquerade_as_never_initialized(public_import, case):
+    from scripts.acceptance.initial_import_load import assert_initial_import_load
+    directory, scenario, source, expected, original = public_import
+    proof = deepcopy(original)
+    for state in (proof['before'], proof['after']):
+        if case in ('kind','pending'):
+            state['head'][case] = 'save' if case=='kind' else True
+        elif case in ('segments','switches','initial_states','ordinary_idle','current_day_witnesses'):
+            value = deepcopy(source['plan'].get(case, [])) or [{'unexpected': 'positive live Plan state'}]
+            for target in (state['head']['plan'], state['snapshot']['plan']): target[case] = value
+        else:
+            value = {'locks':[{'date':'2027-01-24','line_code':'L00','model_code':'M00','quantity':100}],
+                'reset':expected['reset'],'execution':source['execution'],'coverage':expected['coverage'],
+                'preferences':{'near_weeks':6},'lineage':{'unexpected':'prior history'}}[case]
+            for target in (state['head']['context'],state['snapshot']['context']): target[case] = deepcopy(value)
+    with pytest.raises(AssertionError):
+        assert_initial_import_load(directory,scenario['id'],proof)
+
+
+def test_rehashed_full_evaluation_cannot_drop_a_nonobjective_ledger(public_import):
+    from scripts.acceptance.initial_import_load import assert_initial_import_load
+    directory,scenario,_,_,original=public_import
+    proof=deepcopy(original)
+    entry=proof['evaluations'][0]
+    assert entry['response']['output_sources']
+    entry['response']['output_sources']=[]
+    raw=json.dumps(entry['response']).encode(); digest=hashlib.sha256(raw).hexdigest()
+    path='bodies/'+digest+'.json'; (directory/path).write_bytes(raw)
+    entry['response_artifact']={'path':path,'sha256':digest}
+    with pytest.raises(AssertionError):
+        assert_initial_import_load(directory,scenario['id'],proof)
+
+
 @pytest.mark.parametrize('case', ['wrong_pin', 'missing_version', 'changed_quantity', 'mutated_workbook', 'demand_history', 'incomplete_evaluation', 'context_lock'])
 def test_untrusted_import_proof_cannot_substitute_business_or_attribution(public_import, case):
     from scripts.acceptance.initial_import_load import assert_initial_import_load
