@@ -326,7 +326,8 @@ class PlanService:
         except ValueError as error: raise PlanProblem(422,str(error)) from None
         if snapshot.execution!=unit.context.execution:
             original_result.context_updates.setdefault('execution',snapshot.execution)
-        effects=set(map(tuple,effect_keys(base_plan,proposed,snapshot)))
+        plan_effects=frozenset(map(tuple,effect_keys(base_plan,proposed,snapshot)))
+        effects=set(plan_effects)
         effects|=context_effect_keys(unit.context,original_result.context_updates,snapshot)
         effects|=result_effect_keys(base,{'unallocated':original_result.unallocated,'operation_issues':original_result.issues},snapshot)
         changed=unit.effects_since(command.base_revision)
@@ -358,7 +359,15 @@ class PlanService:
         replayed.lineage=refresh_lineage(replayed.lineage,merged,merged_snapshot)
         if {'execution','reset'}&replayed.context_updates.keys():
             merged_context=merged_context.model_copy(update={'lineage':unit.context.lineage|replayed.lineage})
-        effects|=set(map(tuple,effect_keys(unit.plan,merged,merged_snapshot)))
+        # effect_keys reads only the two plans, inputs and window time. The
+        # pinned owned current plan and original replay have not been mutated;
+        # context/lineage effects, both conflict checks and protection stay fresh.
+        if (command.base_revision==unit.revision and base_plan is unit.plan and
+                merged is proposed and snapshot.inputs is merged_snapshot.inputs and
+                snapshot.time is merged_snapshot.time):
+            effects|=plan_effects
+        else:
+            effects|=set(map(tuple,effect_keys(unit.plan,merged,merged_snapshot)))
         effects|=result_effect_keys(current,{'unallocated':replayed.unallocated,'operation_issues':replayed.issues},merged_snapshot)
         if effects&changed:
             raise PlanProblem(409,'合并后的关联范围已变化',revision=unit.revision,conflicts=sorted(effects&changed))
