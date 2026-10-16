@@ -1,11 +1,11 @@
 from typing import Any
 from zoneinfo import ZoneInfo
 from fastapi import APIRouter, Depends, HTTPException, Request
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field, JsonValue
 from .app import require_editor, require_viewer
 from .access import StoreUnavailable
 from .inputs import InputConflict, InputErrors, apply_batch, preview, continue_months, selection_options, availability
-from .input_models import month_value, date_value
+from .input_models import InputSnapshot, month_value, date_value
 
 router = APIRouter()
 
@@ -25,8 +25,25 @@ class Batch(BaseModel):
     changes: dict[str, list[dict[str, Any]]]
 
 
+class InputPreviewError(BaseModel):
+    model_config = ConfigDict(extra='forbid', strict=True)
+    sheet: str
+    row: int
+    field: str
+    reason: str
+
+
+class InputPreview(BaseModel):
+    model_config = ConfigDict(extra='forbid', strict=True)
+    valid: bool
+    base_version: int
+    errors: list[InputPreviewError]
+    changes: dict[str, list[dict[str, JsonValue]]]
+    snapshot: InputSnapshot | None
+
+
 @router.get('/inputs')
-def read_inputs(request: Request, version: int | None = None, principal=Depends(require_viewer)):
+def read_inputs(request: Request, version: int | None = None, principal=Depends(require_viewer)) -> InputSnapshot:
     try:
         if version is None:
             now = request.app.state.clock()
@@ -58,7 +75,7 @@ def get_availability(request: Request, month: str, model_code: str, line_code: s
 
 
 @router.post('/inputs/preview')
-def preview_inputs(payload: Batch, request: Request, principal=Depends(require_editor)):
+def preview_inputs(payload: Batch, request: Request, principal=Depends(require_editor)) -> InputPreview:
     try:
         return preview(input_store(request).read(), payload.base_version, payload.changes)
     except InputConflict:
@@ -66,7 +83,7 @@ def preview_inputs(payload: Batch, request: Request, principal=Depends(require_e
 
 
 @router.post('/inputs/apply')
-def apply_inputs(payload: Batch, request: Request, principal=Depends(require_editor)):
+def apply_inputs(payload: Batch, request: Request, principal=Depends(require_editor)) -> InputSnapshot:
     try:
         return input_store(request).update(principal.user_id, request.app.state.clock(),
             lambda current: apply_batch(current, payload.base_version, payload.changes))
