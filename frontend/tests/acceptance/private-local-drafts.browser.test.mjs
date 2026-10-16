@@ -12,14 +12,20 @@ import { gunzipSync, gzipSync } from 'node:zlib'
 import { get as httpsGet } from 'node:https'
 import { setTimeout as delay } from 'node:timers/promises'
 import { assertPlan, canonical } from './contracts.mjs'
+import { assertPrivateCycleBusiness, privateExpectation } from './private-draft-contract.mjs'
+import { writeFullPrivateFixture } from './private-full-fixture.mjs'
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../../..')
 const sha = value => createHash('sha256').update(value).digest('hex')
 const enabled = process.env.AUTO_PLAN_PRIVATE_DRAFT_EDITORS_BROWSER === '1'
+const fullSource = process.env.AUTO_PLAN_PRIVATE_DRAFT_FULL_R20 === '1'
 const sharedSaveProbe = process.env.AUTO_PLAN_PRIVATE_DRAFT_SHARED_SAVE_PROBE === '1'
 const primaryJobProbe = sharedSaveProbe || process.env.AUTO_PLAN_PRIVATE_DRAFT_PRIMARY_JOB_PROBE === '1'
 
+assert.ok(!fullSource || !primaryJobProbe, 'Full-r20 job and shared-save coverage need separate qualification.')
+
 function fixture(directory) {
+  if (fullSource) return writeFullPrivateFixture(root, directory)
   const frozen = resolve(root, 'docs/acceptance/frozen')
   const originalBytes = readFileSync(resolve(frozen, 'manifest.json'))
   const originalManifest = JSON.parse(originalBytes)
@@ -129,7 +135,7 @@ async function stop(child, finished, exited) {
   }
 }
 
-test(primaryJobProbe ? 'the primary genuinely edits during its accepted running job while four private editors continue' : 'five browsers change private production quantities and undo without shared writes',
+test(fullSource ? 'five browsers privately edit and undo the full canonical r20 source' : primaryJobProbe ? 'the primary genuinely edits during its accepted running job while four private editors continue' : 'five browsers change private production quantities and undo without shared writes',
   { skip: !enabled && 'Set AUTO_PLAN_PRIVATE_DRAFT_EDITORS_BROWSER=1.', timeout: primaryJobProbe ? 240000 : 180000 }, async () => {
     const python = process.env.AUTO_PLAN_PRIVATE_DRAFT_EDITORS_PYTHON
     assert.ok(python, 'Provide the already installed test Python interpreter.')
@@ -250,23 +256,10 @@ test(primaryJobProbe ? 'the primary genuinely edits during its accepted running 
           assert.equal(cycle.before_quantity, 100); assert.equal(cycle.changed_quantity, 99)
           assert.deepEqual(cycle.observed_totals, target.expected.totals)
           assert.equal(cycle.undo.queue_empty, true); assert.equal(cycle.undo.origin_restored, true)
-          const changed = captured(cycle.changed_response_artifact)
-          const expectedPlan = structuredClone(source.plan)
-          const expectedRow = expectedPlan.segments.find(row => row.id === target.segment_id)
-          expectedRow.quantity = 99; delete expectedRow.hours
-          const actualPlan = structuredClone(changed.plan), actualRow = actualPlan.segments.find(row => row.id === target.segment_id)
-          const [numerator, denominator] = canonical({ hours: actualRow.hours }).hours.split('/').map(BigInt)
-          assert.ok(100n * numerator > 98n * denominator && numerator <= 24n * denominator, 'The selected exact witness violates its independently derived strict capacity range.')
-          delete actualRow.hours; assertPlan(actualPlan, expectedPlan)
-          assert.deepEqual(Object.fromEntries(Object.keys(target.expected.totals).map(key => [key, changed.evaluation.output_totals[key]])), target.expected.totals)
-          assert.equal(changed.evaluation.output_totals.computation_complete, true)
-          assert.equal(changed.evaluation.weekly_results.length, 75)
-          for (const row of changed.evaluation.weekly_results) {
-            const affected = row.model_code === target.expected.changed_week.model_code && row.week === target.expected.changed_week.week
-            assert.equal(row.demand, 700); assert.equal(row.on_time, affected ? 699 : 700)
-            assert.equal(row.gap, affected ? 1 : 0); assert.equal(row.pending, 0); assert.equal(row.late, 0)
-          }
-          assertPlan(captured(cycle.undo.response_artifact).plan, source.plan)
+          assertPrivateCycleBusiness({ source, target,
+            baseline: captured(report.local_editing_contract.shared_before_source_artifact).snapshot,
+            changed: captured(cycle.changed_response_artifact), undo: captured(cycle.undo.response_artifact),
+            expectation: privateExpectation(source, target, scenario.expected) })
         }
         assert.ok(report.request_spans.every(row => typeof row.method === 'string'), 'Request methods are required for the no-write proof.')
         for (let editor = 0; editor < 5; editor++) assert.ok(report.request_spans.filter(row => row.editor === editor && row.method === 'POST' && row.path.endsWith('/plans/preview')).length >= 2)
