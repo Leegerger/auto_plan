@@ -39,6 +39,7 @@ function asset(pointer) {
 const source = asset(scenario.source), action = asset(scenario.action), output = resolve(flags.output)
 mkdirSync(output, { recursive: false })
 const editingProbe = flags['editing-contract-probe'] === 'true'
+const localEditingProbe = flags['local-editing-contract-probe'] === 'true'
 const primaryPinProbe = flags['primary-pin-probe'] === 'true'
 const primaryJobProbe = flags['primary-job-pin-probe'] === 'true'
 const outputTextProbe = flags['output-text-probe'] === 'true'
@@ -46,8 +47,45 @@ assert.ok(!outputTextProbe || editingProbe && !primaryJobProbe, 'The output text
 assert.ok(!editingProbe || mode !== 'solo' && config.target.kind === 'adapter', 'The editing-contract probe requires five disposable adapter accounts.')
 assert.ok(!primaryPinProbe || editingProbe, 'The primary-pin probe is part of the explicit adapter correctness workflow.')
 assert.ok(!primaryJobProbe || editingProbe, 'The primary job-pin probe requires the explicit adapter correctness workflow.')
+assert.ok(!localEditingProbe || !editingProbe && mode !== 'solo' && config.target.kind === 'adapter', 'Private editing correctness needs five disposable adapter accounts.')
+let localWorkload
+if (config.editing_workload) {
+  assert.ok(localEditingProbe, 'Private draft timing and primary computation qualification remain pending.')
+  const approved = scenario.editing_workload
+  assert.ok(approved && approved.encoding === 'json', 'Private editing needs a manifest-approved workload.')
+  const bytes = readFileSync(resolve(fixtures, approved.path))
+  assert.equal(sha(bytes), approved.sha256, 'Approved private workload bytes differ.')
+  assert.equal(config.editing_workload.sha256, approved.sha256, 'Run configuration names another private workload.')
+  assert.equal(sha(readFileSync(resolve(config.editing_workload.path))), approved.sha256, 'Configured private workload bytes differ.')
+  localWorkload = JSON.parse(bytes)
+  const parentBytes = readFileSync(resolve(fixtures, scenario.predecessor.manifest.path))
+  assert.equal(sha(parentBytes), scenario.predecessor.manifest.sha256, 'Private workload predecessor bytes differ.')
+  const parent = JSON.parse(parentBytes), original = parent.scenarios.find(row => row.id === scenario.predecessor.scenario)
+  assert.ok(original && original.id !== scenario.id, 'Private editing needs an explicit successor identity.')
+  const business = row => {
+    const value = structuredClone(row)
+    for (const key of ['id', 'predecessor', 'editing_workload']) delete value[key]
+    for (const key of ['source', 'reference', 'action', 'import']) if (value[key]) delete value[key].path
+    return value
+  }
+  assert.deepEqual(business(scenario), business(original), 'Private workload changed frozen business source, reference or action.')
+  assert.deepEqual({ ...manifest, scenarios: [] }, { ...parent, scenarios: [] }, 'Private workload changed gates or reference metadata.')
+  assert.equal(localWorkload.schema_version, 1); assert.equal(localWorkload.kind, 'private_local_drafts_v1')
+  assert.equal(localWorkload.scenario, scenario.id)
+  for (const [key, expected] of [['source_manifest_sha256', sha(parentBytes)], ['source_fixture_sha256', scenario.source.sha256], ['reference_sha256', scenario.reference.sha256], ['action_sha256', scenario.action.sha256]]) assert.equal(localWorkload[key], expected, 'Private workload provenance differs.')
+  assert.deepEqual(localWorkload.targets.map(row => row.editor).sort(), [0, 1, 2, 3, 4], 'Five distinct private editor assignments are required.')
+  for (const target of localWorkload.targets) {
+    const row = source.plan.segments.find(row => row.id === target.segment_id)
+    assert.ok(row && Number.isInteger(target.operation.quantity) && target.operation.quantity > 0 && target.operation.quantity !== row.quantity, 'A private action must change an existing quantity.')
+    assert.equal(target.operation.kind, 'change_quantity'); assert.equal(target.expected.quantity, target.operation.quantity)
+    assert.equal(target.restoration, 'undo_complete_action_to_origin')
+  }
+  writeFileSync(resolve(output, 'editing-workload.json'), bytes)
+  mkdirSync(resolve(output, 'public-bodies'))
+}
+assert.ok(!localEditingProbe || localWorkload, 'The private editing probe needs its approved declaration.')
 let inputCompanion, companionApproval
-if (mode !== 'solo') {
+if (mode !== 'solo' && !localWorkload) {
   assert.ok(config.input_companion?.path && config.input_companion.sha256, 'New five-editor runs require their frozen maintained-input companion.')
   const bytes = readFileSync(resolve(config.input_companion.path))
   assert.equal(sha(bytes), config.input_companion.sha256, 'Input companion bytes differ from their run configuration.')
@@ -78,7 +116,7 @@ if (mode !== 'solo') {
 const helperFiles = ['frontend/tests/acceptance/navigation.mjs', 'frontend/tests/acceptance/contracts.mjs', 'frontend/tests/acceptance/input-load.mjs', 'frontend/tests/acceptance/input-editors.mjs', 'scripts/acceptance/check_result.py', 'scripts/acceptance/input_companion.py', 'scripts/acceptance/assertions.py', 'scripts/acceptance/compare.py', 'scripts/acceptance/workbook.py']
 const requiredEnvironment = ['image_digest', 'source_commit', 'migration_versions', 'python', 'native_libraries', 'server_hardware', 'client_hardware', 'cgroup_cpu_max', 'cgroup_memory_max', 'solver_threads', 'worker_count', 'oracle_pool_maximum', 'oracle_pool_observed_usage', 'network_proxy_path', 'peak_cpu_memory']
 const missingEnvironment = requiredEnvironment.filter(key => config.environment?.[key] === null || config.environment?.[key] === undefined || config.environment[key] === '')
-const evidence = { schema_version: inputCompanion ? 3 : 2, kind: editingProbe ? 'public browser input-editing correctness probe; no timed acceptance' : config.target.kind === 'adapter' ? 'external browser with explicit test adapters' : 'external browser to operator-attested disposable PLAN_TEST',
+const evidence = { schema_version: localWorkload ? 4 : inputCompanion ? 3 : 2, kind: localEditingProbe ? 'public browser private-draft correctness probe; no timed acceptance' : editingProbe ? 'public browser input-editing correctness probe; no timed acceptance' : config.target.kind === 'adapter' ? 'external browser with explicit test adapters' : 'external browser to operator-attested disposable PLAN_TEST',
   runner_sha256: sha(readFileSync(fileURLToPath(import.meta.url))), helper_sha256: Object.fromEntries(helperFiles.map(path => [path, sha(readFileSync(resolve(root, path)))])),
   run_config_sha256: sha(configBytes), manifest_sha256: sha(manifestBytes), fixture_sha256: scenario.source.sha256, reference_sha256: scenario.reference.sha256, action_sha256: scenario.action.sha256,
   mode, scenario: scenario.id, reference_confirmation: manifest.reference_confirmation, environment: config.environment, target: config.target, origin: config.origin, base_path: config.base_path,
@@ -87,6 +125,11 @@ const evidence = { schema_version: inputCompanion ? 3 : 2, kind: editingProbe ? 
   editor_schedule: 'Four background contexts preview99 then100 locally, await both undos, then acknowledge a complete zero-net public patch of their original line/date witnesses. Every commit is UUID-bound and the full input/context/baseline/plan is checked. The primary is editor five and owns one computation. Save admission is held only while pinning/submitting that computation, then resumed before result measurement completes. Known complete primary99 snapshots are permitted only during the measured modified-save/restoration interval; each next repeat requires the exact original source.',
   repeats: [], editor_actions: [], request_spans: [], operations: [], submissions: [], jobs: [], acceptance: 'not_run',
   real_user_acceptance: { status: 'not_run', reason: 'Synthetic contexts do not establish five humans, twenty real accounts, company authentication or user-confirmed reference quality.' } }
+if (localWorkload) {
+  evidence.editing_workload = { path: 'editing-workload.json', sha256: config.editing_workload.sha256 }
+  evidence.editor_schedule = 'Five private browsers change their declared production quantity, receive and display the complete preview, then undo the complete action and verify the exact origin and empty queue. No shared or input write, save-admission hold or idle placeholder is used. This first workflow probe does not qualify sustained editing with computation.'
+  evidence.local_editing_contract = { status: 'not_run', continuing_activity: 'not_qualified' }
+}
 if (inputCompanion) {
   evidence.input_companion = { path: 'input-companion.json', sha256: config.input_companion.sha256, approval: companionApproval }
   evidence.editor_schedule = 'Four actual Inputs browsers alternate their assigned existing names through preview/apply. First previews synchronize to exercise actual optimistic conflicts. Each actor waits after its first commit until all four have committed; this is premeasurement warmup. Later iterations continue independently with public reload/retry. Every genuine changed immutable version and raw request/reply is retained. Names are restored after stopping. Primary-operation load qualification remains pending.'
@@ -217,7 +260,7 @@ async function previewChange(page, row, quantity, entry) {
   await expect(page.getByText('预览完成，尚未共享', { exact: true })).toBeVisible({ timeout: 180000 })
   await idle(page); await assertDaily(page, row, quantity); await assertOutput(page, result.evaluation)
   await rendered(page, entry)
-  return { result, command }
+  return { result, command, response: received }
 }
 async function resetQueue(page, expectedCount) {
   await idle(page)
@@ -383,6 +426,81 @@ function captureInputBody(bytes) {
   const digest = sha(bytes), path = 'input-bodies/' + digest + '.json'
   writeFileSync(resolve(output, path), bytes)
   return { path, sha256: digest }
+}
+function captureLocalBody(bytes) {
+  const digest = sha(bytes), path = 'public-bodies/' + digest + '.json'
+  writeFileSync(resolve(output, path), bytes)
+  return { path, sha256: digest }
+}
+async function privateSource() {
+  const response = await pages[0].request.get(api('/jobs/source'), { headers })
+  assert.equal(response.status(), 200, 'Complete public computation source read failed.')
+  const bytes = await response.body()
+  return { value: JSON.parse(bytes), artifact: captureLocalBody(bytes) }
+}
+async function localEditingContract() {
+  const contract = evidence.local_editing_contract
+  contract.status = 'fail'
+  const before = await privateSource()
+  contract.shared_before_source_artifact = before.artifact
+  assert.deepEqual(canonical(before.value.snapshot), canonical(initialState.snapshot), 'Private editing started from another complete source.')
+  const cycles = await Promise.allSettled(localWorkload.targets.map(async target => {
+    const page = pages[target.editor], row = source.plan.segments.find(row => row.id === target.segment_id)
+    const entry = { editor: target.editor, segment_id: row.id, before_quantity: row.quantity,
+      changed_quantity: target.operation.quantity, started_ms: performance.now(), phase: 'private_quantity_edit', status: 'fail' }
+    evidence.editor_actions.push(entry); persist()
+    try {
+      await selectRow(page, row); await assertDaily(page, row, row.quantity)
+      const preview = await previewChange(page, row, target.operation.quantity, entry)
+      entry.changed_response_artifact = captureLocalBody(await preview.response.body())
+      const expected = structuredClone(initialState.snapshot.plan)
+      const expectedRow = expected.segments.find(item => item.id === row.id)
+      expectedRow.quantity = target.expected.quantity; delete expectedRow.hours
+      const actual = structuredClone(preview.result.plan), actualRow = actual.segments.find(item => item.id === row.id)
+      const rational = value => canonical({ hours: value }).hours.split('/').map(BigInt)
+      const [n, d] = rational(actualRow.hours), [lo, ld] = rational(target.expected.hours_lower_exclusive), [hi, hd] = rational(target.expected.hours_upper_inclusive)
+      assert.ok(n * ld > lo * d && n * hd <= hi * d, 'The selected exact witness violates its declared strict capacity range.')
+      delete actualRow.hours
+      assertManualRequest(preview.command, [row], 'change_quantity', target.operation.quantity)
+      assertPlan(actual, expected, 'Private preview changed another complete plan field.')
+      assert.deepEqual(Object.fromEntries(Object.keys(target.expected.totals).map(key => [key, preview.result.evaluation.output_totals[key]])), target.expected.totals, 'Independent private preview totals differ.')
+      assert.equal(preview.result.evaluation.output_totals.computation_complete, true)
+      assert.ok(preview.result.evaluation.capacity_valid && preview.result.evaluation.computation_complete && preview.result.evaluation.executable, 'Private preview is incomplete or invalid.')
+      const weeks = preview.result.evaluation.weekly_results
+      assert.equal(weeks.length, source.inputs.business.demands.length, 'Private preview omitted demand weeks.')
+      assert.equal(new Set(weeks.map(item => item.model_code + ':' + item.week)).size, weeks.length, 'Private weekly identities repeat.')
+      for (const item of weeks) {
+        const changed = item.model_code === target.expected.changed_week.model_code && item.week === target.expected.changed_week.week
+        assert.equal(item.demand, 700); assert.equal(item.on_time, changed ? target.expected.changed_week.on_time : 700)
+        assert.equal(item.gap, changed ? target.expected.changed_week.gap : 0); assert.equal(item.pending, 0); assert.equal(item.late, 0)
+      }
+      entry.observed_totals = Object.fromEntries(Object.keys(target.expected.totals).map(key => [key, preview.result.evaluation.output_totals[key]]))
+      entry.phase = 'settled_private_undo'
+      await expect(queue(page)).toHaveCount(1)
+      const pending = responseFor(page, response => response.url() === api('/plans/preview') && response.request().method() === 'POST')
+      await page.getByRole('button', { name: '撤销最后完整动作', exact: true }).click()
+      const response = await pending; assert.equal(response.status(), 200, 'Private undo preview failed.')
+      const bytes = await response.body(), undone = JSON.parse(bytes)
+      await idle(page); await expect(queue(page)).toHaveCount(0); await settle(page)
+      assertPlan(undone.plan, initialState.snapshot.plan, 'Private undo did not restore its complete origin.')
+      await assertDaily(page, row, row.quantity); await assertOutput(page, undone.evaluation)
+      entry.undo = { ...await resetQueue(page, 0), origin_restored: true, response_artifact: captureLocalBody(bytes) }
+      entry.status = 'pass'
+    } catch (error) {
+      failEntry(entry, error)
+      try { await resetQueue(page) } catch (cleanup) { entry.cleanup_error = String(cleanup.message).split('\n')[0] }
+      throw error
+    } finally { entry.finished_ms = performance.now(); persist() }
+  }))
+  const after = await privateSource()
+  contract.shared_after_source_artifact = after.artifact
+  assert.deepEqual(after.value, before.value, 'Private drafts changed the complete shared computation source.')
+  assertState(await readState(pages[0]), initialState)
+  contract.shared_source_unchanged = true
+  const failure = cycles.find(row => row.status === 'rejected')
+  if (failure) throw failure.reason
+  assert.ok(evidence.request_spans.every(row => row.method === 'GET' || row.method === 'HEAD' || row.method === 'POST' && row.path === config.base_path + '/api/plans/preview'), 'Private editing issued a shared business write.')
+  contract.status = 'pass'; persist()
 }
 function deferred() {
   let resolve, reject
@@ -628,7 +746,7 @@ async function primaryJobPinProbe() {
 try {
   assert.ok(!inputCompanion || editingProbe, 'Primary load timing/pin/retry qualification is pending; only the explicit adapter editing probe is enabled.')
   assert.ok(!importOnly || mode === 'solo', 'Concurrent initial import is not_run: an empty target has no shared editor state.')
-  if (operations.some(value => ['single_cell', 'batch_preview', 'shared_save', 'import_validation'].includes(value))) assert.equal(scenario.kind, 'loose', 'No matching independent manual/workbook result exists for this family.')
+  if (!localEditingProbe && operations.some(value => ['single_cell', 'batch_preview', 'shared_save', 'import_validation'].includes(value))) assert.equal(scenario.kind, 'loose', 'No matching independent manual/workbook result exists for this family.')
   const primary = source.plan.segments.find(row => row.id === config.primary_segment); assert.ok(primary, 'Primary segment is absent from the frozen source.')
   if (operations.some(value => ['single_cell', 'shared_save'].includes(value))) manualRows(source, [primary.id])
   let workbook, workbookProof
@@ -686,7 +804,7 @@ try {
       },true)
     })
     const page = await context.newPage(); pages.push(page)
-    page.on('response', response => { const url = new URL(response.url()); if (url.pathname.startsWith(config.base_path + '/api/') && !url.pathname.includes('/auth/')) evidence.request_spans.push({ editor, path: url.pathname, status: response.status(), received_ms: performance.now(), request_started_epoch_ms: response.request().timing().startTime }) })
+    page.on('response', response => { const url = new URL(response.url()); if (url.pathname.startsWith(config.base_path + '/api/') && !url.pathname.includes('/auth/')) evidence.request_spans.push({ editor, method: response.request().method(), path: url.pathname, status: response.status(), received_ms: performance.now(), request_started_epoch_ms: response.request().timing().startTime }) })
     await page.goto(config.origin + config.base_path + '/login', { timeout: 180000 })
     await page.getByRole('textbox', { name: '公司账号', exact: true }).fill(accounts[editor].username)
     await page.getByLabel('公司密码', { exact: true }).fill(accounts[editor].password)
@@ -703,9 +821,9 @@ try {
     assert.deepEqual(evidence.initial_tokens, config.bindings, 'Prepared source tokens differ from the run configuration.')
     check('source', head.evaluation, head.plan, 'source-preflight', null, initialState.snapshot)
   }
-  const loads = mode === 'solo' || inputCompanion ? [] : (config.load_segments ?? []).map(id => source.plan.segments.find(row => row.id === id))
-  assert.ok(mode === 'solo' || inputCompanion || loads.length === 4 && loads.every(Boolean), 'Four frozen load segments are required.')
-  if (!inputCompanion) {
+  const loads = mode === 'solo' || inputCompanion || localWorkload ? [] : (config.load_segments ?? []).map(id => source.plan.segments.find(row => row.id === id))
+  assert.ok(mode === 'solo' || inputCompanion || localWorkload || loads.length === 4 && loads.every(Boolean), 'Four frozen load segments are required.')
+  if (!inputCompanion && !localWorkload) {
     assert.equal(new Set([primary, ...loads].map(row => row.model_code)).size, count, 'Load edits need disjoint models.')
     assert.equal(new Set([primary, ...loads].map(row => row.line_code)).size, count, 'Load edits need disjoint lines.')
   }
@@ -735,7 +853,8 @@ try {
       if (primaryPinProbe) await cleanPrimaryInputPinProbe()
     }
   }
-  for (const operation of editingProbe ? [] : operations) {
+  if (localEditingProbe) { evidence.phase = 'private_local_editing_contract'; persist(); await localEditingContract() }
+  for (const operation of editingProbe || localEditingProbe ? [] : operations) {
     assert.ok(operation in manifest.gates_seconds, 'Unknown measured operation.')
     for (let repeat = 1; repeat <= 5; repeat++) {
       const page = pages[0], stem = `${operation}-${repeat}`, entry = { operation, repeat, first: repeat === 1, gate_seconds: manifest.gates_seconds[operation], status: 'fail', phase: 'setup', setup_started_ms: performance.now(), setup_seconds: null, measurement_started: false, seconds: null, expected_queue_count: 0 }
@@ -853,7 +972,7 @@ try {
     }).length + 1
     if (entry.active_editor_contexts !== 5) failEntry(entry, null, 'Five automated editor action intervals did not cover the complete measured result.')
   }
-  evidence.automated_observation = editingProbe ? 'not_run' : evidence.repeats.length === operations.length * 5 && evidence.repeats.every(row => row.status === 'pass') && evidence.editor_actions.every(row => row.status === 'pass') ? 'pass' : 'fail'
+  evidence.automated_observation = editingProbe || localEditingProbe ? 'not_run' : evidence.repeats.length === operations.length * 5 && evidence.repeats.every(row => row.status === 'pass') && evidence.editor_actions.every(row => row.status === 'pass') ? 'pass' : 'fail'
 } catch (error) { evidence.preflight = { status: 'fail', phase: evidence.phase, reason: evidence.phase?.startsWith('login') ? error.name : String(error.message).split('\n')[0].slice(0, 300) }; process.exitCode = 1 }
 finally {
   stopped = true; await Promise.allSettled(loadPromises)
@@ -866,4 +985,4 @@ finally {
   }
   if (browser) await browser.close(); evidence.client_wrapper_peak_rss_kib = process.resourceUsage().maxRSS; persist()
 }
-if (editingProbe ? evidence.input_editing_contract?.status !== 'pass' : evidence.automated_observation !== 'pass') process.exitCode = 1
+if (localEditingProbe ? evidence.local_editing_contract?.status !== 'pass' : editingProbe ? evidence.input_editing_contract?.status !== 'pass' : evidence.automated_observation !== 'pass') process.exitCode = 1
