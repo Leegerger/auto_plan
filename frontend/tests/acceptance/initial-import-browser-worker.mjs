@@ -29,7 +29,8 @@ async function main() {
     }
     prepare()
     const log=openSync(resolve(output,'server.log'),'w')
-    const server=spawn(python,['-m','scripts.acceptance.adapter_server','--fixtures',bootstrap,'--scenario','r20-loose','--port',String(port)],{cwd:root,env,detached:true,stdio:['ignore',log,log]})
+    const uploadObservations=resolve(output,'upload-observations.ndjson')
+    const server=spawn(python,['-m','scripts.acceptance.adapter_server','--fixtures',bootstrap,'--scenario','r20-loose','--port',String(port),'--upload-observations',uploadObservations],{cwd:root,env,detached:true,stdio:['ignore',log,log]})
     const owned={worker_pid:process.pid,worker_pgid:process.pid,worker_start:start(process.pid),server_pid:server.pid,server_pgid:server.pid,server_start:start(server.pid)}
     const recordOwned=()=>{writeFileSync(resolve(output,'owned-processes.tmp'),JSON.stringify(owned));renameSync(resolve(output,'owned-processes.tmp'),resolve(output,'owned-processes.json'))}
     recordOwned()
@@ -57,10 +58,11 @@ async function main() {
       const templatePath=resolve(output,'public-template.xlsx'),templateBytes=await template.body();writeFileSync(templatePath,templateBytes)
       report.public_template={path:templatePath,sha256:sha(templateBytes),status:template.status(),url:template.url()}
       report.bootstrap_manifest_sha256=sha(readFileSync(resolve(bootstrap,'manifest.json')))
-      report.source_files=Object.fromEntries(['scripts/acceptance/adapter_server.py','scripts/acceptance/initial_import_fixture.py','scripts/acceptance/initial_import_load.py','frontend/tests/acceptance/initial-import-load.browser.test.mjs','frontend/tests/acceptance/initial-import-browser-worker.mjs','frontend/tests/acceptance/initial-import-browser-support.mjs','frontend/dist/index.html'].map(path=>[path,sha(readFileSync(resolve(root,path)))]))
+      report.source_files=Object.fromEntries(['scripts/acceptance/adapter_server.py','scripts/acceptance/upload_observer.py','frontend/tests/acceptance/upload-observations.mjs','scripts/acceptance/initial_import_fixture.py','scripts/acceptance/initial_import_load.py','frontend/tests/acceptance/initial-import-load.browser.test.mjs','frontend/tests/acceptance/initial-import-browser-worker.mjs','frontend/tests/acceptance/initial-import-browser-support.mjs','frontend/dist/index.html'].map(path=>[path,sha(readFileSync(resolve(root,path)))]))
       prepare(templatePath)
       writeFileSync(resolve(output,'report.json'),JSON.stringify(report,null,2))
-      workflow=importBrowserContract({pages,fixtures,output,origin,python,repo:root,report})
+      report.instrumentation='TEST-ONLY passive ASGI received upload bytes; no formal timing qualification'
+      workflow=importBrowserContract({pages,fixtures,output,origin,python,repo:root,report,uploadObservations})
       workflow.finally(()=>{workflowSettled=true}).catch(()=>{})
       const deadline=new Promise((_,reject)=>{timer=setTimeout(()=>{report.workflow_timeout={deadline_seconds:150,source_closure:'unconfirmed',input_acknowledgments:'unconfirmed',restoration:'unconfirmed'};report.restoration={...report.restoration,status:'unconfirmed',reason:'Outer workflow deadline interrupted normal source closure; resource teardown does not prove restoration.'};reject(new Error('The one functional browser attempt exceeded its150-second boundary; preserve all started operations.'))},150000)})
       await Promise.race([workflow,deadline])

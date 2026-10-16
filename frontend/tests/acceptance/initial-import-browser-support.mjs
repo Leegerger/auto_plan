@@ -1,5 +1,6 @@
 /** Public native upload and complete input/evaluation evidence. */
 import assert from 'node:assert/strict'
+import { attestUpload, readUploadObservation } from './upload-observations.mjs'
 import { expect } from '@playwright/test'
 import { readFileSync, writeFileSync, appendFileSync, mkdirSync } from 'node:fs'
 import { resolve } from 'node:path'
@@ -15,7 +16,7 @@ const deferred = () => { let resolve; const promise = new Promise(done => { reso
 const twoFrames = page => page.evaluate(() => new Promise(done => requestAnimationFrame(() => requestAnimationFrame(() => done(performance.timeOrigin + performance.now())))))
 const body = async response => { const bytes = await response.body(); return { bytes, value: JSON.parse(bytes) } }
 
-export async function importBrowserContract({ pages, fixtures, output, origin, python, repo, report }) {
+export async function importBrowserContract({ pages, fixtures, output, origin, python, repo, report, uploadObservations }) {
   const prefix = origin+'/planning/api', headers = { Origin: origin, 'X-Auto-Plan-Request': '1' }
   const manifest = JSON.parse(readFileSync(resolve(fixtures, 'manifest.json'))), scenario = manifest.scenarios[0]
   const journal = (phase, value={}) => appendFileSync(resolve(output,'events.ndjson'),JSON.stringify({phase,epoch_ms:epoch(),...value})+'\n')
@@ -142,10 +143,15 @@ export async function importBrowserContract({ pages, fixtures, output, origin, p
       attempt.response_artifact = capture(received.bytes); attempt.response_complete_epoch_ms = epoch()
       journal('workbook_reply',{number,status:attempt.status,query:attempt.query,response_artifact:attempt.response_artifact})
       const requestBytes=response.request().postDataBuffer()
-      attempt.request_body_capture={provider:'Playwright.Request.postDataBuffer',available:Buffer.isBuffer(requestBytes)}
-      assert.ok(Buffer.isBuffer(requestBytes),'Native File request bytes are unavailable; transport SHA remains unverified.')
-      attempt.request_body_capture.sha256=sha(requestBytes)
-      assert.equal(attempt.request_body_capture.sha256, declaration.workbook.sha256)
+      attempt.playwright_request_bytes_available=Buffer.isBuffer(requestBytes)
+      if(requestBytes){attempt.playwright_request_sha256=sha(requestBytes);assert.equal(attempt.playwright_request_sha256,declaration.workbook.sha256)}
+      attempt.request_body_capture={provider:'test-only server-observed received bytes',confirmation:'unconfirmed',status:response.status()}
+      const id=await response.headerValue('x-auto-plan-test-upload')
+      assert.ok(id && uploadObservations,'No actual response-bound server receipt; native transport remains unconfirmed.')
+      const receivedObservation=await readUploadObservation(uploadObservations,id)
+      const observation=receivedObservation.observation
+      attempt.request_body_capture={...attestUpload(observation,{id,url:response.url(),status:response.status(),length:readFileSync(workbook).length,sha256:declaration.workbook.sha256}),confirmation:'confirmed'}
+      attempt.request_body_capture.artifact=capture(Buffer.from(receivedObservation.raw))
       await session.detach()
       if (number===1) { assert.equal(attempt.query.input_version, 1); assert.equal(attempt.status, 409) }
       if (attempt.status===409) continue

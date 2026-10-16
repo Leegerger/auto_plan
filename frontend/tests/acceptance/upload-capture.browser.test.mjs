@@ -1,5 +1,6 @@
 /** Tiny actual upload capture regression; never a business or timing gate. */
 import test from 'node:test'
+import { attestUpload } from './upload-observations.mjs'
 import assert from 'node:assert/strict'
 import { chromium } from '@playwright/test'
 import { spawn, spawnSync } from 'node:child_process'
@@ -65,7 +66,13 @@ test('native File transport has exact response-bound received bytes, including a
       report.observations=observations
       for(const row of [first,enhanced]){
         const observed=observations.find(value=>value.id===row.response_observation);assert.ok(observed,'No response-bound server observation.')
-        assert.equal(observed.status,row.status);assert.equal(observed.complete,true);assert.equal(observed.length,bytes.length);assert.equal(observed.sha256,sha(bytes));assert.equal(observed.path,'/planning/api/initialization/excel/preview');assert.deepEqual(observed.query,row.query)
+        const expected={id:row.response_observation,url:prefix+'/initialization/excel/preview?'+new URLSearchParams(row.query),status:row.status,length:bytes.length,sha256:sha(bytes)}
+        row.server_received_proof=attestUpload(observed,expected)
+        assert.equal(row.playwright_bytes_available,false,'Native Playwright byte omission must remain explicit.')
+        assert.throws(()=>attestUpload(undefined,expected))
+        const invalid=[{id:'other'},{complete:false},{response_complete:false},{length:bytes.length+1},{sha256:'0'.repeat(64)},{method:'GET'},{path:'/different'},{query:{...row.query,input_version:'999'}},{status:409},{instrumentation:'local file'}]
+        for(const change of invalid)assert.throws(()=>attestUpload({...observed,...change},expected))
+        row.negative_metadata_controls=invalid.length+1
       }
     }else assert.ok([first.playwright_sha256,enhanced.playwright_sha256,enhanced.cdp_utf8_sha256].includes(sha(bytes)),'Native binary File bytes remain unavailable or inexact in Playwright/CDP.')
     report.status='pass'
