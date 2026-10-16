@@ -16,6 +16,7 @@ import { assertPlan, canonical } from './contracts.mjs'
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../../..')
 const sha = value => createHash('sha256').update(value).digest('hex')
 const enabled = process.env.AUTO_PLAN_PRIVATE_DRAFT_EDITORS_BROWSER === '1'
+const primaryJobProbe = process.env.AUTO_PLAN_PRIVATE_DRAFT_PRIMARY_JOB_PROBE === '1'
 
 function fixture(directory) {
   const frozen = resolve(root, 'docs/acceptance/frozen')
@@ -55,21 +56,23 @@ function fixture(directory) {
     writeFileSync(resolve(directory, name + '.json.gz'), gzipSync(bytes))
     return { path: name + '.json.gz', sha256: sha(bytes) }
   }
-  const scenario = { id: 'private-draft-source-adapter-v1', kind: 'browser_private_draft_contract',
+  const scenario = { id: primaryJobProbe ? 'private-draft-primary-source-adapter-v1' : 'private-draft-source-adapter-v1', kind: 'browser_private_draft_contract',
     source: asset('source', source), reference: asset('reference', source),
     action: asset('action', { request: { mode: 'all_replan', scope: {
       start_date: '2026-10-12', end_date: '2027-01-24', line_codes: lines, model_codes: models },
-      strategy: 'hybrid', time_limit_seconds: 5, max_candidates: 1, native_threads: 1 } }),
+      strategy: 'hybrid', time_limit_seconds: primaryJobProbe ? 90 : 5, max_candidates: 1, native_threads: 1 } }),
     expected: { capacity_valid: true, computation_complete: true, executable: true,
       totals: { expected: 52500, on_time: 52500, late: 0, gap: 0, pending: 0, unallocated: 0, outside_window: 0 },
       objective: Array(33).fill('0') },
     predecessor: { manifest_sha256: sha(originalBytes), source_sha256: original.source.sha256 },
     acceptance: 'not_run', purpose: 'Five-model private-draft workflow correctness; no fixed-scale alias.' }
+  if (primaryJobProbe) scenario.scope = {
+    start_date: '2026-10-12', end_date: '2027-01-24', line_codes: lines, model_codes: models }
   const parent = { schema_version: 1, scenarios: [scenario], gates_seconds: originalManifest.gates_seconds,
     reference_confirmation: { status: 'not_run', reason: 'Correctness fixture, no quality or timing acceptance.' } }
   const parentBytes = Buffer.from(JSON.stringify(parent))
   writeFileSync(resolve(directory, 'predecessor-manifest.json'), parentBytes)
-  const successor = { ...structuredClone(scenario), id: 'private-draft-editors-adapter-v2-shared-M00',
+  const successor = { ...structuredClone(scenario), id: primaryJobProbe ? 'private-draft-primary-job-adapter-v1' : 'private-draft-editors-adapter-v2-shared-M00',
     predecessor: { scenario: scenario.id, manifest: { path: 'predecessor-manifest.json', sha256: sha(parentBytes) } } }
   const declaration = { schema_version: 1, kind: 'private_local_drafts_v1', scenario: successor.id,
     source_manifest_sha256: sha(parentBytes), source_fixture_sha256: scenario.source.sha256,
@@ -107,8 +110,8 @@ async function stop(child, finished, exited) {
   }
 }
 
-test('five browsers change private production quantities and undo without shared writes',
-  { skip: !enabled && 'Set AUTO_PLAN_PRIVATE_DRAFT_EDITORS_BROWSER=1.', timeout: 180000 }, async () => {
+test(primaryJobProbe ? 'the primary genuinely edits during its accepted running job while four private editors continue' : 'five browsers change private production quantities and undo without shared writes',
+  { skip: !enabled && 'Set AUTO_PLAN_PRIVATE_DRAFT_EDITORS_BROWSER=1.', timeout: primaryJobProbe ? 240000 : 180000 }, async () => {
     const python = process.env.AUTO_PLAN_PRIVATE_DRAFT_EDITORS_PYTHON
     assert.ok(python, 'Provide the already installed test Python interpreter.')
     const port = Number(process.env.AUTO_PLAN_PRIVATE_DRAFT_EDITORS_PORT ?? '18869')
@@ -134,14 +137,14 @@ test('five browsers change private production quantities and undo without shared
       const runnerLog = openSync(resolve(output, 'runner.log'), 'w')
       const child = spawn(process.execPath, [resolve(root, 'frontend/tests/acceptance/run.mjs'), '--config', configPath,
         '--output', resolve(output, 'run'), '--mode', 'five_automated_editors_one_computation',
-        '--local-editing-contract-probe', 'true'], { cwd: root, detached: true, stdio: ['pipe', runnerLog, runnerLog], env })
+        '--local-editing-contract-probe', 'true', ...(primaryJobProbe ? ['--private-primary-job-probe', 'true'] : [])], { cwd: root, detached: true, stdio: ['pipe', runnerLog, runnerLog], env })
       writeFileSync(resolve(output, 'owned-processes.json'), JSON.stringify({ controller_pid: process.pid,
         server_pid: server.pid, server_pgid: server.pid, runner_pid: child.pid, runner_pgid: child.pid }))
       child.stdin.end(JSON.stringify({ accounts: Array.from({ length: 5 }, (_, index) => ({ username: 'ACCEPTANCE' + index, password: 'company-secret' })) }))
       let exited = false
       const finished = once(child, 'exit').then(value => { exited = true; return value })
       try {
-        const until = Date.now() + 150000
+        const until = Date.now() + (primaryJobProbe ? 210000 : 150000)
         while (!exited && Date.now() < until) await delay(100)
         assert.ok(exited, 'Private editing workflow did not finish: ' + output)
         const [code, signal] = await finished
@@ -191,6 +194,64 @@ test('five browsers change private production quantities and undo without shared
         assert.deepEqual(after, before, 'Private editing changed the complete public computation source.')
         assert.equal(before.source_revision, 1); assert.equal(before.input_version, 1); assert.equal(before.latest_adoption, 1)
         assertPlan(before.snapshot.plan, source.plan)
+        if (primaryJobProbe) {
+          const job = report.private_primary_job
+          assert.ok(job?.accepted, 'The requested primary computation never became a real accepted job: ' + output)
+          assert.ok(job.attempts.length > 0)
+          const accepted = job.attempts.find(row => row.response_status === 200)
+          assert.ok(accepted, 'No public job acceptance was captured.')
+          assert.match(accepted.command.submission_id, /^[a-f0-9]{8}-[a-f0-9]{4}-[1-5][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i)
+          for (const attempt of job.attempts) {
+            assert.ok(['ACCEPTED', 'ABORTED_VOID'].includes(attempt.resolution.status))
+            assert.equal(attempt.command.submission_id, attempt.resolution.submission_id)
+            if (attempt.response_status === 409) assert.equal(attempt.resolution.status, 'ABORTED_VOID')
+          }
+          assert.equal(accepted.resolution.status, 'ACCEPTED')
+          assert.equal(accepted.resolution.job_id, job.accepted.job_id)
+          const action = JSON.parse(gunzipSync(readFileSync(resolve(fixtures, scenario.action.path))))
+          assert.deepEqual(accepted.command.request, action.request)
+          assert.equal(accepted.command.base_revision, before.source_revision)
+          assert.equal(accepted.command.input_version, before.input_version)
+          assert.equal(accepted.command.latest_adoption, before.latest_adoption)
+          assert.equal(accepted.command.reviewed_as_of, before.snapshot.time.as_of)
+          const primary = report.editor_actions.find(row => row.editor === 0 && row.status === 'pass')
+          assert.ok(primary?.events?.length > 0, 'Primary editing needs real phase events.')
+          const edit = primary.events.find(row => row.phase === 'native_quantity_submit')
+          const undo = primary.events.find(row => row.phase === 'complete_undo')
+          assert.ok(edit && undo && edit.epoch_ms < undo.epoch_ms)
+          const runningBefore = job.running_before_primary_edit, runningAfter = job.running_after_primary_undo
+          for (const observed of [runningBefore, runningAfter]) {
+            assert.equal(observed.body.job_id, job.accepted.job_id)
+            assert.equal(observed.body.state, 'running', 'A real running job must cover the complete primary edit and undo.')
+          }
+          for (const key of ['generation', 'source_revision', 'input_version', 'latest_adoption', 'started_at']) assert.deepEqual(runningAfter.body[key], runningBefore.body[key])
+          assert.ok(runningBefore.epoch_ms <= edit.epoch_ms && runningAfter.epoch_ms >= undo.epoch_ms)
+          assert.equal(job.clock.origin_epoch_ms, job.clock.first_clicked_epoch_ms)
+          assert.equal(job.clock.origin_epoch_ms, job.attempts[0].clicked_epoch_ms)
+          assert.ok(job.clock.origin_epoch_ms < edit.epoch_ms && job.clock.rendered_epoch_ms > undo.epoch_ms)
+          for (let editor = 1; editor < 5; editor++) {
+            const cycles = report.editor_actions.filter(row => row.editor === editor)
+            assert.ok(cycles.every(row => row.status === 'pass'))
+            const clicks = cycles.flatMap(row => row.events).filter(row => row.phase === 'native_quantity_submit')
+            const undos = cycles.flatMap(row => row.events).filter(row => row.phase === 'complete_undo')
+            assert.ok(Math.min(...clicks.map(row => row.epoch_ms)) <= job.clock.origin_epoch_ms)
+            assert.ok(Math.max(...undos.map(row => row.epoch_ms)) >= job.clock.rendered_epoch_ms)
+          }
+          const frozen = captured(job.source_artifact)
+          assert.deepEqual(frozen, before, 'Accepted independent public source changed during private editing.')
+          const view = captured(job.candidate_artifact), candidate = view.candidate
+          assert.equal(view.job_id, job.accepted.job_id)
+          assert.deepEqual(candidate.snapshot, frozen.snapshot)
+          assert.equal(candidate.source_revision, 1); assert.equal(candidate.input_version, 1); assert.equal(candidate.latest_adoption, 1)
+          assert.deepEqual(candidate.request, action.request)
+          assert.deepEqual(candidate.objective, Array(33).fill('0'))
+          assert.deepEqual(job.objective, Array(33).fill('0'))
+          assert.ok(candidate.evaluation.capacity_valid && candidate.evaluation.computation_complete && candidate.evaluation.executable)
+          for (const [key, value] of Object.entries(scenario.expected.totals)) assert.equal(candidate.evaluation.output_totals[key], value)
+          assert.equal(candidate.evaluation.weekly_results.length, 75)
+          assert.ok(candidate.evaluation.weekly_results.every(row => row.demand === 700 && row.on_time === 700 && row.gap === 0 && row.pending === 0 && row.late === 0))
+          assert.ok(['completed', 'stopped'].includes(job.cleanup.state))
+        }
       } finally { await stop(child, finished, () => exited) }
     } finally { await stop(server, serverFinished, () => serverExited) }
   })

@@ -40,6 +40,7 @@ const source = asset(scenario.source), action = asset(scenario.action), output =
 mkdirSync(output, { recursive: false })
 const editingProbe = flags['editing-contract-probe'] === 'true'
 const localEditingProbe = flags['local-editing-contract-probe'] === 'true'
+const privatePrimaryProbe = flags['private-primary-job-probe'] === 'true'
 const primaryPinProbe = flags['primary-pin-probe'] === 'true'
 const primaryJobProbe = flags['primary-job-pin-probe'] === 'true'
 const outputTextProbe = flags['output-text-probe'] === 'true'
@@ -48,6 +49,7 @@ assert.ok(!editingProbe || mode !== 'solo' && config.target.kind === 'adapter', 
 assert.ok(!primaryPinProbe || editingProbe, 'The primary-pin probe is part of the explicit adapter correctness workflow.')
 assert.ok(!primaryJobProbe || editingProbe, 'The primary job-pin probe requires the explicit adapter correctness workflow.')
 assert.ok(!localEditingProbe || !editingProbe && mode !== 'solo' && config.target.kind === 'adapter', 'Private editing correctness needs five disposable adapter accounts.')
+assert.ok(!privatePrimaryProbe || localEditingProbe, 'Primary private editing needs the explicit correctness workflow.')
 let localWorkload
 if (config.editing_workload) {
   assert.ok(localEditingProbe, 'Private draft timing and primary computation qualification remain pending.')
@@ -438,20 +440,16 @@ async function privateSource() {
   const bytes = await response.body()
   return { value: JSON.parse(bytes), artifact: captureLocalBody(bytes) }
 }
-async function localEditingContract() {
-  const contract = evidence.local_editing_contract
-  contract.status = 'fail'
-  const before = await privateSource()
-  contract.shared_before_source_artifact = before.artifact
-  assert.deepEqual(canonical(before.value.snapshot), canonical(initialState.snapshot), 'Private editing started from another complete source.')
-  const cycles = await Promise.allSettled(localWorkload.targets.map(async target => {
+async function privateEditCycle(target) {
     const page = pages[target.editor], row = source.plan.segments.find(row => row.id === target.segment_id)
     const entry = { editor: target.editor, segment_id: row.id, before_quantity: row.quantity,
-      changed_quantity: target.operation.quantity, started_ms: performance.now(), phase: 'private_quantity_edit', status: 'fail' }
+      changed_quantity: target.operation.quantity, started_ms: performance.now(), phase: 'private_quantity_edit', status: 'fail', events: [] }
     evidence.editor_actions.push(entry); persist()
     try {
       await selectRow(page, row); await assertDaily(page, row, row.quantity)
       const preview = await previewChange(page, row, target.operation.quantity, entry)
+      entry.events.push({ phase: 'native_quantity_submit', epoch_ms: entry.clicked_epoch_ms },
+        { phase: 'complete_preview', epoch_ms: entry.browser_after_result_frames_epoch_ms })
       entry.changed_response_artifact = captureLocalBody(await preview.response.body())
       const expected = structuredClone(initialState.snapshot.plan)
       const expectedRow = expected.segments.find(item => item.id === row.id)
@@ -478,20 +476,121 @@ async function localEditingContract() {
       entry.phase = 'settled_private_undo'
       await expect(queue(page)).toHaveCount(1)
       const pending = responseFor(page, response => response.url() === api('/plans/preview') && response.request().method() === 'POST')
+      await arm(page)
       await page.getByRole('button', { name: '撤销最后完整动作', exact: true }).click()
+      entry.events.push({ phase: 'native_undo_click', epoch_ms: await page.evaluate(() => window.__acceptanceInputEpoch) })
       const response = await pending; assert.equal(response.status(), 200, 'Private undo preview failed.')
       const bytes = await response.body(), undone = JSON.parse(bytes)
       await idle(page); await expect(queue(page)).toHaveCount(0); await settle(page)
       assertPlan(undone.plan, initialState.snapshot.plan, 'Private undo did not restore its complete origin.')
       await assertDaily(page, row, row.quantity); await assertOutput(page, undone.evaluation)
       entry.undo = { ...await resetQueue(page, 0), origin_restored: true, response_artifact: captureLocalBody(bytes) }
+      entry.events.push({ phase: 'complete_undo', epoch_ms: await settle(page) })
       entry.status = 'pass'
     } catch (error) {
       failEntry(entry, error)
       try { await resetQueue(page) } catch (cleanup) { entry.cleanup_error = String(cleanup.message).split('\n')[0] }
       throw error
     } finally { entry.finished_ms = performance.now(); persist() }
-  }))
+    return entry
+}
+async function privatePrimaryJobContract(before) {
+  const page = pages[0], entry = {}, record = evidence.private_primary_job = { attempts: [], clock: {}, source_artifact: before.artifact }
+  let stopEditing = false, editorFailure
+  const ready = localWorkload.targets.filter(target => target.editor > 0).map(target => ({ target, first: deferred() }))
+  const loops = ready.map(async ({ target, first }) => {
+    try {
+      while (!stopEditing) { await privateEditCycle(target); first.resolve() }
+    } catch (error) { editorFailure ??= error; first.reject(error); stopEditing = true }
+  })
+  const observe = async () => {
+    const body = await json(page, '/jobs/' + record.accepted.job_id)
+    return { body, epoch_ms: await page.evaluate(() => performance.timeOrigin + performance.now()) }
+  }
+  try {
+    for (const [label, value] of [['计算模式', action.request.mode], ['求解策略', action.request.strategy]]) await page.getByLabel(label, { exact: true }).selectOption(value)
+    for (const [label, value] of [['计算范围起日', action.request.scope.start_date], ['计算范围终日', action.request.scope.end_date], ['计算时限', String(action.request.time_limit_seconds)], ['候选数量', String(action.request.max_candidates)]]) await page.getByLabel(label, { exact: true }).fill(value)
+    await page.getByLabel('计算线体', { exact: true }).selectOption(action.request.scope.line_codes)
+    await page.getByLabel('计算机种', { exact: true }).selectOption(action.request.scope.model_codes)
+    await selectRow(page, source.plan.segments.find(row => row.id === localWorkload.targets.find(target => target.editor === 0).segment_id))
+    await Promise.all(ready.map(value => value.first.promise))
+    if (editorFailure) throw editorFailure
+    await expect(queue(page)).toHaveCount(0)
+    await expect(page.getByRole('button', { name: '核实前次操作', exact: true })).toHaveCount(0)
+    const pendingRequest = requestFor(page, request => request.url() === api('/jobs') && request.method() === 'POST')
+    const pendingResponse = responseFor(page, response => response.url() === api('/jobs') && response.request().method() === 'POST')
+    await arm(page); await page.getByRole('button', { name: '提交计算任务', exact: true }).click(); await clicked(page, entry)
+    record.clock.origin_epoch_ms = record.clock.first_clicked_epoch_ms = entry.clicked_epoch_ms
+    const request = await pendingRequest, commandBytes = request.postDataBuffer(), command = JSON.parse(commandBytes)
+    const submission = registerSubmission(entry, command, 'private_primary_job')
+    const received = await pendingResponse, bytes = await received.body(), response = JSON.parse(bytes)
+    const attempt = { command, response_status: received.status(), response, clicked_epoch_ms: entry.clicked_epoch_ms,
+      request_artifact: captureLocalBody(commandBytes), response_artifact: captureLocalBody(bytes) }
+    record.attempts.push(attempt)
+    if (received.status() === 200) {
+      record.accepted = response; submission.job_id = response.job_id; trackJob(response.job_id, command, 'private_primary_job')
+    }
+    attempt.resolution = await json(page, '/jobs/verify', { submission_id: command.submission_id })
+    submission.resolution = attempt.resolution; submission.status = attempt.resolution.status
+    assert.equal(received.status(), 200, 'The stable private source was not admitted; original UUID outcome is retained.')
+    assert.equal(attempt.resolution.status, 'ACCEPTED'); assert.equal(attempt.resolution.job_id, response.job_id)
+    assert.deepEqual(command.request, action.request)
+    assert.equal(command.base_revision, before.value.source_revision); assert.equal(command.input_version, before.value.input_version)
+    assert.equal(command.latest_adoption, before.value.latest_adoption); assert.equal(command.reviewed_as_of, before.value.snapshot.time.as_of)
+    await expect.poll(async () => (await observe()).body.state, { timeout: 15000 }).toBe('running')
+    record.running_before_primary_edit = await observe()
+    assert.equal(record.running_before_primary_edit.body.state, 'running', 'The native job ended before primary editing began.')
+    await privateEditCycle(localWorkload.targets.find(target => target.editor === 0))
+    record.running_after_primary_undo = await observe()
+    assert.equal(record.running_after_primary_undo.body.state, 'running', 'The native job did not span the complete primary edit and undo.')
+    for (const key of ['job_id', 'generation', 'source_revision', 'input_version', 'latest_adoption', 'started_at']) assert.deepEqual(record.running_after_primary_undo.body[key], record.running_before_primary_edit.body[key], 'The running job identity/generation changed.')
+    const item = page.getByRole('list', { name: '持久计算任务', exact: true }).locator('li').filter({ hasText: response.job_id })
+    const button = item.getByRole('button', { name: '查看候选内容', exact: true }).first()
+    while (!await button.isVisible()) {
+      if (editorFailure) throw editorFailure
+      await privateEditCycle(localWorkload.targets.find(target => target.editor === 0))
+      const current = await observe()
+      if (terminal(current.body.state)) { await expect(button).toBeVisible({ timeout: 10000 }); break }
+    }
+    // A complete empty undo still has its local proposal. Reload the public
+    // shared view after that settled undo so raw candidate checks are visible.
+    // The original job command and first-click clock remain in this record.
+    await shared(page)
+    await expect(button).toBeVisible({ timeout: 10000 })
+    const pendingView = responseFor(page, reply => reply.url().startsWith(api('/jobs/' + response.job_id + '/candidates/')))
+    await button.click(); const viewed = await pendingView; assert.equal(viewed.status(), 200)
+    const viewBytes = await viewed.body(), view = JSON.parse(viewBytes), candidate = view.candidate
+    record.candidate_artifact = captureLocalBody(viewBytes)
+    const region = page.getByRole('region', { name: '候选内容', exact: true })
+    await expect(region).toContainText(`原共享修订 ${command.base_revision} · 输入版本 ${command.input_version} · 最近采用版 ${command.latest_adoption}`)
+    await expect(region).toContainText('可执行候选')
+    await region.locator('summary').filter({ hasText: '查看原始候选业务检查' }).click()
+    await assertOutput(page, candidate.evaluation, region)
+    await rendered(page, entry)
+    record.clock.rendered_epoch_ms = entry.browser_after_result_frames_epoch_ms
+    record.clock.seconds = entry.browser_after_result_frames_seconds
+    const evaluation = await json(page, '/plans/evaluate', { snapshot: { ...candidate.snapshot, plan: candidate.plan } })
+    const frozen = { kind: 'public_computation_source', status: 200, artifact: before.artifact,
+      head: { revision: before.value.source_revision, input_version: before.value.input_version, latest_adoption: before.value.latest_adoption }, snapshot: before.value.snapshot }
+    record.objective = check('candidate', evaluation, candidate.plan, 'private-primary-job', { candidate, submitted: command, source: frozen }).objective
+    if (editorFailure) throw editorFailure
+  } finally {
+    stopEditing = true; await Promise.all(loops)
+    await resolveSubmissions(page, entry)
+    for (const id of new Set([record.accepted?.job_id, entry.job_id, entry.load_job_id].filter(Boolean))) record.cleanup = await finishJob(page, id)
+    persist()
+  }
+  if (editorFailure) throw editorFailure
+}
+async function localEditingContract() {
+  const contract = evidence.local_editing_contract
+  contract.status = 'fail'
+  const before = await privateSource()
+  contract.shared_before_source_artifact = before.artifact
+  assert.deepEqual(canonical(before.value.snapshot), canonical(initialState.snapshot), 'Private editing started from another complete source.')
+  const cycles = privatePrimaryProbe
+    ? await Promise.allSettled([privatePrimaryJobContract(before)])
+    : await Promise.allSettled(localWorkload.targets.map(privateEditCycle))
   const after = await privateSource()
   contract.shared_after_source_artifact = after.artifact
   assert.deepEqual(after.value, before.value, 'Private drafts changed the complete shared computation source.')
@@ -499,7 +598,8 @@ async function localEditingContract() {
   contract.shared_source_unchanged = true
   const failure = cycles.find(row => row.status === 'rejected')
   if (failure) throw failure.reason
-  assert.ok(evidence.request_spans.every(row => row.method === 'GET' || row.method === 'HEAD' || row.method === 'POST' && row.path === config.base_path + '/api/plans/preview'), 'Private editing issued a shared business write.')
+  const allowedPosts = new Set([api('/plans/preview'), ...(privatePrimaryProbe ? [api('/jobs'), api('/jobs/verify'), api('/plans/evaluate'), ...evidence.jobs.map(job => api('/jobs/' + job.job_id + '/stop'))] : [])].map(url => new URL(url).pathname))
+  assert.ok(evidence.request_spans.every(row => row.method === 'GET' || row.method === 'HEAD' || row.method === 'POST' && allowedPosts.has(row.path)), 'Private editing issued an undeclared business write.')
   contract.status = 'pass'; persist()
 }
 function deferred() {
