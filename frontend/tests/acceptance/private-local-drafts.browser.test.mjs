@@ -14,6 +14,8 @@ import { setTimeout as delay } from 'node:timers/promises'
 import { assertPlan, canonical } from './contracts.mjs'
 import { assertPrivateCycleBusiness, privateExpectation } from './private-draft-contract.mjs'
 import { writeFullPrivateFixture } from './private-full-fixture.mjs'
+import { writeFullSharedFixture } from './private-shared-fixture.mjs'
+import { assertFullSharedBrowserReport } from './private-shared-workload.mjs'
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../../..')
 const sha = value => createHash('sha256').update(value).digest('hex')
@@ -22,9 +24,10 @@ const fullSource = process.env.AUTO_PLAN_PRIVATE_DRAFT_FULL_R20 === '1'
 const sharedSaveProbe = process.env.AUTO_PLAN_PRIVATE_DRAFT_SHARED_SAVE_PROBE === '1'
 const primaryJobProbe = sharedSaveProbe || process.env.AUTO_PLAN_PRIVATE_DRAFT_PRIMARY_JOB_PROBE === '1'
 
-assert.ok(!fullSource || !primaryJobProbe, 'Full-r20 job and shared-save coverage need separate qualification.')
+assert.ok(!fullSource || !primaryJobProbe || sharedSaveProbe, 'Full-r20 job-only coverage still needs separate qualification.')
 
 function fixture(directory) {
+  if (fullSource && sharedSaveProbe) return writeFullSharedFixture(root, directory)
   if (fullSource) return writeFullPrivateFixture(root, directory)
   const frozen = resolve(root, 'docs/acceptance/frozen')
   const originalBytes = readFileSync(resolve(frozen, 'manifest.json'))
@@ -152,7 +155,7 @@ test(fullSource ? 'five browsers privately edit and undo the full canonical r20 
     const env = { ...Object.fromEntries(Object.entries(process.env).filter(([key]) => !key.startsWith('AUTO_PLAN_'))), PYTHONPATH: 'src:.' }
     const serverLog = openSync(resolve(output, 'server.log'), 'w')
     const server = spawn(python, ['-m', 'scripts.acceptance.adapter_server', '--fixtures', fixtures,
-      '--scenario', scenario.id, '--port', String(port)], { cwd: root, detached: true, stdio: ['ignore', serverLog, serverLog], env })
+      '--scenario', scenario.id, '--port', String(port), ...(fullSource && sharedSaveProbe ? ['--job-observations', resolve(output,'job-observations.ndjson')] : [])], { cwd: root, detached: true, stdio: ['ignore', serverLog, serverLog], env })
     let serverExited = false
     const serverFinished = once(server, 'exit').then(value => { serverExited = true; return value })
     try {
@@ -183,6 +186,12 @@ test(fullSource ? 'five browsers privately edit and undo the full canonical r20 
           const bytes = readFileSync(resolve(output, 'run', artifact.path))
           assert.equal(sha(bytes), artifact.sha256, 'Captured public response bytes differ.')
           return JSON.parse(bytes)
+        }
+        if (fullSource && sharedSaveProbe) {
+          const action=JSON.parse(gunzipSync(readFileSync(resolve(fixtures,scenario.action.path))))
+          const witnesses=readFileSync(resolve(output,'job-observations.ndjson'),'utf8').trim().split('\n').filter(Boolean).map(JSON.parse)
+          assertFullSharedBrowserReport({report,declaration,captured,witnesses,action})
+          return
         }
         if (sharedSaveProbe && report.private_shared_save) {
           const save = report.private_shared_save, job = report.private_primary_job
