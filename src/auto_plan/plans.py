@@ -282,13 +282,18 @@ class PlanService:
         from .rules import _evaluation_json
         return _evaluation_json(snapshot,output_cache=getattr(self.store,'output_cache',None))
 
+    @staticmethod
+    def _planning_plan(unit,record):
+        value=getattr(unit,'planning_plan_value',None)
+        return value(record) if value is not None else record['snapshot']['plan']
+
     def _snapshot(self, unit, plan, now):
         from .execution_rules import freeze_associations
         context=unit.context
         baseline=None
         if unit.adoption:
             record=unit.get_planning_adoption(unit.adoption)
-            baseline=AdoptedBaseline(version=unit.adoption,plan=record['snapshot']['plan'],coverage=record['coverage'])
+            baseline=AdoptedBaseline(version=unit.adoption,plan=self._planning_plan(unit,record),coverage=record['coverage'])
         return EvaluationSnapshot(time=EvaluationTime.at(now),inputs=unit.inputs,plan=plan,
             execution=freeze_associations(unit.plan,context.execution),reset=context.reset,locks=context.locks,baseline=baseline,preferences=context.preferences)
 
@@ -313,7 +318,7 @@ class PlanService:
         try: base=unit.get_planning_revision(command.base_revision)
         except KeyError: raise PlanProblem(409,'基准修订不存在或已超出恢复范围',revision=unit.revision) from None
         if command.base_revision>unit.revision: raise PlanProblem(409,'基准修订不存在',revision=unit.revision)
-        base_plan=Plan.model_validate(base['snapshot']['plan'])
+        base_plan=Plan.model_validate(self._planning_plan(unit,base))
         snapshot=self._snapshot(unit,base_plan,now)
         try:
             original_result=replay_result(base_plan,command.operations,OperationContext(snapshot,command.base_revision,base.get('unallocated',[]),base.get('operation_issues',[]),base.get('lineage',{})|unit.context.lineage,actor=actor,history=unit,latest_adoption=unit.adoption,current_revision=unit.revision,allow_past_input=initial_import))

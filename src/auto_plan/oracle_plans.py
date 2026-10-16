@@ -58,7 +58,27 @@ class OraclePlanUnit:
         # Only this authorized, head-pinned transaction owns these immutable
         # documents. Bound history/reset walks rather than retaining all history.
         self._records=OrderedDict()
-        self.plan=Plan.model_validate(self.get_planning_revision(self.revision)['snapshot']['plan'])
+        current=self.get_planning_revision(self.revision)['snapshot']['plan']
+        self.plan=Plan.model_validate(current)
+        # Freeze the complete raw value that was validated, including fields
+        # omitted by typed normalization. Only this transaction owns the Plan.
+        self._plan_document=self._canonical_plan(current)
+
+    @staticmethod
+    def _canonical_plan(value):
+        try: return document(value)
+        except (UnicodeError,TypeError,ValueError,OverflowError,RecursionError): return None
+
+    def planning_plan_value(self,record):
+        """Borrow the unit's validated Plan only for an exact verified value."""
+        raw=record['snapshot']['plan']
+        verified=any(key[-1] and sha and value is record
+                     for key,(sha,value) in self._records.items())
+        if verified and self._plan_document is not None:
+            # Python equality conflates booleans and integers. Canonical JSON
+            # checks every raw field/type and also detects caller mutation.
+            if self._canonical_plan(raw)==self._plan_document: return self.plan
+        return raw
 
     def get_candidate(self,job_id,candidate_id,payload_sha,now):
         from .oracle_jobs import retained_candidate
