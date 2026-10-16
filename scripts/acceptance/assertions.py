@@ -75,10 +75,10 @@ def payload_value(value, key=''):
     return value
 
 
-def assert_workbook(prepared, expected, source, scenario, before, after):
+def _assert_workbook_contents(prepared, expected, source, scenario, accepted_head):
     assert scenario['kind'] == 'loose', 'No independently frozen workbook result is supplied for this family.'
     assert prepared['valid'] is True, 'Workbook preview is invalid.'
-    expected = expected | {'base_revision': before['head']['revision'], 'input_version': before['head']['input_version'], 'latest_adoption': before['head']['latest_adoption']}
+    expected = expected | {'base_revision': accepted_head['revision'], 'input_version': accepted_head['input_version'], 'latest_adoption': accepted_head['latest_adoption']}
     assert payload_value(prepared['payload']) == payload_value(expected), 'Workbook payload differs from the complete frozen import.'
     from auto_plan.input_models import InputSnapshot
     from auto_plan.plan_models import ExecutionContext, ResetContext
@@ -101,6 +101,10 @@ def assert_workbook(prepared, expected, source, scenario, before, after):
     assert sequence(prepared['plan']['segments']) == sequence(source['plan']['segments']), 'Workbook prepared production order differs.'
     from .compare import assert_reference
     assert_reference(prepared['evaluation'], scenario)
+
+
+def assert_workbook(prepared, expected, source, scenario, before, after):
+    _assert_workbook_contents(prepared, expected, source, scenario, before['head'])
     for key in ('revision', 'input_version', 'latest_adoption'):
         assert before['head'][key] == after['head'][key], 'Import preview changed a shared token.'
     assert before['head']['revision'] == before['head']['latest_adoption'] == 0, 'First import target was not empty.'
