@@ -1,0 +1,568 @@
+{
+  "schema_version": 1,
+  "prepared_at": "2026-10-16",
+  "reference_confirmation": {
+    "status": "not_run",
+    "reason": "User has not confirmed these serialized distributions, actions or reference vectors."
+  },
+  "gates_seconds": {
+    "selection": 1,
+    "single_cell": 1,
+    "week": 3,
+    "day": 3,
+    "batch_preview": 5,
+    "import_validation": 5,
+    "shared_save": 5,
+    "local": 30,
+    "new_week": 120,
+    "all_replan": 120
+  },
+  "repeats_per_mode": 5,
+  "include_first_repeat": true,
+  "load_modes": [
+    "solo",
+    "five_automated_editors_one_computation"
+  ],
+  "fixture_version": 2,
+  "family": "rolling",
+  "scenarios": [
+    {
+      "id": "r20-rolling-v2",
+      "kind": "rolling",
+      "source": {
+        "path": "2e40b57d5eb700758f17a7271f38d9ff489559aa0a806ebea3218b70302efc1c.json.gz",
+        "sha256": "2e40b57d5eb700758f17a7271f38d9ff489559aa0a806ebea3218b70302efc1c",
+        "canonical_bytes": 1334491
+      },
+      "reference": {
+        "path": "807873554f19c3592bbf4e2f51aad0aa3796aa57845a493097bd14969c7eb700.json.gz",
+        "sha256": "807873554f19c3592bbf4e2f51aad0aa3796aa57845a493097bd14969c7eb700",
+        "canonical_bytes": 1372655
+      },
+      "action": {
+        "path": "2f02638a5867369471ba6402e1ea23733ab4889146e43ad6a981ba5ec6cb8aa8.json.gz",
+        "sha256": "2f02638a5867369471ba6402e1ea23733ab4889146e43ad6a981ba5ec6cb8aa8",
+        "canonical_bytes": 608
+      },
+      "import": {
+        "path": "0cc8b193b2b36429a422675cb473231801e26355e1e18ab02e2ad070a77a53c2.json.gz",
+        "sha256": "0cc8b193b2b36429a422675cb473231801e26355e1e18ab02e2ad070a77a53c2",
+        "canonical_bytes": 677173
+      },
+      "scope": {
+        "start_date": "2027-01-25",
+        "end_date": "2027-01-31",
+        "line_codes": [
+          "L00",
+          "L01",
+          "L02",
+          "L03",
+          "L04",
+          "L05",
+          "L06",
+          "L07",
+          "L08",
+          "L09",
+          "L10",
+          "L11",
+          "L12",
+          "L13",
+          "L14",
+          "L15",
+          "L16",
+          "L17"
+        ],
+        "model_codes": [
+          "M00",
+          "M01",
+          "M02",
+          "M03",
+          "M04",
+          "M05",
+          "M06",
+          "M07",
+          "M08",
+          "M09",
+          "M10",
+          "M11",
+          "M12",
+          "M13",
+          "M14",
+          "M15",
+          "M16",
+          "M17",
+          "M18",
+          "M19",
+          "M20",
+          "M21",
+          "M22",
+          "M23",
+          "M24",
+          "M25",
+          "M26",
+          "M27",
+          "M28",
+          "M29",
+          "M30",
+          "M31",
+          "M32",
+          "M33",
+          "M34",
+          "M35",
+          "M36",
+          "M37",
+          "M38",
+          "M39"
+        ]
+      },
+      "tokens": {
+        "source_revision": 1,
+        "input_version": 1,
+        "latest_adoption": 1,
+        "binding": "Logical frozen tokens. Live bindings must be recorded after public preparation; do not silently rewrite a measured run."
+      },
+      "expected": {
+        "totals": {
+          "expected": 420000,
+          "on_time": 420000,
+          "late": 0,
+          "gap": 0,
+          "pending": 0,
+          "unallocated": 0,
+          "outside_window": 0
+        },
+        "objective": [
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "420",
+          "0",
+          "0"
+        ],
+        "capacity_valid": true,
+        "computation_complete": true,
+        "executable": true
+      },
+      "reference_kind": "independent feasible witness; upper bound, not global optimality proof",
+      "quality_acceptance": "not_run",
+      "notes": [
+        "Actual rolling window starts 2026-10-19. Prior demand history is retained and excluded explicitly.",
+        "Old baseline coverage stops 2027-01-24. New week cost is zero; it is not an old zero baseline.",
+        "External shared run requires an authorized environment at the frozen production week; no runtime clock bypass is supplied.",
+        "V2 declares the genuine public coverage/cutoff audit before preparation; V1 remains immutable.",
+        "Materialized demands use public model/week ordering; both immutable demand files retain their original row order.",
+        "Known entering Recipes are explicit synthetic observations, never inferred from expired planned work.",
+        "The import asset is the original prior-week first import, not a fresh substitute for the rolled source."
+      ],
+      "prior_source": {
+        "path": "d019627a21ca1507f9145aac1575c55fa03c8be52838d0f47c85088a8703d909.json.gz",
+        "sha256": "d019627a21ca1507f9145aac1575c55fa03c8be52838d0f47c85088a8703d909",
+        "canonical_bytes": 1366889
+      },
+      "demand_file": {
+        "path": "fb21212f59ee103197c7aeba2214207c4b5dea2e8ec5a7344fcb54c81f1d7cf9.json.gz",
+        "sha256": "fb21212f59ee103197c7aeba2214207c4b5dea2e8ec5a7344fcb54c81f1d7cf9",
+        "canonical_bytes": 2162
+      },
+      "preparation": {
+        "path": "8ff0bf2c60812bb0c8909213ac33bedea7a3d7d8b2f4f1ec1716cda1c19e77da.json.gz",
+        "sha256": "8ff0bf2c60812bb0c8909213ac33bedea7a3d7d8b2f4f1ec1716cda1c19e77da",
+        "canonical_bytes": 4960
+      },
+      "predecessor": {
+        "scenario": "r20-rolling",
+        "manifest_sha256": "33e765b2cc22a28116d0416f04cc05cd628f5239183160be32a143035d29b0f4",
+        "source_sha256": "61373e89080a8344987c68ee4f71b77ce16374962965828ff528524179523661",
+        "reference_sha256": "f886bc2d088095010df69d0d6c45ef932327b7fcc15a54244ffc43a1f5d21761",
+        "action_sha256": "2f02638a5867369471ba6402e1ea23733ab4889146e43ad6a981ba5ec6cb8aa8",
+        "import_sha256": "e4cc581f3b01ec67dc03a6a482cd409c25f19f945ea527574ebcef1a99369de8"
+      }
+    },
+    {
+      "id": "r10-rolling-v2",
+      "kind": "rolling",
+      "source": {
+        "path": "91b11f54ae5246e308f1b1edbf56e8fb4e42fdce717f1fe261c0843a1e35fcb2.json.gz",
+        "sha256": "91b11f54ae5246e308f1b1edbf56e8fb4e42fdce717f1fe261c0843a1e35fcb2",
+        "canonical_bytes": 1244158
+      },
+      "reference": {
+        "path": "9a5b1e89b80226eb61ee4755ec80c229166310df812c31807f388abb4036f3e3.json.gz",
+        "sha256": "9a5b1e89b80226eb61ee4755ec80c229166310df812c31807f388abb4036f3e3",
+        "canonical_bytes": 1282322
+      },
+      "action": {
+        "path": "2f02638a5867369471ba6402e1ea23733ab4889146e43ad6a981ba5ec6cb8aa8.json.gz",
+        "sha256": "2f02638a5867369471ba6402e1ea23733ab4889146e43ad6a981ba5ec6cb8aa8",
+        "canonical_bytes": 608
+      },
+      "import": {
+        "path": "43df9a2ad7dac87352bb95fdd9db1ec85dc416e7c0da956c40757603c8e940b7.json.gz",
+        "sha256": "43df9a2ad7dac87352bb95fdd9db1ec85dc416e7c0da956c40757603c8e940b7",
+        "canonical_bytes": 586840
+      },
+      "scope": {
+        "start_date": "2027-01-25",
+        "end_date": "2027-01-31",
+        "line_codes": [
+          "L00",
+          "L01",
+          "L02",
+          "L03",
+          "L04",
+          "L05",
+          "L06",
+          "L07",
+          "L08",
+          "L09",
+          "L10",
+          "L11",
+          "L12",
+          "L13",
+          "L14",
+          "L15",
+          "L16",
+          "L17"
+        ],
+        "model_codes": [
+          "M00",
+          "M01",
+          "M02",
+          "M03",
+          "M04",
+          "M05",
+          "M06",
+          "M07",
+          "M08",
+          "M09",
+          "M10",
+          "M11",
+          "M12",
+          "M13",
+          "M14",
+          "M15",
+          "M16",
+          "M17",
+          "M18",
+          "M19",
+          "M20",
+          "M21",
+          "M22",
+          "M23",
+          "M24",
+          "M25",
+          "M26",
+          "M27",
+          "M28",
+          "M29",
+          "M30",
+          "M31",
+          "M32",
+          "M33",
+          "M34",
+          "M35",
+          "M36",
+          "M37",
+          "M38",
+          "M39"
+        ]
+      },
+      "tokens": {
+        "source_revision": 1,
+        "input_version": 1,
+        "latest_adoption": 1,
+        "binding": "Logical frozen tokens. Live bindings must be recorded after public preparation; do not silently rewrite a measured run."
+      },
+      "expected": {
+        "totals": {
+          "expected": 420000,
+          "on_time": 420000,
+          "late": 0,
+          "gap": 0,
+          "pending": 0,
+          "unallocated": 0,
+          "outside_window": 0
+        },
+        "objective": [
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "420",
+          "0",
+          "0"
+        ],
+        "capacity_valid": true,
+        "computation_complete": true,
+        "executable": true
+      },
+      "reference_kind": "independent feasible witness; upper bound, not global optimality proof",
+      "quality_acceptance": "not_run",
+      "notes": [
+        "Actual rolling window starts 2026-10-19. Prior demand history is retained and excluded explicitly.",
+        "Old baseline coverage stops 2027-01-24. New week cost is zero; it is not an old zero baseline.",
+        "External shared run requires an authorized environment at the frozen production week; no runtime clock bypass is supplied.",
+        "V2 declares the genuine public coverage/cutoff audit before preparation; V1 remains immutable.",
+        "Materialized demands use public model/week ordering; both immutable demand files retain their original row order.",
+        "Known entering Recipes are explicit synthetic observations, never inferred from expired planned work.",
+        "The import asset is the original prior-week first import, not a fresh substitute for the rolled source."
+      ],
+      "prior_source": {
+        "path": "0be3295c67bc3897fea7a085369c46f91fa4a4393d13f2d5b14a0b4f9963eb05.json.gz",
+        "sha256": "0be3295c67bc3897fea7a085369c46f91fa4a4393d13f2d5b14a0b4f9963eb05",
+        "canonical_bytes": 1276556
+      },
+      "demand_file": {
+        "path": "fb21212f59ee103197c7aeba2214207c4b5dea2e8ec5a7344fcb54c81f1d7cf9.json.gz",
+        "sha256": "fb21212f59ee103197c7aeba2214207c4b5dea2e8ec5a7344fcb54c81f1d7cf9",
+        "canonical_bytes": 2162
+      },
+      "preparation": {
+        "path": "6987e456ef7cfa9e573d6d91912a4f30e758fe8e6f590f9253e32bc74938ab8b.json.gz",
+        "sha256": "6987e456ef7cfa9e573d6d91912a4f30e758fe8e6f590f9253e32bc74938ab8b",
+        "canonical_bytes": 4960
+      },
+      "predecessor": {
+        "scenario": "r10-rolling",
+        "manifest_sha256": "33e765b2cc22a28116d0416f04cc05cd628f5239183160be32a143035d29b0f4",
+        "source_sha256": "4f82e39acc0d6d75591963f1311665f35dce639fbde5a680775846716024c1f2",
+        "reference_sha256": "ff4b50fc67825cdfa29e063b51d5be97704adbab88083279d0f1abcd7137e56d",
+        "action_sha256": "2f02638a5867369471ba6402e1ea23733ab4889146e43ad6a981ba5ec6cb8aa8",
+        "import_sha256": "3f928d0e2ba8208ac3554318de8e0ef0a3f0f96aa167b6dfd9072a052a95830e"
+      }
+    },
+    {
+      "id": "r40-rolling-v2",
+      "kind": "rolling",
+      "source": {
+        "path": "5ec94925f6e7f561402ae6354eb9edee86fd22f13dec3b520b845ba031d2895d.json.gz",
+        "sha256": "5ec94925f6e7f561402ae6354eb9edee86fd22f13dec3b520b845ba031d2895d",
+        "canonical_bytes": 2734957
+      },
+      "reference": {
+        "path": "4c318a3eda24d338756a91e4c9970cfb0c423b74cc739d28f7dce0e5b5d6607d.json.gz",
+        "sha256": "4c318a3eda24d338756a91e4c9970cfb0c423b74cc739d28f7dce0e5b5d6607d",
+        "canonical_bytes": 2814197
+      },
+      "action": {
+        "path": "2f02638a5867369471ba6402e1ea23733ab4889146e43ad6a981ba5ec6cb8aa8.json.gz",
+        "sha256": "2f02638a5867369471ba6402e1ea23733ab4889146e43ad6a981ba5ec6cb8aa8",
+        "canonical_bytes": 608
+      },
+      "import": {
+        "path": "9000dad587f346632f80540842647107d7c7e895627d50aaa21d30f177766444.json.gz",
+        "sha256": "9000dad587f346632f80540842647107d7c7e895627d50aaa21d30f177766444",
+        "canonical_bytes": 889043
+      },
+      "scope": {
+        "start_date": "2027-01-25",
+        "end_date": "2027-01-31",
+        "line_codes": [
+          "L00",
+          "L01",
+          "L02",
+          "L03",
+          "L04",
+          "L05",
+          "L06",
+          "L07",
+          "L08",
+          "L09",
+          "L10",
+          "L11",
+          "L12",
+          "L13",
+          "L14",
+          "L15",
+          "L16",
+          "L17"
+        ],
+        "model_codes": [
+          "M00",
+          "M01",
+          "M02",
+          "M03",
+          "M04",
+          "M05",
+          "M06",
+          "M07",
+          "M08",
+          "M09",
+          "M10",
+          "M11",
+          "M12",
+          "M13",
+          "M14",
+          "M15",
+          "M16",
+          "M17",
+          "M18",
+          "M19",
+          "M20",
+          "M21",
+          "M22",
+          "M23",
+          "M24",
+          "M25",
+          "M26",
+          "M27",
+          "M28",
+          "M29",
+          "M30",
+          "M31",
+          "M32",
+          "M33",
+          "M34",
+          "M35",
+          "M36",
+          "M37",
+          "M38",
+          "M39"
+        ]
+      },
+      "tokens": {
+        "source_revision": 1,
+        "input_version": 1,
+        "latest_adoption": 1,
+        "binding": "Logical frozen tokens. Live bindings must be recorded after public preparation; do not silently rewrite a measured run."
+      },
+      "expected": {
+        "totals": {
+          "expected": 420000,
+          "on_time": 420000,
+          "late": 0,
+          "gap": 0,
+          "pending": 0,
+          "unallocated": 0,
+          "outside_window": 0
+        },
+        "objective": [
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "4200",
+          "0",
+          "0"
+        ],
+        "capacity_valid": true,
+        "computation_complete": true,
+        "executable": true
+      },
+      "reference_kind": "independent feasible witness; upper bound, not global optimality proof",
+      "quality_acceptance": "not_run",
+      "notes": [
+        "Actual rolling window starts 2026-10-19. Prior demand history is retained and excluded explicitly.",
+        "Old baseline coverage stops 2027-01-24. New week cost is zero; it is not an old zero baseline.",
+        "External shared run requires an authorized environment at the frozen production week; no runtime clock bypass is supplied.",
+        "V2 declares the genuine public coverage/cutoff audit before preparation; V1 remains immutable.",
+        "Materialized demands use public model/week ordering; both immutable demand files retain their original row order.",
+        "Known entering Recipes are explicit synthetic observations, never inferred from expired planned work.",
+        "The import asset is the original prior-week first import, not a fresh substitute for the rolled source."
+      ],
+      "prior_source": {
+        "path": "1b498f165ece8a6a84838049593db6d0ea2e113816bdb15f532c7f95b719617c.json.gz",
+        "sha256": "1b498f165ece8a6a84838049593db6d0ea2e113816bdb15f532c7f95b719617c",
+        "canonical_bytes": 2805823
+      },
+      "demand_file": {
+        "path": "fb21212f59ee103197c7aeba2214207c4b5dea2e8ec5a7344fcb54c81f1d7cf9.json.gz",
+        "sha256": "fb21212f59ee103197c7aeba2214207c4b5dea2e8ec5a7344fcb54c81f1d7cf9",
+        "canonical_bytes": 2162
+      },
+      "preparation": {
+        "path": "46a582d818a756694f6ca077ad56647ba6765c49cb2b5dd2535ec27acf2eaf7b.json.gz",
+        "sha256": "46a582d818a756694f6ca077ad56647ba6765c49cb2b5dd2535ec27acf2eaf7b",
+        "canonical_bytes": 4961
+      },
+      "predecessor": {
+        "scenario": "r40-rolling",
+        "manifest_sha256": "33e765b2cc22a28116d0416f04cc05cd628f5239183160be32a143035d29b0f4",
+        "source_sha256": "d3ebe486a8744393e986268ace945ca6078421617be9af1090a3e2c95c003503",
+        "reference_sha256": "7e87821c0f50d1c0e334328900c142f50c4cf345756092fe152a2d1b1acc86ad",
+        "action_sha256": "2f02638a5867369471ba6402e1ea23733ab4889146e43ad6a981ba5ec6cb8aa8",
+        "import_sha256": "60f4b0bb944228e882c2e5c1bb322293a1aa95edcdcee81bdf500b38bad5bf68"
+      }
+    }
+  ],
+  "predecessor_manifest_sha256": "33e765b2cc22a28116d0416f04cc05cd628f5239183160be32a143035d29b0f4"
+}
