@@ -40,3 +40,12 @@ AUTO_PLAN_PRIVATE_DRAFT_EDITORS_BROWSER=1 AUTO_PLAN_PRIVATE_DRAFT_FULL_R20=1 AUT
 ```
 
 Its native request retains the frozen90-second action budget and the existing210-second workflow/240-second Node bounds. It requires five actual browser contexts, genuine background edit/undo cycles, full source and revision/adoption closure, original UUID reconciliation, exact received bodies, and owned server/browser/job process cleanup. No full shared-save browser run is qualified by the local controls. Formal acceptance remains `not_run`, with `repeats: []`; source/acknowledgment/restoration closure stays unknown if the workflow is interrupted.
+
+
+The distinct `native-quantity-cp-sat20s-successor` public-job control replaces the constructor-only tiny fixture in the current opt-in test. The earlier two-second hybrid test, execution and missing backend evidence remain sealed under171. The successor uses the existing native quantity business case: empty R0/adoption0, input1, M demand1000 in week2026-10-12, capacity2000, local2026-10-15/L, explicit CP-SAT, standard20-second budget, max1 candidate and one native thread. It requires the exact owned `native_local` result with33 layers, complete raw source/candidate/job/original-UUID replies retained before assertions, independent full public evaluation and all33 objective coordinates, then actual PID/start/group closure. A separate execution grant is required:
+
+```sh
+env -u AUTO_PLAN_TEST_ORACLE -u AUTO_PLAN_ACCEPTANCE_NATIVE_JOB_PROBE AUTO_PLAN_ACCEPTANCE_NATIVE_QUANTITY_PROBE=1 PYTHONPATH=src:. /tmp/auto-plan-spec-23/venv13/bin/python -m pytest -q scripts/acceptance/test_job_lifecycle_native.py::test_native_quantity_public_job_keeps_source_uuid_candidate_and_owned_process --basetemp=/tmp/auto-plan-spec-23/private178/native-quantity-v1
+```
+
+Only local fixture/raw-progress/capture/lifecycle controls have run for this successor. Its real job, native backend and full shared-save browser remain unqualified. A real job may finish early; no pause, padding, retry or unchanged-duration assumption is permitted.

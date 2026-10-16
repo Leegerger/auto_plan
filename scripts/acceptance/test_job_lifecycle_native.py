@@ -1,28 +1,30 @@
-"""One opt-in genuine native job proves observer wiring, never full-load overlap."""
+"""Distinct native-quantity successor;171's two-second hybrid failure stays sealed.
+
+This explicit standard20-second local CP-SAT case follows the existing public
+native quantity business test. It runs only after a separate one-job grant.
+"""
 from datetime import datetime, timezone
 import json
+import hashlib
 import os
 from time import monotonic, sleep
 from uuid import uuid4
 import pytest
-from fastapi.testclient import TestClient
-from auto_plan.app import create_app
-from auto_plan.input_models import InputSnapshot
-from auto_plan.job_process import JobController
-from auto_plan.settings import Settings
-from scripts.acceptance.job_lifecycle_observer import JobLifecycleObserver, ObservedMemoryJobStore, JobObservationRequests, identity
-from tests.input_support import MemoryInputStore
-from tests.plan_support import MemoryPlanStore
-from tests.support import MemoryAccessStore, CompanyAuthentication
-from tests.test_plan_preview import snapshot
+from scripts.acceptance.native_quantity_case import quantity_inputs, quantity_command, native_quantity_stage, quantity_objective, PublicJobProof
 
 
-@pytest.mark.skipif(os.getenv('AUTO_PLAN_ACCEPTANCE_NATIVE_JOB_PROBE') != '1', reason='Explicit one-job functional grant required')
-def test_real_public_native_job_keeps_original_source_uuid_and_process_identity(tmp_path):
+@pytest.mark.skipif(os.getenv('AUTO_PLAN_ACCEPTANCE_NATIVE_QUANTITY_PROBE') != '1', reason='Separate one-job native-quantity grant required')
+def test_native_quantity_public_job_keeps_source_uuid_candidate_and_owned_process(tmp_path):
+    from fastapi.testclient import TestClient
+    from auto_plan.app import create_app
+    from auto_plan.job_process import JobController
+    from auto_plan.settings import Settings
+    from scripts.acceptance.job_lifecycle_observer import JobLifecycleObserver, ObservedMemoryJobStore, JobObservationRequests, identity
+    from tests.input_support import MemoryInputStore
+    from tests.plan_support import MemoryPlanStore
+    from tests.support import MemoryAccessStore, CompanyAuthentication
     inputs = MemoryInputStore()
-    data = InputSnapshot.model_validate(snapshot()['inputs']).model_dump(mode='json')
-    data['business']['demands'] = [{'model_code':'M','week':'2026-10-12','quantity':1}]
-    inputs.versions[1] = InputSnapshot.model_validate(data | {'input_version':1}); inputs.version = 1
+    inputs.versions[1] = quantity_inputs(); inputs.version = 1
     plans, access = MemoryPlanStore(inputs), MemoryAccessStore()
     access.users['EDITOR'] = {'user_id':'EDITOR','roles':['editor'],'active':True}
     observer = JobLifecycleObserver(tmp_path/'job-observations.ndjson')
@@ -31,38 +33,90 @@ def test_real_public_native_job_keeps_original_source_uuid_and_process_identity(
     controller = JobController(store, workers=1, clock=clock, process_factory=observer.process)
     app = create_app(Settings(public_origin='https://testserver'), store=access, input_store=inputs,
         plan_store=plans, job_store=store, job_controller=controller, authenticator=CompanyAuthentication(), clock=clock)
-    with TestClient(JobObservationRequests(app), base_url='https://testserver') as client:
-        client.headers.update({'Origin':'https://testserver','X-Auto-Plan-Request':'1'})
-        assert client.post('/auto_plan/api/auth/login',json={'username':'EDITOR','password':'company-secret'}).status_code == 200
-        before = client.get('/auto_plan/api/jobs/source').json()
-        command = {'submission_id':str(uuid4()), 'base_revision':0,'input_version':1,'latest_adoption':0,'reviewed_as_of':before['snapshot']['time']['as_of'],
-            'request':{'scope':{'start_date':'2026-10-15','end_date':'2026-10-15','line_codes':['L']},'strategy':'hybrid','time_limit_seconds':2,'max_candidates':1,'native_threads':1}}
-        response = client.post('/auto_plan/api/jobs',json=command); assert response.status_code == 200, response.text
-        accepted = response.json(); job_id = accepted['job_id']
-        assert client.post('/auto_plan/api/jobs/verify',json={'submission_id':command['submission_id']}).json() == accepted
-        deadline = monotonic()+25
-        reads = []
-        while monotonic()<deadline:
-            nonce = str(uuid4())
-            response = client.get('/auto_plan/api/jobs/'+job_id,headers={'X-Auto-Plan-Test-Job-Observation':nonce})
+    proof = PublicJobProof(tmp_path/'public')
+    try:
+        with TestClient(JobObservationRequests(app), base_url='https://testserver') as client:
+            client.headers.update({'Origin':'https://testserver','X-Auto-Plan-Request':'1'})
+            # No credentials, cookies or authentication body enter the proof files.
+            assert client.post('/auto_plan/api/auth/login',json={'username':'EDITOR','password':'company-secret'}).status_code == 200
+            response = client.get('/auto_plan/api/jobs/source')
+            before = proof.capture('source-before', response)
             assert response.status_code == 200
-            last = response.json(); reads.append({'nonce':nonce,'body':last})
-            if last['state'] not in ('queued','running'): break
-            sleep(.05)
-        assert last['state'] == 'completed' and last['candidates'], last
-        candidate = client.get('/auto_plan/api/jobs/'+job_id+'/candidates/'+last['candidates'][0]['candidate_id']).json()['candidate']
-        assert candidate['snapshot'] == before['snapshot'] and candidate['source_revision'] == 0
-        assert candidate['evaluation']['capacity_valid'] and candidate['evaluation']['computation_complete']
-        assert client.get('/auto_plan/api/jobs/source').json() == before
-        assert plans.revision == plans.adoption == 0 and inputs.version == 1
-        assert client.post('/auto_plan/api/jobs/verify',json={'submission_id':command['submission_id']}).json() == accepted
-    records = [json.loads(line) for line in observer.path.read_text().splitlines()]
+            assert (before['source_revision'],before['input_version'],before['latest_adoption']) == (0,1,0)
+            assert before['snapshot']['inputs'] == quantity_inputs().model_dump(mode='json')
+            assert before['snapshot']['plan']['segments'] == before['snapshot']['plan']['switches'] == []
+            command = quantity_command(before, str(uuid4()))
+            (tmp_path/'submitted-command.json').write_text(json.dumps(command,indent=2)+'\n')
+            response = client.post('/auto_plan/api/jobs',json=command)
+            accepted = proof.capture('submitted', response, command)
+            assert response.status_code == 200, response.text
+            job_id = accepted['job_id']
+            verify = {'submission_id':command['submission_id']}
+            response = client.post('/auto_plan/api/jobs/verify',json=verify)
+            verified = proof.capture('verified-before', response, verify)
+            assert response.status_code == 200 and verified == accepted
+            deadline, reads = monotonic()+45, []
+            while monotonic()<deadline:
+                nonce = str(uuid4())
+                response = client.get('/auto_plan/api/jobs/'+job_id,headers={'X-Auto-Plan-Test-Job-Observation':nonce})
+                last = proof.capture('job-read', response)
+                reads.append({'nonce':nonce,'body':last})
+                with (tmp_path/'read-correlations.ndjson').open('a') as stream:
+                    stream.write(json.dumps(reads[-1])+'\n')
+                assert response.status_code == 200
+                if last['state'] not in ('queued','running'): break
+                sleep(.05)
+            assert last['state'] == 'completed' and last['candidates'], last
+            response = client.get('/auto_plan/api/jobs/'+job_id+'/candidates/'+last['candidates'][0]['candidate_id'])
+            offered = proof.capture('candidate', response)
+            assert response.status_code == 200
+            candidate = offered['candidate']
+            evaluation_command = {'snapshot': {**candidate['snapshot'], 'plan': candidate['plan']}}
+            response = client.post('/auto_plan/api/plans/evaluate', json=evaluation_command)
+            independently_evaluated = proof.capture('candidate-evaluated', response, evaluation_command)
+            assert response.status_code == 200
+            response = client.get('/auto_plan/api/jobs/source')
+            after = proof.capture('source-after', response)
+            response = client.post('/auto_plan/api/jobs/verify',json=verify)
+            verified_after = proof.capture('verified-after', response, verify)
+            # Complete bodies above are retained before these business assertions.
+            assert candidate['snapshot'] == before['snapshot']
+            assert (candidate['source_revision'],candidate['input_version'],candidate['latest_adoption']) == (0,1,0)
+            assert candidate['request'] == command['request']
+            assert candidate['eligibility'] == 'executable'
+            for key in ['capacity_valid','computation_complete','executable']:
+                assert candidate['evaluation'][key] is True
+            assert candidate['evaluation'] == independently_evaluated
+            assert candidate['objective'] == quantity_objective(independently_evaluated, before['snapshot']['time']['window_start'])
+            assert candidate['objective'][:30] == ['0']*30
+            for key, expected in {'expected':1000,'on_time':1000,'gap':0,'late':0,'pending':0,'unallocated':0,'outside_window':0}.items():
+                assert independently_evaluated['output_totals'][key] == expected
+            assert after == before and plans.revision == plans.adoption == 0 and inputs.version == 1
+            assert verified_after == accepted
+    finally:
+        records = [json.loads(line) for line in observer.path.read_text().splitlines()]
+        owned = []
+        for process, record in observer.processes.values():
+            try:
+                os.killpg(record['pgid'],0)
+                group_closed = False
+            except ProcessLookupError:
+                group_closed = True
+            except OSError:
+                group_closed = None  # Unknown cleanup must not mask the original failure.
+            owned.append({**record,'actual_identity':identity(record['pid']),'returncode':process.child.poll(),'group_closed':group_closed})
+        cleanup = {'owned':owned,'all_closed':bool(owned) and all(row['actual_identity'] is None and row['returncode'] is not None and row['group_closed'] for row in owned),'acceptance':'not_run','repeats':[]}
+        (tmp_path/'cleanup.json').write_text(json.dumps(cleanup,indent=2)+'\n')
     spawned = [row for row in records if row['kind']=='spawned']
     assert len(spawned)==1 and spawned[0]['job_id']==job_id and spawned[0]['native_threads']==1
+    frozen = {'snapshot':before['snapshot'],'source_revision':0,'input_version':1,'latest_adoption':0,'request':command['request']}
+    digest = hashlib.sha256(json.dumps(frozen,sort_keys=True,separators=(',',':'),ensure_ascii=False).encode()).hexdigest()
+    assert spawned[0]['frozen_sha256'] == digest
+    assert (spawned[0]['source_revision'],spawned[0]['input_version'],spawned[0]['latest_adoption']) == (0,1,0)
     living = [row for row in records if row['kind']=='read' and row.get('process_alive')]
     assert living and all(row['pid']==spawned[0]['pid'] and row['start']==spawned[0]['start'] for row in living)
     assert any(row.get('nonce') in {read['nonce'] for read in reads} for row in living)
-    assert identity(spawned[0]['pid']) is None
-    assert all(process.child.poll() is not None for process,_ in observer.processes.values())
-    (tmp_path/'job-proof.json').write_text(json.dumps({'status':'job_observer_pass_backend_unqualified','kind':'small real public ComputeProcess-job functional only','accepted':accepted,'submission':command,'source':before,'reads':reads,'candidate':candidate,'owned_process_closed':True,'acceptance':'not_run','repeats':[]},indent=2)+'\n')
-    assert any(row['kind']=='progress' and row.get('route') in ('cp_sat','highs') for row in records), 'Job proof is retained separately; native-backend phase remains unqualified.'
+    assert cleanup['all_closed']
+    stage = native_quantity_stage(records, spawned[0])
+    assert 'Optimal' in stage['detail'] or 'OPTIMAL' in stage['detail']
+    (tmp_path/'result.json').write_text(json.dumps({'status':'pass','case':'native-quantity-cp-sat20s-successor','accepted':accepted,'submission':command,'source':before,'reads':reads,'candidate':candidate,'native_stage':stage,'cleanup':cleanup,'acceptance':'not_run','repeats':[]},indent=2)+'\n')
