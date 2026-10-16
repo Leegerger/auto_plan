@@ -49,22 +49,26 @@ def application(fixtures, scenario_id, port):
     from auto_plan.job_process import JobController
     from tests.input_support import MemoryInputStore
     from tests.jobs_support import MemoryJobStore
+    from tests.demand_support import MemoryDemandStore
     from tests.support import MemoryAccessStore, CompanyAuthentication
     scenario = next(row for row in json.loads((fixtures / 'manifest.json').read_text())['scenarios'] if row['id'] == scenario_id)
     source = load(fixtures, scenario['source'])
+    empty = scenario.get('adapter_preparation') == {'kind': 'never_initialized_inputs'}
     inputs, access = MemoryInputStore(), MemoryAccessStore()
-    inputs.versions[1] = InputSnapshot.model_validate(source['inputs']); inputs.version = 1
+    maintained = deepcopy(source['inputs'])
+    if empty:
+        maintained['business']['demands'] = []
+    inputs.versions[1] = InputSnapshot.model_validate(maintained); inputs.version = 1
     plans = BrowserPlanStore(inputs)
-    plans.plan = Plan.model_validate(source['plan'])
-    plans.context = PlanningContext(execution=source['execution'], reset=source['reset'], locks=source['locks'], coverage=source['baseline']['coverage'])
-    plans.revision = plans.adoption = 1
-    plans.revisions[1] = {'snapshot': deepcopy(source), 'coverage': source['baseline']['coverage'], 'lineage': {}, 'operations': [], 'effects': [],
-                          'pending': False, 'kind': 'adopt', 'actor': 'ACCEPTANCE0', 'revision': 1, 'recorded_at': source['time']['as_of']}
-    # Supply the same complete stored-history shape as the public Oracle flow.
-    # Independent expected values remain frozen by the stdlib-only generator.
-    plans.revisions[1].update(input_version=1,latest_adoption=1,
-        evaluation=evaluate(EvaluationSnapshot.model_validate(source)).model_dump(mode='json'))
-    plans.adoptions[1] = deepcopy(plans.revisions[1])
+    if not empty:
+        plans.plan = Plan.model_validate(source['plan'])
+        plans.context = PlanningContext(execution=source['execution'], reset=source['reset'], locks=source['locks'], coverage=source['baseline']['coverage'])
+        plans.revision = plans.adoption = 1
+        plans.revisions[1] = {'snapshot': deepcopy(source), 'coverage': source['baseline']['coverage'], 'lineage': {}, 'operations': [], 'effects': [],
+                              'pending': False, 'kind': 'adopt', 'actor': 'ACCEPTANCE0', 'revision': 1, 'recorded_at': source['time']['as_of']}
+        plans.revisions[1].update(input_version=1,latest_adoption=1,
+            evaluation=evaluate(EvaluationSnapshot.model_validate(source)).model_dump(mode='json'))
+        plans.adoptions[1] = deepcopy(plans.revisions[1])
     for number in range(5):
         name = f'ACCEPTANCE{number}'
         access.users[name] = {'user_id': name, 'roles': ['editor'], 'active': True}
@@ -76,7 +80,8 @@ def application(fixtures, scenario_id, port):
     jobs = MemoryJobStore(plans, access)
     controller = JobController(jobs, workers=1, clock=clock)
     return create_app(Settings(public_origin=f'https://localhost:{port}', base_path='/planning', frontend_dist=ROOT / 'frontend/dist'),
-        store=access, input_store=inputs, plan_store=plans, authenticator=CompanyAuthentication(), clock=clock,
+        store=access, input_store=inputs, plan_store=plans, demand_store=MemoryDemandStore(plans) if empty else None,
+        authenticator=CompanyAuthentication(), clock=clock,
         job_store=jobs, job_controller=controller)
 
 
