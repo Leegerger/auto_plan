@@ -11,6 +11,7 @@ import { performance } from 'node:perf_hooks'
 import { prepareWeekNavigation, navigateWeek, prepareDayNavigation, navigateDay, assertSelected, unselectSegment } from './navigation.mjs'
 import { canonical, assertPlan, assertState, manualRows, scopeFor, assertManualRequest, assertManualPlan, assertManualEvaluation, failEntry, terminal } from './contracts.mjs'
 import { inputEditorLoop } from './input-editors.mjs'
+import { assertSmallPrivateEpochResult } from './private-shared-epoch.mjs'
 import { captureExpectedState } from './expected-source.mjs'
 import { inputContentDigest, resolveInputCompanion } from './input-load.mjs'
 
@@ -125,7 +126,7 @@ if (mode !== 'solo' && !localWorkload) {
   writeFileSync(resolve(output, 'input-companion.json'), bytes)
   mkdirSync(resolve(output, 'input-bodies'))
 }
-const helperFiles = ['frontend/tests/acceptance/expected-source.mjs', 'scripts/acceptance/materialize_source.py', 'frontend/tests/acceptance/navigation.mjs', 'frontend/tests/acceptance/contracts.mjs', 'frontend/tests/acceptance/input-load.mjs', 'frontend/tests/acceptance/input-editors.mjs', 'scripts/acceptance/check_result.py', 'scripts/acceptance/input_companion.py', 'scripts/acceptance/assertions.py', 'scripts/acceptance/compare.py', 'scripts/acceptance/workbook.py']
+const helperFiles = ['frontend/tests/acceptance/private-shared-epoch.mjs', 'frontend/tests/acceptance/expected-source.mjs', 'scripts/acceptance/materialize_source.py', 'frontend/tests/acceptance/navigation.mjs', 'frontend/tests/acceptance/contracts.mjs', 'frontend/tests/acceptance/input-load.mjs', 'frontend/tests/acceptance/input-editors.mjs', 'scripts/acceptance/check_result.py', 'scripts/acceptance/input_companion.py', 'scripts/acceptance/assertions.py', 'scripts/acceptance/compare.py', 'scripts/acceptance/workbook.py']
 const requiredEnvironment = ['image_digest', 'source_commit', 'migration_versions', 'python', 'native_libraries', 'server_hardware', 'client_hardware', 'cgroup_cpu_max', 'cgroup_memory_max', 'solver_threads', 'worker_count', 'oracle_pool_maximum', 'oracle_pool_observed_usage', 'network_proxy_path', 'peak_cpu_memory']
 const missingEnvironment = requiredEnvironment.filter(key => config.environment?.[key] === null || config.environment?.[key] === undefined || config.environment[key] === '')
 const evidence = { schema_version: localWorkload ? 4 : inputCompanion ? 3 : 2, kind: localEditingProbe ? 'public browser private-draft correctness probe; no timed acceptance' : editingProbe ? 'public browser input-editing correctness probe; no timed acceptance' : config.target.kind === 'adapter' ? 'external browser with explicit test adapters' : 'external browser to operator-attested disposable PLAN_TEST',
@@ -461,20 +462,9 @@ function privateEpochPlan(revision) {
   return privateEpochs.get(revision)
 }
 function assertPrivateEpochResult(result) {
-  assert.deepEqual(canonical(result.snapshot), canonical({ ...initialState.snapshot, plan: result.plan }), 'A private preview changed its complete frozen inputs/context/baseline.')
-  const changed = source.plan.segments.filter(row => result.plan.segments.find(item => item.id === row.id)?.quantity !== row.quantity)
-  assert.ok(changed.every(row => ['S-2027-01-24-M00', 'S-2027-01-24-M02'].includes(row.id)))
-  const gap = changed.length
-  for (const [key, value] of Object.entries({ expected: 52500-gap, on_time: 52500-gap, late: 0, gap, pending: 0, unallocated: 0, outside_window: 0 })) assert.equal(result.evaluation.output_totals[key], value)
-  assert.ok(result.evaluation.capacity_valid && result.evaluation.computation_complete && result.evaluation.executable)
-  assert.equal(result.evaluation.weekly_results.length, 75)
-  assert.equal(new Set(result.evaluation.weekly_results.map(row => row.model_code+':'+row.week)).size, 75)
-  for (const row of result.evaluation.weekly_results) {
-    const affected = row.week === '2027-01-18' && changed.some(item => item.model_code === row.model_code)
-    assert.equal(row.demand, 700); assert.equal(row.on_time, affected ? 699 : 700); assert.equal(row.gap, affected ? 1 : 0)
-    assert.equal(row.late, 0); assert.equal(row.pending, 0)
-  }
+  return assertSmallPrivateEpochResult(result, initialState, source)
 }
+
 async function privateSharedSaveContract(before, job, observe) {
   const page = pages[0], target = localWorkload.targets.find(row => row.editor === 0)
   const row = source.plan.segments.find(row => row.id === target.segment_id)
