@@ -107,7 +107,10 @@ class OutputReuse:
         # Validate every derived field once, including model_copy updates.
         # No input DTO, mutable result or parallel byte payload is retained.
         try:
-            raw = _part.dump_json(part)
+            # JSON serializers can turn an invalid copied bool quantity into
+            # an integer. Validate original Python field types before encoding.
+            checked = _part.validate_python(_part.dump_python(part, mode='python'))
+            raw = _part.dump_json(checked)
             if len(raw) > min(self.max_bytes, self.max_entry_bytes):
                 return None
             checked = _part.validate_json(raw)
