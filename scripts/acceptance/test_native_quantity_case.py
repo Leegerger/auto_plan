@@ -71,7 +71,7 @@ def test_pre_spawn_cleanup_preserves_original_api_or_parse_error_and_raw_proof(t
     assert row['status'] == status
     records, cleanup = closure[0]
     assert records == [] and cleanup['ledger_status'] == ('absent' if ledger_bytes is None else 'unreadable')
-    assert cleanup['job_acquired'] is False and cleanup['all_closed'] is None
+    assert cleanup['job_acquired'] is (False if ledger_bytes is None else None) and cleanup['all_closed'] is None
 
 
 def test_actual_recorded_owner_requires_physical_closure_and_early_unknown_is_not_no_job(tmp_path, monkeypatch):
@@ -95,3 +95,51 @@ def test_actual_recorded_owner_requires_physical_closure_and_early_unknown_is_no
     monkeypatch.setattr(case.os,'killpg',gone)
     _, cleanup = collect_job_cleanup(observer)
     assert cleanup['all_closed'] is True
+
+
+@pytest.mark.parametrize('ledger_bytes',[b'null\n',b'[]\n',b'"text"\n',b'1\n',b'{}\n',b'{"kind": []}\n'])
+def test_nonrecord_ledger_preserves_source_error_and_reports_unknown(tmp_path,ledger_bytes):
+    observer=SimpleNamespace(path=tmp_path/'ledger.ndjson',processes={})
+    observer.path.write_bytes(ledger_bytes)
+    original=AssertionError('ORIGINAL_SOURCE_503')
+    closure=[]
+    with pytest.raises(AssertionError,match='ORIGINAL_SOURCE_503') as caught:
+        try:
+            raise original
+        finally:
+            closure.append(collect_job_cleanup(observer))
+    assert caught.value is original
+    records,cleanup=closure[0]
+    assert records==[] and cleanup['ledger_status']=='unreadable'
+    assert cleanup['job_acquired'] is None and cleanup['all_closed'] is None
+
+
+@pytest.mark.parametrize('bad_tail',[b'null\n',b'{malformed\n'])
+def test_unreadable_tail_never_loses_known_spawn_unknown_prefix(tmp_path,bad_tail):
+    observer=SimpleNamespace(path=tmp_path/'ledger.ndjson',processes={})
+    observer.path.write_bytes(b'{"kind":"spawn_unknown"}\n'+bad_tail)
+    records,cleanup=collect_job_cleanup(observer)
+    assert records==[] and cleanup['ledger_status']=='unreadable'
+    assert cleanup['job_acquired'] is True and cleanup['all_closed'] is None
+
+
+def test_complete_normal_ledger_is_returned_exactly(tmp_path):
+    observer=SimpleNamespace(path=tmp_path/'ledger.ndjson',processes={})
+    expected=[{'kind':'read','nonce':'ORIGINAL','process_alive':False},{'kind':'progress','stage':'ORIGINAL'}]
+    observer.path.write_text(''.join(json.dumps(row)+'\n' for row in expected))
+    records,cleanup=collect_job_cleanup(observer)
+    assert records==expected and cleanup['ledger_status']=='complete'
+    assert cleanup['job_acquired'] is False and cleanup['all_closed'] is None
+
+
+def test_unknown_record_kind_and_malformed_ledger_keep_owned_acquisition(tmp_path,monkeypatch):
+    import scripts.acceptance.job_lifecycle_observer as lifecycle
+    import scripts.acceptance.native_quantity_case as case
+    owner={'pid':123,'start':'456','pgid':123}
+    observer=SimpleNamespace(path=tmp_path/'ledger.ndjson',processes={'J':(SimpleNamespace(child=SimpleNamespace(poll=lambda:None)),owner)})
+    observer.path.write_text('{"kind":"UNRECOGNIZED"}\n')
+    monkeypatch.setattr(lifecycle,'identity',lambda pid:owner)
+    monkeypatch.setattr(case.os,'killpg',lambda pgid,sig:None)
+    records,cleanup=collect_job_cleanup(observer)
+    assert records==[] and cleanup['ledger_status']=='unreadable'
+    assert cleanup['job_acquired'] is True and cleanup['all_closed'] is False

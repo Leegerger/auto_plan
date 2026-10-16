@@ -78,8 +78,14 @@ class PublicJobProof:
 
 def collect_job_cleanup(observer):
     from scripts.acceptance.job_lifecycle_observer import identity
+    records, recorded_acquisition = [], False
     try:
-        records = [json.loads(line) for line in observer.path.read_text().splitlines()]
+        for line in observer.path.read_text().splitlines():
+            row = json.loads(line)
+            if type(row) is not dict or type(row.get('kind')) is not str or row['kind'] not in ('spawned', 'spawn_unknown', 'read', 'progress'):
+                raise ValueError('Invalid ownership ledger record')
+            recorded_acquisition = recorded_acquisition or row['kind'] in ('spawned', 'spawn_unknown')
+            records.append(row)
         ledger_status = 'complete'
     except FileNotFoundError:
         records, ledger_status = [], 'absent'
@@ -95,5 +101,5 @@ def collect_job_cleanup(observer):
         except OSError:
             group_closed = None
         owned.append({**record, 'actual_identity': identity(record['pid']), 'returncode': process.child.poll(), 'group_closed': group_closed})
-    return records, {'ledger_status':ledger_status, 'job_acquired':bool(owned) or any(row.get('kind') in {'spawned','spawn_unknown'} for row in records), 'owned':owned,
+    return records, {'ledger_status':ledger_status, 'job_acquired':True if owned or recorded_acquisition else (None if ledger_status == 'unreadable' else False), 'owned':owned,
         'all_closed':None if not owned else all(row['actual_identity'] is None and row['returncode'] is not None and row['group_closed'] for row in owned), 'acceptance':'not_run', 'repeats':[]}
