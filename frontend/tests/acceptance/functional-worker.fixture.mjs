@@ -11,10 +11,10 @@ writeFileSync(resolve(output,'rescue.json'),JSON.stringify([{pid:process.pid,sta
 if(options.malformedOwned)setTimeout(()=>writeFileSync(resolve(output,'owned-processes.json'),'{'),100)
 const proof={commits:[1,2,3,4].map(editor=>({editor,input_version:editor+1})),evaluation:{status:200,artifact:{sha256:'a'.repeat(64)}}}
 const budget=functionalBudget({output,limits:options.workerLimits??options.limits,onTimeout:phase=>writeFileSync(resolve(output,'worker-timeout.json'),JSON.stringify({phase,source_closure:'unconfirmed',input_acknowledgments:'unconfirmed',restoration:'unconfirmed'}))})
-if(options.fastExit){if(!options.omitReady)budget.ready(proof);await delay(options.action??0);process.exit(0)}
+if(options.fastExit){if(!options.omitReady)budget.ready(proof);await delay(options.action??0);if(!options.omitReady)budget.complete();process.exit(0)}
 try{
   const run=async()=>{if(options.block==='setup')await new Promise(()=>{});await delay(options.setup);budget.ready(proof);if(options.corrupt){const file=resolve(output,'functional-phase.json'),value=JSON.parse(readFileSync(file));if(options.corrupt==='duplicate')value.sequence=2;else if(options.corrupt==='attempt')value.attempt='wrong';else if(options.corrupt==='owner')value.start='wrong';else if(options.corrupt==='late')value.ready_epoch_ms-=10000;if(options.corrupt==='missing')unlinkSync(file);else writeFileSync(file,options.corrupt==='malformed'?'{':JSON.stringify(value));await new Promise(()=>{})}if(options.block==='action')await new Promise(()=>{});await delay(options.action);writeFileSync(resolve(output,'completed.json'),JSON.stringify({status:'functional_complete'}))}
   if(options.hardBlock){await delay(options.setup);if(options.block!=='setup')budget.ready(proof);Atomics.wait(new Int32Array(new SharedArrayBuffer(4)),0,0)}
-  else await Promise.race([run(),budget.failure])
+  else {await Promise.race([run(),budget.failure]);budget.complete();if(options.blockCleanup)Atomics.wait(new Int32Array(new SharedArrayBuffer(4)),0,0);await delay(options.cleanup??0)}
 }catch{process.exitCode=1}
 finally{budget.close();process.kill(resource.pid,'SIGTERM');await new Promise(done=>resource.once('exit',done))}

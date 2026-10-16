@@ -99,7 +99,25 @@ test('fast successful exit cleans a registered detached child and preserves unre
 for(const mode of ['omitReady','overAction'])test('fast success cannot bypass '+mode+' phase validation',{timeout:10000},async()=>{
   const output=mkdtempSync(resolve(tmpdir(),'auto-plan-functional-fast-phase-'))
   const bound={setup_ms:4000,action_ms:500,cleanup_ms:1000,absolute_ms:6000}
-  await assert.rejects(guardFunctionalWorker({script,output,cwd:directory,limits:bound,poll_ms:1500,args:[JSON.stringify({limits:bound,workerLimits:{...bound,action_ms:5000},fastExit:true,omitReady:mode==='omitReady',action:mode==='overAction'?750:0})]}),/readiness|action guardian deadline/)
+  await assert.rejects(guardFunctionalWorker({script,output,cwd:directory,limits:bound,poll_ms:1500,args:[JSON.stringify({limits:bound,workerLimits:{...bound,action_ms:5000},fastExit:true,omitReady:mode==='omitReady',action:mode==='overAction'?750:0})]}),/readiness|action guardian deadline|settlement/)
   const cleanup=JSON.parse(readFileSync(resolve(output,'controller-cleanup.json')))
   assert.equal(cleanup.worker_exited,true);assert.deepEqual(cleanup.remaining_live,[])
+})
+
+
+test('successful workflow settlement preserves the separate cleanup budget',{timeout:10000},async()=>{
+  const output=mkdtempSync(resolve(tmpdir(),'auto-plan-functional-cleanup-'))
+  const bound={setup_ms:1500,action_ms:500,cleanup_ms:1500,absolute_ms:3500}
+  const result=await guardFunctionalWorker({script,output,cwd:directory,limits:bound,poll_ms:1200,args:[JSON.stringify({limits:bound,setup:50,action:50,cleanup:800})]})
+  assert.equal(result.code,0)
+  const cleanup=JSON.parse(readFileSync(resolve(output,'controller-cleanup.json')))
+  assert.equal(cleanup.phase,'cleanup');assert.ok(cleanup.settled_epoch_ms>=cleanup.ready_epoch_ms);assert.deepEqual(cleanup.remaining_live,[])
+})
+
+test('blocked cleanup cannot extend the separate teardown budget',{timeout:10000},async()=>{
+  const output=mkdtempSync(resolve(tmpdir(),'auto-plan-functional-cleanup-blocked-'))
+  const bound={setup_ms:2000,action_ms:1000,cleanup_ms:1000,absolute_ms:4000}
+  await assert.rejects(guardFunctionalWorker({script,output,cwd:directory,limits:bound,args:[JSON.stringify({limits:bound,setup:50,action:50,blockCleanup:true})]}),/cleanup guardian deadline/)
+  const cleanup=JSON.parse(readFileSync(resolve(output,'controller-cleanup.json')))
+  assert.equal(cleanup.phase,'cleanup');assert.deepEqual(cleanup.remaining_live,[])
 })

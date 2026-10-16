@@ -80,6 +80,7 @@ async function main() {
       })()
       operation.catch(()=>{})
       await Promise.race([operation,budget.failure])
+      budget.complete()
     } catch(error) {report.status='fail';report.failure=String(error.message).split('\n')[0];throw error}
     finally {
       budget.close()
