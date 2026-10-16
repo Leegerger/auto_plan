@@ -49,3 +49,7 @@ env -u AUTO_PLAN_TEST_ORACLE -u AUTO_PLAN_ACCEPTANCE_NATIVE_JOB_PROBE AUTO_PLAN_
 ```
 
 Only local fixture/raw-progress/capture/lifecycle controls have run for this successor. Its real job, native backend and full shared-save browser remain unqualified. A real job may finish early; no pause, padding, retry or unchanged-duration assumption is permitted.
+
+The full shared-save correctness probe adds primitive `observation` records for existing post-S0 UI waits, API headers/body consumption, parsing, comparisons, captures and restoration. They use the Node monotonic clock and retain method/path where available; they do not identify a server request or compare browser and Node clocks. A pending phase has no completion event. Unknown thenables are forwarded without an invented completion. Existing report persistence points publish these fields; no additional body read, HTTP call, persistence, wait, retry or business-clock change is introduced.
+
+The original primary error is latched before awaited cleanup begins. Cleanup errors and observation failures have separate diagnostics; neither replaces that original error object. If observation publication fails, its evidence can remain unknown. Resource reaping still does not establish source restoration. Other probe modes keep their existing behavior. These fields cannot reconstruct the missing primary error or readback phases from the failed193 run, and they provide no timing or full-workflow acceptance by themselves.
