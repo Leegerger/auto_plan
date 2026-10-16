@@ -10,7 +10,7 @@ import os
 from time import monotonic, sleep
 from uuid import uuid4
 import pytest
-from scripts.acceptance.native_quantity_case import quantity_inputs, quantity_command, native_quantity_stage, quantity_objective, PublicJobProof
+from scripts.acceptance.native_quantity_case import quantity_inputs, quantity_command, native_quantity_stage, quantity_objective, PublicJobProof, collect_job_cleanup
 
 
 @pytest.mark.skipif(os.getenv('AUTO_PLAN_ACCEPTANCE_NATIVE_QUANTITY_PROBE') != '1', reason='Separate one-job native-quantity grant required')
@@ -19,7 +19,7 @@ def test_native_quantity_public_job_keeps_source_uuid_candidate_and_owned_proces
     from auto_plan.app import create_app
     from auto_plan.job_process import JobController
     from auto_plan.settings import Settings
-    from scripts.acceptance.job_lifecycle_observer import JobLifecycleObserver, ObservedMemoryJobStore, JobObservationRequests, identity
+    from scripts.acceptance.job_lifecycle_observer import JobLifecycleObserver, ObservedMemoryJobStore, JobObservationRequests
     from tests.input_support import MemoryInputStore
     from tests.plan_support import MemoryPlanStore
     from tests.support import MemoryAccessStore, CompanyAuthentication
@@ -97,18 +97,7 @@ def test_native_quantity_public_job_keeps_source_uuid_candidate_and_owned_proces
             assert after == before and plans.revision == plans.adoption == 0 and inputs.version == 1
             assert verified_after == accepted
     finally:
-        records = [json.loads(line) for line in observer.path.read_text().splitlines()]
-        owned = []
-        for process, record in observer.processes.values():
-            try:
-                os.killpg(record['pgid'],0)
-                group_closed = False
-            except ProcessLookupError:
-                group_closed = True
-            except OSError:
-                group_closed = None  # Unknown cleanup must not mask the original failure.
-            owned.append({**record,'actual_identity':identity(record['pid']),'returncode':process.child.poll(),'group_closed':group_closed})
-        cleanup = {'owned':owned,'all_closed':bool(owned) and all(row['actual_identity'] is None and row['returncode'] is not None and row['group_closed'] for row in owned),'acceptance':'not_run','repeats':[]}
+        records, cleanup = collect_job_cleanup(observer)
         (tmp_path/'cleanup.json').write_text(json.dumps(cleanup,indent=2)+'\n')
     spawned = [row for row in records if row['kind']=='spawned']
     assert len(spawned)==1 and spawned[0]['job_id']==job_id and spawned[0]['native_threads']==1
@@ -119,7 +108,7 @@ def test_native_quantity_public_job_keeps_source_uuid_candidate_and_owned_proces
     living = [row for row in records if row['kind']=='read' and row.get('process_alive')]
     assert living and all(row['pid']==spawned[0]['pid'] and row['start']==spawned[0]['start'] for row in living)
     assert any(row.get('nonce') in {read['nonce'] for read in reads} for row in living)
-    assert cleanup['all_closed']
+    assert cleanup['ledger_status'] == 'complete' and cleanup['job_acquired'] is True and cleanup['all_closed'] is True
     stage = native_quantity_stage(records, spawned[0])
     assert 'Optimal' in stage['detail'] or 'OPTIMAL' in stage['detail']
     (tmp_path/'result.json').write_text(json.dumps({'status':'pass','case':'native-quantity-cp-sat20s-successor','accepted':accepted,'submission':command,'source':before,'reads':reads,'candidate':candidate,'native_stage':stage,'cleanup':cleanup,'acceptance':'not_run','repeats':[]},indent=2)+'\n')

@@ -3,7 +3,7 @@ import hashlib
 import json
 from types import SimpleNamespace
 import pytest
-from scripts.acceptance.native_quantity_case import quantity_inputs, quantity_command, native_quantity_stage, quantity_objective, PublicJobProof
+from scripts.acceptance.native_quantity_case import quantity_inputs, quantity_command, native_quantity_stage, quantity_objective, PublicJobProof, collect_job_cleanup
 
 
 def test_literal_source_and_command_match_existing_native_quantity_business_case():
@@ -44,3 +44,54 @@ def test_single_demand_week_still_has_all_fifteen_objective_coordinates():
     expected[0] = expected[15] = '2'
     expected[30:] = ['3','5/2','1']
     assert quantity_objective(evaluation, '2026-10-12') == expected
+
+
+@pytest.mark.parametrize('ledger_bytes', [None, b'{malformed ledger\n'])
+@pytest.mark.parametrize('raw,status,error_type', [(b'{"detail":"source unavailable"}',503,AssertionError), (b'{malformed source',200,json.JSONDecodeError)])
+def test_pre_spawn_cleanup_preserves_original_api_or_parse_error_and_raw_proof(tmp_path, raw, status, error_type, ledger_bytes):
+    proof = PublicJobProof(tmp_path/'raw')
+    observer = SimpleNamespace(path=tmp_path/'no-pre-spawn-ledger.ndjson', processes={})
+    if ledger_bytes is not None:
+        observer.path.write_bytes(ledger_bytes)
+    original, closure = [], []
+    def before_claim():
+        try:
+            proof.capture('source-before',SimpleNamespace(content=raw,status_code=status))
+            assert status == 200, 'original source503'
+        except BaseException as error:
+            original.append(error)
+            raise
+        finally:
+            closure.append(collect_job_cleanup(observer))
+    with pytest.raises(error_type) as caught:
+        before_claim()
+    assert caught.value is original[0]
+    row = json.loads((proof.directory/'index.ndjson').read_text())
+    assert (proof.directory/row['body']['path']).read_bytes() == raw
+    assert row['status'] == status
+    records, cleanup = closure[0]
+    assert records == [] and cleanup['ledger_status'] == ('absent' if ledger_bytes is None else 'unreadable')
+    assert cleanup['job_acquired'] is False and cleanup['all_closed'] is None
+
+
+def test_actual_recorded_owner_requires_physical_closure_and_early_unknown_is_not_no_job(tmp_path, monkeypatch):
+    import scripts.acceptance.job_lifecycle_observer as lifecycle
+    import scripts.acceptance.native_quantity_case as case
+    observer = SimpleNamespace(path=tmp_path/'ledger.ndjson',processes={})
+    observer.path.write_text('{"kind":"spawn_unknown"}\n')
+    records, cleanup = collect_job_cleanup(observer)
+    assert cleanup['job_acquired'] is True and cleanup['all_closed'] is None
+    owner = {'pid':123,'start':'456','pgid':123}
+    observer.processes = {'J':(SimpleNamespace(child=SimpleNamespace(poll=lambda:None)),owner)}
+    monkeypatch.setattr(lifecycle,'identity',lambda pid:owner)
+    monkeypatch.setattr(case.os,'killpg',lambda pgid,sig:None)
+    _, cleanup = collect_job_cleanup(observer)
+    assert cleanup['job_acquired'] is True and cleanup['all_closed'] is False
+    observer.path.write_text('')
+    observer.processes['J'][0].child.poll = lambda:0
+    monkeypatch.setattr(lifecycle,'identity',lambda pid:None)
+    def gone(pgid,sig):
+        raise ProcessLookupError()
+    monkeypatch.setattr(case.os,'killpg',gone)
+    _, cleanup = collect_job_cleanup(observer)
+    assert cleanup['all_closed'] is True

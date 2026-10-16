@@ -2,6 +2,7 @@
 from datetime import date, timedelta
 import hashlib
 import json
+import os
 import re
 from pathlib import Path
 
@@ -73,3 +74,26 @@ class PublicJobProof:
         with (self.directory / 'index.ndjson').open('a') as stream:
             stream.write(json.dumps(record, separators=(',', ':')) + '\n')
         return json.loads(raw)
+
+
+def collect_job_cleanup(observer):
+    from scripts.acceptance.job_lifecycle_observer import identity
+    try:
+        records = [json.loads(line) for line in observer.path.read_text().splitlines()]
+        ledger_status = 'complete'
+    except FileNotFoundError:
+        records, ledger_status = [], 'absent'
+    except (OSError, ValueError, UnicodeError):
+        records, ledger_status = [], 'unreadable'
+    owned = []
+    for process, record in observer.processes.values():
+        try:
+            os.killpg(record['pgid'], 0)
+            group_closed = False
+        except ProcessLookupError:
+            group_closed = True
+        except OSError:
+            group_closed = None
+        owned.append({**record, 'actual_identity': identity(record['pid']), 'returncode': process.child.poll(), 'group_closed': group_closed})
+    return records, {'ledger_status':ledger_status, 'job_acquired':bool(owned) or any(row.get('kind') in {'spawned','spawn_unknown'} for row in records), 'owned':owned,
+        'all_closed':None if not owned else all(row['actual_identity'] is None and row['returncode'] is not None and row['group_closed'] for row in owned), 'acceptance':'not_run', 'repeats':[]}
