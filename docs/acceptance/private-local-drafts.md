@@ -1,0 +1,13 @@
+# Private local editing correctness
+
+The `private_local_drafts_v1` declaration describes real private quantity changes, complete previews and settled undo. The successor manifest approves its exact bytes and binds the predecessor manifest and unchanged source, reference, action and timing gates. It does not change maintained inputs or shared plans.
+
+Only the explicit `--local-editing-contract-probe true` adapter workflow currently accepts this declaration. A normal five-editor acceptance run rejects it until the primary computation, shared-save and sustained-activity checks are implemented. Reports retain `repeats: []`, `acceptance: not_run` and `continuing_activity: not_qualified`. The maintained-input-name stress workflow remains separate.
+
+The small `private-draft-editors-adapter-v2-shared-M00` regression assigns the same legal future segment to five distinct private browser actors. Each actor starts at100 pieces, changes it to99, receives the complete plan and output, displays the changed quantity and output, then undoes the action and verifies the exact original plan and empty local queue. Raw preview/undo/source responses are retained with byte hashes. Every other plan field, including order, stays exact. The complete public computation source is identical before and after all five cycles, and no shared or input write is permitted.
+
+The frozen selected Recipe has2400 pieces of full-day capacity and an otherwise available24-hour day. For99 pieces, the exact capacity condition is `ceil(2400 * H / 24) >= 99`, so the selected witness must satisfy the strict bound `98/100 < H <= 24`. Rational cross multiplication checks this condition. The business contract permits several valid witnesses; it does not require exactly99/100 hours. The independent output is52499 pieces, all on time, with one piece missing in M00's final demand week. All75 weekly rows remain present.
+
+The earlier distinct-target correctness declaration remains failed and preserved in its original evidence. Three selected rows changed absolute order0 to1 during preview. The exact-order check remains strict, and this shared-target successor does not qualify those targets. Broader family-specific actions and their protection/restoration proofs remain pending before formal measurement.
+
+The next workload slices must prove the primary's genuine editing while its accepted durable job runs, and the measured manual/shared-save paths while another job is running. Current-run UI events, requests, complete results, undo and source checks must establish activity. This small workflow pass provides no fixed-scale, timing, five-human or business-reference acceptance.
