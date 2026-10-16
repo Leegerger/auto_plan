@@ -29,6 +29,7 @@ class JobLifecycleObserver:
         self.local = local()
         self.lock = Lock()
         self.processes = {}
+        self.failed_acquisitions = []
 
     def emit(self, value):
         with self.lock, self.path.open('a') as stream:
@@ -42,19 +43,36 @@ class JobLifecycleObserver:
         claim = self.local.claim
         if claim is None or claim['frozen'] is not frozen:
             raise ValueError('Actual claimed frozen input identity is required')
+        owner = {key: claim[key] for key in ('job_id', 'run_id', 'generation')}
         process = (self.construct or ComputeProcess)(frozen, threads)
-        payload = json.dumps(frozen.model_dump(mode='json'), sort_keys=True, separators=(',', ':'), ensure_ascii=False).encode()
-        own = identity(process.child.pid)
-        if own is None:
-            # A genuine early exit is an unknown witness, never a running proof.
-            self.emit({'kind': 'spawn_unknown', 'job_id': claim['job_id'], 'run_id': claim['run_id'], 'generation': claim['generation']})
+        try:
+            payload = json.dumps(frozen.model_dump(mode='json'), sort_keys=True, separators=(',', ':'), ensure_ascii=False).encode()
+            own = identity(process.child.pid)
+            if own is None:
+                # A genuine early exit is an unknown witness, never a running proof.
+                self.emit({'kind': 'spawn_unknown', 'job_id': claim['job_id'], 'run_id': claim['run_id'], 'generation': claim['generation']})
+                return process
+            record = {'job_id': claim['job_id'], 'run_id': claim['run_id'], 'generation': claim['generation'], **own,
+                'frozen_sha256': hashlib.sha256(payload).hexdigest(), 'source_revision': frozen.source_revision,
+                'input_version': frozen.input_version, 'latest_adoption': frozen.latest_adoption, 'native_threads': threads}
+            self.processes[claim['job_id']] = (process, record)
+            self.emit({'kind': 'spawned', **record})
             return process
-        record = {'job_id': claim['job_id'], 'run_id': claim['run_id'], 'generation': claim['generation'], **own,
-            'frozen_sha256': hashlib.sha256(payload).hexdigest(), 'source_revision': frozen.source_revision,
-            'input_version': frozen.input_version, 'latest_adoption': frozen.latest_adoption, 'native_threads': threads}
-        self.processes[claim['job_id']] = (process, record)
-        self.emit({'kind': 'spawned', **record})
-        return process
+        except BaseException as error:
+            # The controller owns nothing until this factory returns. Roll back
+            # only the handle we acquired, even when observer publication fails.
+            failure = {**owner, 'primary_error_class': type(error).__name__,
+                'close_returned': False, 'close_error_class': None, 'ownership_closed': None}
+            try:
+                process.close()
+                failure['close_returned'] = True
+            except BaseException as close_error:
+                failure['close_error_class'] = type(close_error).__name__
+            try:
+                self.failed_acquisitions.append((process, failure))
+            except BaseException:
+                pass  # Bookkeeping failure must not replace the primary error.
+            raise
 
     def read(self, body, started_ns):
         item = self.processes.get(body['job_id'])

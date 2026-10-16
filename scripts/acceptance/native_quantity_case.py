@@ -101,5 +101,6 @@ def collect_job_cleanup(observer):
         except OSError:
             group_closed = None
         owned.append({**record, 'actual_identity': identity(record['pid']), 'returncode': process.child.poll(), 'group_closed': group_closed})
-    return records, {'ledger_status':ledger_status, 'job_acquired':True if owned or recorded_acquisition else (None if ledger_status == 'unreadable' else False), 'owned':owned,
-        'all_closed':None if not owned else all(row['actual_identity'] is None and row['returncode'] is not None and row['group_closed'] for row in owned), 'acceptance':'not_run', 'repeats':[]}
+    acquisition_failures = [dict(failure) for _, failure in getattr(observer, 'failed_acquisitions', [])]
+    return records, {'acquisition_failures': acquisition_failures, 'ledger_status':ledger_status, 'job_acquired':True if owned or recorded_acquisition or acquisition_failures else (None if ledger_status == 'unreadable' else False), 'owned':owned,
+        'all_closed':None if not owned or acquisition_failures else all(row['actual_identity'] is None and row['returncode'] is not None and row['group_closed'] for row in owned), 'acceptance':'not_run', 'repeats':[]}
