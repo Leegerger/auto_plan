@@ -196,6 +196,33 @@ def test_rehashed_raw_response_must_equal_independent_complete_json(public_impor
         assert_initial_import_load(directory,scenario['id'],proof)
 
 
+@pytest.mark.parametrize('case', ['snapshot_scalar','captured_request_scalar','prepared_context_scalar','evaluation_payload_scalar'])
+def test_complete_public_json_objects_keep_exact_scalar_types(public_import,case):
+    from scripts.acceptance.initial_import_load import assert_initial_import_load
+    directory,scenario,_,_,original=public_import
+    proof=deepcopy(original)
+    def rebind(value):
+        raw=json.dumps(value).encode(); digest=hashlib.sha256(raw).hexdigest()
+        path='bodies/'+digest+'.json'; (directory/path).write_bytes(raw)
+        return {'path':path,'sha256':digest}
+    if case=='snapshot_scalar':
+        for state in (proof['before'],proof['after']):
+            state['snapshot']['context']=deepcopy(state['snapshot']['context'])
+            assert type(state['head']['context']['preferences']['near_weeks']) is int
+            state['snapshot']['context']['preferences']['near_weeks']=4.0
+    elif case=='captured_request_scalar':
+        proof['history'][0]['command']['base_version']=1.0
+    elif case=='prepared_context_scalar':
+        proof['prepared']['context']['preferences']['near_weeks']=4.0
+        proof['prepared_artifact']=rebind(proof['prepared'])
+    else:
+        entry=proof['evaluations'][0]
+        entry['payload']['snapshot']['time']['weeks']=15.0
+        entry['request_artifact']=rebind(entry['payload'])
+    with pytest.raises(AssertionError):
+        assert_initial_import_load(directory,scenario['id'],proof)
+
+
 @pytest.mark.parametrize('case', ['wrong_pin', 'missing_version', 'changed_quantity', 'mutated_workbook', 'demand_history', 'incomplete_evaluation', 'context_lock'])
 def test_untrusted_import_proof_cannot_substitute_business_or_attribution(public_import, case):
     from scripts.acceptance.initial_import_load import assert_initial_import_load
