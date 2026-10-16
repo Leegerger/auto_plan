@@ -91,9 +91,14 @@ if __name__ == '__main__':
     parser.add_argument('--fixtures', type=Path, default=ROOT / 'docs/acceptance/frozen')
     parser.add_argument('--scenario', required=True)
     parser.add_argument('--port', type=int, default=8776)
+    parser.add_argument('--upload-observations', type=Path, help='TEST-ONLY passive received upload evidence; disabled by default.')
     args = parser.parse_args()
     with tempfile.TemporaryDirectory(prefix='auto-plan-acceptance-adapter-') as directory:
         cert, key = Path(directory) / 'cert.pem', Path(directory) / 'key.pem'
         subprocess.run(['openssl', 'req', '-x509', '-newkey', 'rsa:2048', '-nodes', '-keyout', str(key), '-out', str(cert), '-days', '1', '-subj', '/CN=localhost'], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        uvicorn.run(application(args.fixtures, args.scenario, args.port), host='127.0.0.1', port=args.port,
+        app = application(args.fixtures, args.scenario, args.port)
+        if args.upload_observations is not None:
+            from scripts.acceptance.upload_observer import UploadReceiveObserver
+            app = UploadReceiveObserver(app, args.upload_observations)
+        uvicorn.run(app, host='127.0.0.1', port=args.port,
                     ssl_keyfile=str(key), ssl_certfile=str(cert), access_log=False)
