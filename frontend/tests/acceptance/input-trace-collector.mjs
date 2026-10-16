@@ -5,13 +5,25 @@ import { performance } from 'node:perf_hooks'
 import { joinInputTransition } from './input-trace-join.mjs'
 const sha = bytes => createHash('sha256').update(bytes).digest('hex')
 
+export function journalInputAttempt(entry, journal, { trace = false } = {}) {
+  const value = { editor: entry.editor, phase: entry.phase, status: entry.status,
+    response_status: entry.response_status, request_artifact: entry.request_artifact, response_artifact: entry.response_artifact }
+  if (trace && entry.input_trace) value.input_trace = { response_id: entry.input_trace.response_id,
+    node_phases: entry.input_trace.node_phases.map(row => ({ ...row })) }
+  journal('input_attempt', value)
+}
+
 export async function consumeInputResponse(received, entry, captureBody, trace) {
-  const mark = phase => trace?.events.push({ phase, editor: entry.editor, sequence: entry.sequence,
-    response_id: entry.input_trace?.response_id ?? null, at_ms: performance.now(), clock_domain: 'node.performance.now:' + process.pid })
+  const mark = phase => {
+    if (!trace) return
+    const value = { phase, editor: entry.editor, sequence: entry.sequence,
+      response_id: entry.input_trace.response_id, at_ms: performance.now(), clock_domain: 'node.performance.now:' + process.pid }
+    trace.events.push(value); entry.input_trace.node_phases.push(value)
+  }
   if (trace) {
     let id=null
     try { id=received.headers()['x-auto-plan-test-input'] ?? null } catch { /* Unavailable metadata earns no correlation claim. */ }
-    entry.input_trace = { response_id: id }
+    entry.input_trace = { response_id: id, node_phases: [] }
     trace.attempts.push(entry)
   }
   mark('body_await_started')

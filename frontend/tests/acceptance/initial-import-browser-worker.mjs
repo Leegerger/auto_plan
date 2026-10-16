@@ -78,7 +78,7 @@ async function main() {
       report.source_files=Object.fromEntries(['scripts/acceptance/adapter_server.py','scripts/acceptance/upload_observer.py','frontend/tests/acceptance/upload-observations.mjs','scripts/acceptance/initial_import_fixture.py','scripts/acceptance/initial_import_load.py','frontend/tests/acceptance/initial-import-load.browser.test.mjs','frontend/tests/acceptance/initial-import-browser-worker.mjs','frontend/tests/acceptance/initial-import-browser-support.mjs','frontend/tests/acceptance/functional-worker.mjs','frontend/dist/index.html'].map(path=>[path,sha(readFileSync(resolve(root,path)))]))
       prepare(templatePath)
       if(inputTrace){
-        const helpers=['scripts/acceptance/input_transition_observer.py','frontend/tests/acceptance/input-consumption-trace.mjs','frontend/tests/acceptance/input-trace-join.mjs','frontend/tests/acceptance/input-trace-collector.mjs','frontend/tests/acceptance/input-trace-replay.mjs','frontend/tests/acceptance/input-editors.mjs','frontend/tests/acceptance/input-load.mjs']
+        const helpers=['scripts/acceptance/input_transition_observer.py','frontend/tests/acceptance/input-consumption-trace.mjs','frontend/tests/acceptance/input-trace-join.mjs','frontend/tests/acceptance/input-trace-collector.mjs','frontend/tests/acceptance/input-trace-replay.mjs','frontend/tests/acceptance/input-driver-replay.mjs','frontend/tests/acceptance/input-editors.mjs','frontend/tests/acceptance/input-load.mjs']
         for(const path of helpers)report.source_files[path]=sha(readFileSync(resolve(root,path)))
         const revision=spawnSync('git',['-C',root,'rev-parse','HEAD'],{encoding:'utf8'})
         const tree=spawnSync('git',['-C',root,'rev-parse','HEAD^{tree}'],{encoding:'utf8'})
