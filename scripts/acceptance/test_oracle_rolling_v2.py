@@ -1,4 +1,4 @@
-"""One actual Oracle rolling lifecycle in an entirely disposable namespace."""
+"""Explicit Oracle rolling lifecycles in entirely disposable namespaces."""
 from datetime import datetime
 import gzip
 import hashlib
@@ -29,10 +29,12 @@ ACCESS = ('AP_ACCESS_HEAD', 'AP_AUTHORIZATION', 'AP_SESSION', 'AP_SESSION_USER',
           'AP_AUTH_AUDIT', 'AP_AUTH_AUDIT_IMMUTABLE')
 
 
-def test_real_r10_prior_adoption_restart_and_rolling_original_uuid(tmp_path):
+@pytest.mark.parametrize('scenario_id', ['r10-rolling-v2', 'r20-rolling-v2', 'r40-rolling-v2'],
+                         ids=['r10', 'r20', 'r40'])
+def test_real_rolling_prior_adoption_restart_and_rolling_original_uuid(tmp_path, scenario_id):
     fixtures = ROOT / 'docs/acceptance/rolling-v2/frozen'
     scenario = next(row for row in json.loads((fixtures/'manifest.json').read_text())['scenarios']
-                    if row['id'] == 'r10-rolling-v2')
+                    if row['id'] == scenario_id)
     source, prior, reference = (load(fixtures, scenario[name]) for name in ('source', 'prior_source', 'reference'))
     settings = Settings(initial_admin_id='ACCEPTANCE0', oracle_pool_max=2)
     assert settings.oracle_user.upper() == 'PLAN_TEST'
