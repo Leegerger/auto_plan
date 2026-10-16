@@ -26,7 +26,11 @@ if __name__ == '__main__':
     evaluation = json.loads(args.evaluation.read_text())
     if args.kind == 'workbook':
         proof = json.loads(args.proof.read_text())
-        assert_workbook(proof['prepared'], load(args.fixtures, scenario['import']), load(args.fixtures, scenario['source']), scenario, proof['before'], proof['after'])
+        if 'initial_import_load' in scenario:
+            from scripts.acceptance.initial_import_load import assert_initial_import_load
+            assert_initial_import_load(args.fixtures, scenario['id'], proof)
+        else:
+            assert_workbook(proof['prepared'], load(args.fixtures, scenario['import']), load(args.fixtures, scenario['source']), scenario, proof['before'], proof['after'])
         vector = objective(proof['prepared']['evaluation'])
     elif args.kind == 'reference':
         vector = assert_reference(evaluation, scenario)

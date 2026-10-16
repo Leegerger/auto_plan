@@ -56,28 +56,43 @@ def test_preference_context_and_lock_then_order_share_one_revision_without_losin
     assert old['evaluation']['stability']['baseline_version'] is None
 
 
-def test_only_explicit_adoption_establishes_positive_tail_baseline_without_inventing_other_zero_cells(shared_client):
+def test_explicit_adoption_establishes_named_blank_zero_cells_in_a_new_positive_week(shared_client):
     client,plans,_=shared_client
     from auto_plan.plan_models import ExecutionCoverage
     plans.context=plans.context.model_copy(update={'coverage':[ExecutionCoverage(start_date='2026-10-12',end_date='2026-10-18',line_codes=['L'],model_codes=['M','N','P'],blanks_are_zero=True)]})
     assert post(client,'adopt',command(patch(row()))).status_code==200
+    original=client.get('/auto_plan/api/plans/adoptions/1').json()
+    imported=[{'start_date':'2026-10-12','end_date':'2026-10-18','line_codes':['L'],'model_codes':['M','N','P'],'blanks_are_zero':True}]
+    assert original['coverage']==imported
     tail=row('tail',day='2026-10-20')
     payload=command(patch(tail),base=1,adoption=1)
     preview=post(client,'preview',{k:v for k,v in payload.items() if k not in ('operation_id','pending')})
     assert preview.json()['evaluation']['stability']['weeks'][1]['state']=='new_plan'
     saved=post(client,'save',payload)
     assert saved.status_code==200,saved.text
-    assert client.get('/auto_plan/api/plans/current').json()['latest_adoption']==1
+    shared=client.get('/auto_plan/api/plans/current').json()
+    assert shared['latest_adoption']==1
+    assert shared['evaluation']['stability']['weeks'][1]['state']=='new_plan'
     adopted=post(client,'adopt',command(base=2,adoption=1))
     assert adopted.status_code==200,adopted.text
+    baseline=client.get('/auto_plan/api/plans/adoptions/2').json()
+    assert baseline['coverage']==imported+[{'start_date':'2026-10-19','end_date':'2026-10-25',
+        'line_codes':['B','L'],'model_codes':['M','N','P'],'blanks_are_zero':True}]
+    source=client.get('/auto_plan/api/plans/current').json()
+    assert source['context']['coverage']==imported
     changed=command(patch(tail|{'quantity':90}),patch(row('blank','N',day='2026-10-21',quantity=20)),base=3,adoption=2)
     probe=post(client,'preview',{k:v for k,v in changed.items() if k not in ('operation_id','pending')})
     assert probe.status_code==200,probe.text
     stability=probe.json()['evaluation']['stability']
-    assert (stability['weeks'][1]['old_remaining'],stability['weeks'][1]['rate'],stability['weeks'][1]['unknown_baseline_cells'])==(100,'1/10',1)
-    assert stability['weighted_cost']=='30'
-    assert client.get('/auto_plan/api/plans/adoptions/2').json()['coverage']==[r.model_dump(mode='json') for r in plans.context.coverage]
-    assert client.get('/auto_plan/api/plans/adoptions/1').json()['evaluation']['stability']['baseline_version'] is None
+    week=stability['weeks'][1]
+    assert (week['old_remaining'],week['new_remaining'],week['absolute_change'],week['rate'],week['unknown_baseline_cells'])==(100,110,30,'3/10',0)
+    assert (week['state'],week['baseline_complete'])==('compared',True)
+    assert stability['weighted_cost']=='90'
+    assert stability['weeks'][2]['state']=='new_plan'
+    assert client.get('/auto_plan/api/plans/adoptions/2').json()==baseline
+    assert client.get('/auto_plan/api/plans/adoptions/1').json()==original
+    assert original['evaluation']['stability']['baseline_version'] is None
+    assert client.get('/auto_plan/api/plans/current').json()==source
 
 
 def test_soft_tolerance_warning_does_not_block_adoption(shared_client):
