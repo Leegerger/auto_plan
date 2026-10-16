@@ -41,6 +41,8 @@ mkdirSync(output, { recursive: false })
 const editingProbe = flags['editing-contract-probe'] === 'true'
 const localEditingProbe = flags['local-editing-contract-probe'] === 'true'
 const privatePrimaryProbe = flags['private-primary-job-probe'] === 'true'
+const privateSharedSaveProbe = flags['private-shared-save-probe'] === 'true'
+const privateEpochs = new Map()
 const primaryPinProbe = flags['primary-pin-probe'] === 'true'
 const primaryJobProbe = flags['primary-job-pin-probe'] === 'true'
 const outputTextProbe = flags['output-text-probe'] === 'true'
@@ -50,6 +52,7 @@ assert.ok(!primaryPinProbe || editingProbe, 'The primary-pin probe is part of th
 assert.ok(!primaryJobProbe || editingProbe, 'The primary job-pin probe requires the explicit adapter correctness workflow.')
 assert.ok(!localEditingProbe || !editingProbe && mode !== 'solo' && config.target.kind === 'adapter', 'Private editing correctness needs five disposable adapter accounts.')
 assert.ok(!privatePrimaryProbe || localEditingProbe, 'Primary private editing needs the explicit correctness workflow.')
+assert.ok(!privateSharedSaveProbe || privatePrimaryProbe, 'Shared-save correctness requires its explicit private-job workflow.')
 let localWorkload
 if (config.editing_workload) {
   assert.ok(localEditingProbe, 'Private draft timing and primary computation qualification remain pending.')
@@ -74,13 +77,19 @@ if (config.editing_workload) {
   assert.deepEqual({ ...manifest, scenarios: [] }, { ...parent, scenarios: [] }, 'Private workload changed gates or reference metadata.')
   assert.equal(localWorkload.schema_version, 1); assert.equal(localWorkload.kind, 'private_local_drafts_v1')
   assert.equal(localWorkload.scenario, scenario.id)
+  assert.equal(Boolean(localWorkload.shared_save), privateSharedSaveProbe, 'The declared shared-save workflow needs its explicit correctness route.')
+  if (privateSharedSaveProbe) assert.deepEqual(localWorkload.shared_save, {
+    kind: 'actual_commit_reply_loss_original_uuid', primary_model: 'M00', background_model: 'M02', revisions: [1,2,3],
+    input_version: 1, latest_adoption: 1, shared_commits: 2, source_total: 52500, saved_total: 52499, background_saved_total: 52498,
+    restore: 'separate_ordinary_uuid_full_original_plan', clock: 'first_native_save_click_through_verified_complete_result_two_frames'
+  }, 'The shared-save source epochs or clock differ from their declared correctness contract.')
   for (const [key, expected] of [['source_manifest_sha256', sha(parentBytes)], ['source_fixture_sha256', scenario.source.sha256], ['reference_sha256', scenario.reference.sha256], ['action_sha256', scenario.action.sha256]]) assert.equal(localWorkload[key], expected, 'Private workload provenance differs.')
   assert.deepEqual(localWorkload.targets.map(row => row.editor).sort(), [0, 1, 2, 3, 4], 'Five distinct private editor assignments are required.')
   for (const target of localWorkload.targets) {
     const row = source.plan.segments.find(row => row.id === target.segment_id)
     assert.ok(row && Number.isInteger(target.operation.quantity) && target.operation.quantity > 0 && target.operation.quantity !== row.quantity, 'A private action must change an existing quantity.')
     assert.equal(target.operation.kind, 'change_quantity'); assert.equal(target.expected.quantity, target.operation.quantity)
-    assert.equal(target.restoration, 'undo_complete_action_to_origin')
+    assert.equal(target.restoration, privateSharedSaveProbe ? target.editor === 0 ? 'ordinary_uuid_full_original_plan' : 'undo_complete_action_to_actual_shared_epoch' : 'undo_complete_action_to_origin')
   }
   writeFileSync(resolve(output, 'editing-workload.json'), bytes)
   mkdirSync(resolve(output, 'public-bodies'))
@@ -131,6 +140,7 @@ if (localWorkload) {
   evidence.editing_workload = { path: 'editing-workload.json', sha256: config.editing_workload.sha256 }
   evidence.editor_schedule = 'Five private browsers change their declared production quantity, receive and display the complete preview, then undo the complete action and verify the exact origin and empty queue. No shared or input write, save-admission hold or idle placeholder is used. This first workflow probe does not qualify sustained editing with computation.'
   evidence.local_editing_contract = { status: 'not_run', continuing_activity: 'not_qualified' }
+  if (privateSharedSaveProbe) evidence.editor_schedule = 'The primary genuinely changes M00 and shares it while the same native job runs. Four private M02 editors continuously change, display full previews and undo against each actual shared parent revision. A real successful save reply is dropped; only native original-UUID verification earns commit credit. Separate ordinary restoration advances R2 to R3. No admission hold, idle placeholder, input write or zero-net commit is used. This is a small functional probe; formal load acceptance remains pending.'
 }
 if (inputCompanion) {
   evidence.input_companion = { path: 'input-companion.json', sha256: config.input_companion.sha256, approval: companionApproval }
@@ -440,6 +450,135 @@ async function privateSource() {
   const bytes = await response.body()
   return { value: JSON.parse(bytes), artifact: captureLocalBody(bytes) }
 }
+function privateEpochPlan(revision) {
+  if (!privateSharedSaveProbe) return initialState.snapshot.plan
+  assert.ok(privateEpochs.has(revision), 'A private preview pinned an undeclared shared epoch.')
+  return privateEpochs.get(revision)
+}
+function assertPrivateEpochResult(result) {
+  assert.deepEqual(canonical(result.snapshot), canonical({ ...initialState.snapshot, plan: result.plan }), 'A private preview changed its complete frozen inputs/context/baseline.')
+  const changed = source.plan.segments.filter(row => result.plan.segments.find(item => item.id === row.id)?.quantity !== row.quantity)
+  assert.ok(changed.every(row => ['S-2027-01-24-M00', 'S-2027-01-24-M02'].includes(row.id)))
+  const gap = changed.length
+  for (const [key, value] of Object.entries({ expected: 52500-gap, on_time: 52500-gap, late: 0, gap, pending: 0, unallocated: 0, outside_window: 0 })) assert.equal(result.evaluation.output_totals[key], value)
+  assert.ok(result.evaluation.capacity_valid && result.evaluation.computation_complete && result.evaluation.executable)
+  assert.equal(result.evaluation.weekly_results.length, 75)
+  assert.equal(new Set(result.evaluation.weekly_results.map(row => row.model_code+':'+row.week)).size, 75)
+  for (const row of result.evaluation.weekly_results) {
+    const affected = row.week === '2027-01-18' && changed.some(item => item.model_code === row.model_code)
+    assert.equal(row.demand, 700); assert.equal(row.on_time, affected ? 699 : 700); assert.equal(row.gap, affected ? 1 : 0)
+    assert.equal(row.late, 0); assert.equal(row.pending, 0)
+  }
+}
+async function privateSharedSaveContract(before, job, observe) {
+  const page = pages[0], target = localWorkload.targets.find(row => row.editor === 0)
+  const row = source.plan.segments.find(row => row.id === target.segment_id)
+  const record = evidence.private_shared_save = { acknowledgment_status: null, epochs: { before: { revision: before.value.source_revision, source_artifact: before.artifact } }, clock: {}, events: [] }
+  const edit = { editor: 0, segment_id: row.id, before_quantity: 100, changed_quantity: 99, status: 'fail', events: [], phase: 'primary_shared_edit', started_ms: performance.now() }
+  evidence.editor_actions.push(edit)
+  let forwarded = 0, restoreNeeded = false, primaryPlan
+  const dropped = deferred()
+  const interceptor = async route => {
+    try {
+      forwarded++; assert.equal(forwarded, 1, 'The unknown save was forwarded more than once.')
+      const response = await route.fetch()
+      assert.equal(response.status(), 200, 'Reply loss must target a real successful commit.')
+      // Injector-only evidence is never used to resolve or construct business state.
+      writeFileSync(resolve(output, 'shared-save-injector-only.json'), JSON.stringify({ status: response.status(), request: route.request().postDataJSON(), response_artifact: captureLocalBody(await response.body()) }))
+      await route.abort('failed'); dropped.resolve()
+    } catch (error) { dropped.reject(error); throw error }
+  }
+  const restore = async () => {
+    if (!restoreNeeded) return
+    const resolved = await json(page, '/plans/verify', { operation_id: record.submitted.operation_id })
+    record.cleanup_original_resolution = resolved
+    assert.equal(resolved.status, 'COMMITTED'); assert.equal(resolved.revision, 2)
+    const command = { base_revision: 2, input_version: 1, latest_adoption: 1, operation_id: randomUUID(), pending: false, operations: [{ kind: 'replace_plan', plan: source.plan }] }
+    const operation = registerOperation(command, 'private_shared_save_explicit_restoration')
+    record.restoration = { submitted: command, result: await json(page, '/plans/save', command) }
+    const result = record.restoration.result
+    assert.equal(result.status, 'COMMITTED'); assert.equal(result.revision, 3)
+    operation.resolution = await json(page, '/plans/verify', { operation_id: command.operation_id }); operation.status = operation.resolution.status
+    assert.equal(operation.status, 'COMMITTED'); assert.equal(operation.resolution.revision, 3)
+    const revision = await json(page, '/plans/revisions/3')
+    assertPlan(revision.snapshot.plan, source.plan); assert.deepEqual(canonical(revision.operations), canonical(command.operations))
+    const restored = await privateSource()
+    assert.deepEqual(restored.value, { ...before.value, source_revision: 3 })
+    assert.deepEqual(await json(page, '/plans/revisions/1'), record.original_revision, 'The original immutable revision changed.')
+    assert.deepEqual(await json(page, '/plans/adoptions/1'), record.original_adoption, 'The original adoption changed.')
+    record.epochs.restored = { revision: 3, source_artifact: restored.artifact, revision_artifact: captureLocalBody(Buffer.from(JSON.stringify(revision))) }
+    record.shared_history = await json(page, '/plans/history')
+    restoreNeeded = false
+  }
+  try {
+    record.original_revision = await json(page, '/plans/revisions/1')
+    record.original_adoption = await json(page, '/plans/adoptions/1')
+    await assertDaily(page, row, 100)
+    const prepared = await previewChange(page, row, 99, edit)
+    edit.events.push({ phase: 'native_quantity_submit', epoch_ms: edit.clicked_epoch_ms }, { phase: 'complete_preview', epoch_ms: edit.browser_after_result_frames_epoch_ms })
+    edit.changed_response_artifact = captureLocalBody(await prepared.response.body())
+    assertManualRequest(prepared.command, [row], 'change_quantity', 99)
+    const wanted = structuredClone(source.plan), actual = structuredClone(prepared.result.plan)
+    wanted.segments.find(item => item.id === row.id).quantity = 99
+    const chosen = actual.segments.find(item => item.id === row.id), [n,d] = canonical({ hours: chosen.hours }).hours.split('/').map(BigInt)
+    assert.ok(100n*n > 98n*d && n <= 24n*d)
+    delete wanted.segments.find(item => item.id === row.id).hours; delete actual.segments.find(item => item.id === row.id).hours
+    assertPlan(actual, wanted); assertPrivateEpochResult(prepared.result)
+    primaryPlan = prepared.result.plan; primaryPlans.push(primaryPlan)
+    privateEpochs.set(2, primaryPlan); privateEpochs.set(3, source.plan)
+    record.prepared_preview_artifact = edit.changed_response_artifact
+    record.running_before_save = await observe(); assert.equal(record.running_before_save.body.state, 'running')
+    await page.route(api('/plans/save'), interceptor)
+    const requested = requestFor(page, request => request.url() === api('/plans/save') && request.method() === 'POST')
+    const clock = {}
+    await arm(page); await page.getByRole('button', { name: '共享保存', exact: true }).click(); await clicked(page, clock)
+    record.clock.origin_epoch_ms = record.clock.first_clicked_epoch_ms = clock.clicked_epoch_ms
+    record.events.push({ phase: 'native_shared_save', epoch_ms: clock.clicked_epoch_ms })
+    record.submitted = (await requested).postDataJSON(); restoreNeeded = true
+    assert.deepEqual(canonical(record.submitted.operations), canonical(prepared.command.operations))
+    const operation = registerOperation(record.submitted, 'private_shared_save_unknown_reply')
+    await dropped.promise; await page.unroute(api('/plans/save'), interceptor)
+    await expect(page.getByText('前次保存结果未知，当前只读。请先核实，避免重复保存或采用。', { exact: true })).toBeVisible()
+    for (const name of ['共享保存','正式采用','预览本机修改','撤销最后完整动作']) await expect(page.getByRole('button', { name, exact: true })).toBeDisabled()
+    record.readonly_unknown_observed = true
+    const verification = responseFor(page, response => response.url() === api('/plans/verify') && response.request().method() === 'POST')
+    await page.getByRole('button', { name: '核实前次操作', exact: true }).click()
+    const response = await verification, bytes = await response.body()
+    record.verification_command = response.request().postDataJSON(); record.resolution = JSON.parse(bytes)
+    record.verification_artifact = captureLocalBody(bytes)
+    assert.deepEqual(record.verification_command, { operation_id: record.submitted.operation_id })
+    assert.equal(record.resolution.status, 'COMMITTED'); assert.equal(record.resolution.revision, 2)
+    operation.resolution = record.resolution; operation.status = 'COMMITTED'; operation.revision = 2
+    await expect(page.getByText('已核实前次操作成功，共享修订 2', { exact: true })).toBeVisible()
+    await idle(page); await expect(queue(page)).toHaveCount(0)
+    await expect(page.getByRole('button', { name: '核实前次操作', exact: true })).toHaveCount(0)
+    const saved = await privateSource(), revision = await json(page, '/plans/revisions/2')
+    assert.deepEqual(saved.value, { ...before.value, source_revision: 2, snapshot: { ...before.value.snapshot, plan: primaryPlan } })
+    assertPlan(revision.snapshot.plan, primaryPlan); assert.deepEqual(canonical(revision.operations), canonical(record.submitted.operations))
+    record.epochs.saved = { revision: 2, source_artifact: saved.artifact, revision_artifact: captureLocalBody(Buffer.from(JSON.stringify(revision))) }
+    // The saved page displays the persisted plan; a real empty-queue preview
+    // supplies its complete visible output without introducing a business write.
+    const emptyPreview = responseFor(page, response => response.url() === api('/plans/preview') && response.request().method() === 'POST')
+    await page.getByRole('button', { name: '预览本机修改', exact: true }).click()
+    const displayed = await emptyPreview, displayBytes = await displayed.body(), result = JSON.parse(displayBytes)
+    assert.equal(displayed.status(), 200); assert.deepEqual(displayed.request().postDataJSON().operations, [])
+    assertPlan(result.plan, primaryPlan); assertPrivateEpochResult(result)
+    await idle(page); await assertDaily(page, row, 99); await assertOutput(page, result.evaluation); await rendered(page, clock)
+    record.display_artifact = captureLocalBody(displayBytes)
+    record.clock.rendered_epoch_ms = clock.browser_after_result_frames_epoch_ms; record.clock.seconds = clock.browser_after_result_frames_seconds
+    record.running_after_confirmed_paint = await observe(); assert.equal(record.running_after_confirmed_paint.body.state, 'running')
+    for (const key of ['job_id','generation','source_revision','input_version','latest_adoption','started_at']) assert.deepEqual(record.running_after_confirmed_paint.body[key], record.running_before_save.body[key])
+    assert.ok(record.running_before_save.epoch_ms <= record.clock.origin_epoch_ms && record.running_after_confirmed_paint.epoch_ms >= record.clock.rendered_epoch_ms)
+    record.forwarded_original_save_count = forwarded
+    record.status = 'pass'
+  } finally {
+    await page.unroute(api('/plans/save'), interceptor)
+    await restore(); edit.finished_ms = performance.now(); persist()
+  }
+  await expect.poll(() => new Set(evidence.editor_actions.filter(row => row.editor > 0 && row.status === 'pass' && row.undo_parent_revision === 3).map(row => row.editor)).size, { timeout: 30000 }).toBe(4)
+  await shared(page)
+  edit.status = 'pass'; edit.undo = { queue_empty: true, origin_restored: true, restoration_operation_id: record.restoration.submitted.operation_id }
+}
 async function privateEditCycle(target) {
     const page = pages[target.editor], row = source.plan.segments.find(row => row.id === target.segment_id)
     const entry = { editor: target.editor, segment_id: row.id, before_quantity: row.quantity,
@@ -451,7 +590,8 @@ async function privateEditCycle(target) {
       entry.events.push({ phase: 'native_quantity_submit', epoch_ms: entry.clicked_epoch_ms },
         { phase: 'complete_preview', epoch_ms: entry.browser_after_result_frames_epoch_ms })
       entry.changed_response_artifact = captureLocalBody(await preview.response.body())
-      const expected = structuredClone(initialState.snapshot.plan)
+      const expected = structuredClone(privateEpochPlan(preview.result.parent_revision))
+      entry.parent_revision = preview.result.parent_revision; entry.base_revision = preview.command.base_revision; entry.merged = preview.result.merged
       const expectedRow = expected.segments.find(item => item.id === row.id)
       expectedRow.quantity = target.expected.quantity; delete expectedRow.hours
       const actual = structuredClone(preview.result.plan), actualRow = actual.segments.find(item => item.id === row.id)
@@ -461,14 +601,15 @@ async function privateEditCycle(target) {
       delete actualRow.hours
       assertManualRequest(preview.command, [row], 'change_quantity', target.operation.quantity)
       assertPlan(actual, expected, 'Private preview changed another complete plan field.')
-      assert.deepEqual(Object.fromEntries(Object.keys(target.expected.totals).map(key => [key, preview.result.evaluation.output_totals[key]])), target.expected.totals, 'Independent private preview totals differ.')
+      if (privateSharedSaveProbe) assertPrivateEpochResult(preview.result, expected, target)
+      else assert.deepEqual(Object.fromEntries(Object.keys(target.expected.totals).map(key => [key, preview.result.evaluation.output_totals[key]])), target.expected.totals, 'Independent private preview totals differ.')
       assert.equal(preview.result.evaluation.output_totals.computation_complete, true)
       assert.ok(preview.result.evaluation.capacity_valid && preview.result.evaluation.computation_complete && preview.result.evaluation.executable, 'Private preview is incomplete or invalid.')
       const weeks = preview.result.evaluation.weekly_results
       assert.equal(weeks.length, source.inputs.business.demands.length, 'Private preview omitted demand weeks.')
       assert.equal(new Set(weeks.map(item => item.model_code + ':' + item.week)).size, weeks.length, 'Private weekly identities repeat.')
       for (const item of weeks) {
-        const changed = item.model_code === target.expected.changed_week.model_code && item.week === target.expected.changed_week.week
+        const changed = item.week === target.expected.changed_week.week && (item.model_code === target.expected.changed_week.model_code || privateSharedSaveProbe && preview.result.plan.segments.find(row => row.id === 'S-2027-01-24-' + item.model_code)?.quantity === 99)
         assert.equal(item.demand, 700); assert.equal(item.on_time, changed ? target.expected.changed_week.on_time : 700)
         assert.equal(item.gap, changed ? target.expected.changed_week.gap : 0); assert.equal(item.pending, 0); assert.equal(item.late, 0)
       }
@@ -482,7 +623,9 @@ async function privateEditCycle(target) {
       const response = await pending; assert.equal(response.status(), 200, 'Private undo preview failed.')
       const bytes = await response.body(), undone = JSON.parse(bytes)
       await idle(page); await expect(queue(page)).toHaveCount(0); await settle(page)
-      assertPlan(undone.plan, initialState.snapshot.plan, 'Private undo did not restore its complete origin.')
+      assertPlan(undone.plan, privateEpochPlan(undone.parent_revision), 'Private undo did not restore its actual complete shared epoch.')
+      entry.undo_parent_revision = undone.parent_revision
+      if (privateSharedSaveProbe) assertPrivateEpochResult(undone, privateEpochPlan(undone.parent_revision))
       await assertDaily(page, row, row.quantity); await assertOutput(page, undone.evaluation)
       entry.undo = { ...await resetQueue(page, 0), origin_restored: true, response_artifact: captureLocalBody(bytes) }
       entry.events.push({ phase: 'complete_undo', epoch_ms: await settle(page) })
@@ -540,7 +683,8 @@ async function privatePrimaryJobContract(before) {
     await expect.poll(async () => (await observe()).body.state, { timeout: 15000 }).toBe('running')
     record.running_before_primary_edit = await observe()
     assert.equal(record.running_before_primary_edit.body.state, 'running', 'The native job ended before primary editing began.')
-    await privateEditCycle(localWorkload.targets.find(target => target.editor === 0))
+    if (privateSharedSaveProbe) await privateSharedSaveContract(before, record, observe)
+    else await privateEditCycle(localWorkload.targets.find(target => target.editor === 0))
     record.running_after_primary_undo = await observe()
     assert.equal(record.running_after_primary_undo.body.state, 'running', 'The native job did not span the complete primary edit and undo.')
     for (const key of ['job_id', 'generation', 'source_revision', 'input_version', 'latest_adoption', 'started_at']) assert.deepEqual(record.running_after_primary_undo.body[key], record.running_before_primary_edit.body[key], 'The running job identity/generation changed.')
@@ -586,6 +730,7 @@ async function localEditingContract() {
   const contract = evidence.local_editing_contract
   contract.status = 'fail'
   const before = await privateSource()
+  privateEpochs.set(before.value.source_revision, before.value.snapshot.plan)
   contract.shared_before_source_artifact = before.artifact
   assert.deepEqual(canonical(before.value.snapshot), canonical(initialState.snapshot), 'Private editing started from another complete source.')
   const cycles = privatePrimaryProbe
@@ -593,12 +738,13 @@ async function localEditingContract() {
     : await Promise.allSettled(localWorkload.targets.map(privateEditCycle))
   const after = await privateSource()
   contract.shared_after_source_artifact = after.artifact
-  assert.deepEqual(after.value, before.value, 'Private drafts changed the complete shared computation source.')
+  assert.deepEqual(after.value, privateSharedSaveProbe ? { ...before.value, source_revision: 3 } : before.value, 'The complete shared computation source did not close its declared revision epoch.')
   assertState(await readState(pages[0]), initialState)
-  contract.shared_source_unchanged = true
+  contract.shared_source_unchanged = !privateSharedSaveProbe
+  if (privateSharedSaveProbe) contract.shared_source_restored = true
   const failure = cycles.find(row => row.status === 'rejected')
   if (failure) throw failure.reason
-  const allowedPosts = new Set([api('/plans/preview'), ...(privatePrimaryProbe ? [api('/jobs'), api('/jobs/verify'), api('/plans/evaluate'), ...evidence.jobs.map(job => api('/jobs/' + job.job_id + '/stop'))] : [])].map(url => new URL(url).pathname))
+  const allowedPosts = new Set([api('/plans/preview'), ...(privateSharedSaveProbe ? [api('/plans/save'), api('/plans/verify')] : []), ...(privatePrimaryProbe ? [api('/jobs'), api('/jobs/verify'), api('/plans/evaluate'), ...evidence.jobs.map(job => api('/jobs/' + job.job_id + '/stop'))] : [])].map(url => new URL(url).pathname))
   assert.ok(evidence.request_spans.every(row => row.method === 'GET' || row.method === 'HEAD' || row.method === 'POST' && allowedPosts.has(row.path)), 'Private editing issued an undeclared business write.')
   contract.status = 'pass'; persist()
 }
