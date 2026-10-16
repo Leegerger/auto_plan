@@ -12,7 +12,7 @@ from uuid import UUID, uuid4, uuid5
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
-V1_MANIFEST_SHA256 = '33e765b2cc22a28116d0416f04cc05cd628f5239183160be32a143035d29b0f4'
+V1_MANIFEST_SHA256 = '986bffaad672f68add9b40ad76a15972b8354d5a9d0d9cf66593de0980ae94db'
 LOCAL_IDS = tuple(f'r{count}-{band}-{sign}' for count in (10, 20, 40)
                   for band in ('near', 'far') for sign in ('increase', 'decrease'))
 

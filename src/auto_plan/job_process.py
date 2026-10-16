@@ -95,7 +95,7 @@ class ComputeProcess:
 
     def signal_kill(self):
         try: os.killpg(self.child.pid,signal.SIGKILL)
-        except ProcessLookupError: pass
+        except (ProcessLookupError,PermissionError): pass
 
     def reap(self,deadline):
         try: self.child.wait(timeout=max(0,deadline-time.monotonic()))

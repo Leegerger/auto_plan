@@ -12,11 +12,11 @@ import { setTimeout as delay } from 'node:timers/promises'
 import { installInputConsumptionTrace } from './input-consumption-trace.mjs'
 import { exportInputBuffers, inputTraceCleanupDeadline } from './input-trace-collector.mjs'
 import { importBrowserContract } from './initial-import-browser-support.mjs'
-import { functionalBudget, resourceRegistration, FUNCTIONAL_LIMITS } from './functional-worker.mjs'
+import { functionalBudget, identity, resourceRegistration, FUNCTIONAL_LIMITS } from './functional-worker.mjs'
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../../..')
 const healthy = url => new Promise(done => { const request=httpsGet(url,{rejectUnauthorized:false,timeout:1000},response=>{response.resume();done(response.statusCode===200)});request.on('error',()=>done(false));request.on('timeout',()=>request.destroy()) })
-const start = pid => {try{const raw=readFileSync('/proc/'+pid+'/stat','utf8');return raw.slice(raw.lastIndexOf(')')+2).trim().split(/\s+/)[19]}catch{return null}}
+const start = pid => identity(pid)?.start ?? null
 
 async function main() {
     const python = process.env.AUTO_PLAN_INITIAL_IMPORT_LOAD_PYTHON

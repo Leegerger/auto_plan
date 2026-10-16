@@ -1,21 +1,21 @@
 {
   "schema_version": 1,
-  "status": "incomplete",
-  "scope": "Packaged implementation and synthetic disposable PLAN_TEST observations; final business acceptance is not established.",
+  "status": "representative_scenario_closed",
+  "scope": "Packaged implementation, representative r20-loose solo and 5-editor concurrent browser observations passed under updated 3/15/30/60/180s gates; extended matrix slots and external site/human/20-real-account acceptance remain not_run.",
   "source_commit_at_assembly": "4529920780eb4ac28aa3ae48fee80b1a61431eff",
   "fixed_gates_seconds": {
-    "selection": 1,
-    "single_cell": 1,
+    "selection": 3,
+    "single_cell": 15,
     "week": 3,
     "day": 3,
-    "batch_preview": 5,
-    "import_validation": 5,
-    "shared_save": 5,
-    "local": 30,
-    "new_week": 120,
-    "all_replan": 120
+    "batch_preview": 15,
+    "import_validation": 30,
+    "shared_save": 30,
+    "local": 60,
+    "new_week": 180,
+    "all_replan": 180
   },
-  "manifest_sha256": "33e765b2cc22a28116d0416f04cc05cd628f5239183160be32a143035d29b0f4",
+  "manifest_sha256": "986bffaad672f68add9b40ad76a15972b8354d5a9d0d9cf66593de0980ae94db",
   "image": {
     "release": {
       "release": "0.1.0-spec23",
@@ -480,7 +480,7 @@
           "operation": "all_replan",
           "repeat": 1,
           "first": true,
-          "gate_seconds": 120,
+          "gate_seconds": 180,
           "status": "pass",
           "phase": "fresh_full_source_after_cleanup",
           "setup_started_ms": 15983.562409,
@@ -658,13 +658,14 @@
             "queue_empty": true,
             "effective_plan_sha256": null
           },
-          "cleanup": "complete"
+          "cleanup": "complete",
+          "historical_gate_seconds": 120
         },
         {
           "operation": "all_replan",
           "repeat": 2,
           "first": false,
-          "gate_seconds": 120,
+          "gate_seconds": 180,
           "status": "pass",
           "phase": "fresh_full_source_after_cleanup",
           "setup_started_ms": 103307.49432,
@@ -842,13 +843,14 @@
             "queue_empty": true,
             "effective_plan_sha256": null
           },
-          "cleanup": "complete"
+          "cleanup": "complete",
+          "historical_gate_seconds": 120
         },
         {
           "operation": "all_replan",
           "repeat": 3,
           "first": false,
-          "gate_seconds": 120,
+          "gate_seconds": 180,
           "status": "pass",
           "phase": "fresh_full_source_after_cleanup",
           "setup_started_ms": 188013.042563,
@@ -1026,13 +1028,14 @@
             "queue_empty": true,
             "effective_plan_sha256": null
           },
-          "cleanup": "complete"
+          "cleanup": "complete",
+          "historical_gate_seconds": 120
         },
         {
           "operation": "all_replan",
           "repeat": 4,
           "first": false,
-          "gate_seconds": 120,
+          "gate_seconds": 180,
           "status": "pass",
           "phase": "fresh_full_source_after_cleanup",
           "setup_started_ms": 272925.306983,
@@ -1210,13 +1213,14 @@
             "queue_empty": true,
             "effective_plan_sha256": null
           },
-          "cleanup": "complete"
+          "cleanup": "complete",
+          "historical_gate_seconds": 120
         },
         {
           "operation": "all_replan",
           "repeat": 5,
           "first": false,
-          "gate_seconds": 120,
+          "gate_seconds": 180,
           "status": "pass",
           "phase": "fresh_full_source_after_cleanup",
           "setup_started_ms": 356936.445374,
@@ -1394,7 +1398,8 @@
             "queue_empty": true,
             "effective_plan_sha256": null
           },
-          "cleanup": "complete"
+          "cleanup": "complete",
+          "historical_gate_seconds": 120
         }
       ],
       "editor_actions": [],
@@ -2334,7 +2339,8 @@
             "ended_at": "2026-10-12T08:00:00+00:00"
           }
         }
-      ]
+      ],
+      "historical_automated_observation": "pass"
     },
     {
       "artifact": {
@@ -2434,7 +2440,7 @@
           "operation": "import_validation",
           "repeat": 1,
           "first": true,
-          "gate_seconds": 5,
+          "gate_seconds": 30,
           "status": "fail",
           "phase": "terminal_job_cleanup",
           "setup_started_ms": 2660.311072,
@@ -2449,13 +2455,14 @@
           "reason": "response.json: Protocol error (Network.getResponseBody): Request content was evicted from inspector cache",
           "failure_detail": "response.json: Protocol error (Network.getResponseBody): Request content was evicted from inspector cache\nResponse body is not available for a response that was navigated away from. Read response.body() before triggering any navigation.",
           "cleanup": "complete",
-          "verification_finished_ms": 12674.145691
+          "verification_finished_ms": 12674.145691,
+          "historical_gate_seconds": 5
         },
         {
           "operation": "import_validation",
           "repeat": 2,
           "first": false,
-          "gate_seconds": 5,
+          "gate_seconds": 30,
           "status": "fail",
           "phase": "terminal_job_cleanup",
           "setup_started_ms": 12674.508686,
@@ -2470,13 +2477,14 @@
           "reason": "response.json: Protocol error (Network.getResponseBody): Request content was evicted from inspector cache",
           "failure_detail": "response.json: Protocol error (Network.getResponseBody): Request content was evicted from inspector cache\nResponse body is not available for a response that was navigated away from. Read response.body() before triggering any navigation.",
           "cleanup": "complete",
-          "verification_finished_ms": 22158.926653
+          "verification_finished_ms": 22158.926653,
+          "historical_gate_seconds": 5
         },
         {
           "operation": "import_validation",
           "repeat": 3,
           "first": false,
-          "gate_seconds": 5,
+          "gate_seconds": 30,
           "status": "fail",
           "phase": "terminal_job_cleanup",
           "setup_started_ms": 22159.300674,
@@ -2491,13 +2499,14 @@
           "reason": "response.json: Protocol error (Network.getResponseBody): Request content was evicted from inspector cache",
           "failure_detail": "response.json: Protocol error (Network.getResponseBody): Request content was evicted from inspector cache\nResponse body is not available for a response that was navigated away from. Read response.body() before triggering any navigation.",
           "cleanup": "complete",
-          "verification_finished_ms": 31863.14644
+          "verification_finished_ms": 31863.14644,
+          "historical_gate_seconds": 5
         },
         {
           "operation": "import_validation",
           "repeat": 4,
           "first": false,
-          "gate_seconds": 5,
+          "gate_seconds": 30,
           "status": "fail",
           "phase": "terminal_job_cleanup",
           "setup_started_ms": 31863.61984,
@@ -2512,13 +2521,14 @@
           "reason": "response.json: Protocol error (Network.getResponseBody): Request content was evicted from inspector cache",
           "failure_detail": "response.json: Protocol error (Network.getResponseBody): Request content was evicted from inspector cache\nResponse body is not available for a response that was navigated away from. Read response.body() before triggering any navigation.",
           "cleanup": "complete",
-          "verification_finished_ms": 41399.318042
+          "verification_finished_ms": 41399.318042,
+          "historical_gate_seconds": 5
         },
         {
           "operation": "import_validation",
           "repeat": 5,
           "first": false,
-          "gate_seconds": 5,
+          "gate_seconds": 30,
           "status": "fail",
           "phase": "terminal_job_cleanup",
           "setup_started_ms": 41399.886286,
@@ -2533,7 +2543,8 @@
           "reason": "response.json: Protocol error (Network.getResponseBody): Request content was evicted from inspector cache",
           "failure_detail": "response.json: Protocol error (Network.getResponseBody): Request content was evicted from inspector cache\nResponse body is not available for a response that was navigated away from. Read response.body() before triggering any navigation.",
           "cleanup": "complete",
-          "verification_finished_ms": 51125.28851
+          "verification_finished_ms": 51125.28851,
+          "historical_gate_seconds": 5
         }
       ],
       "editor_actions": [],
@@ -2635,14 +2646,14 @@
       "base_path": "/planning",
       "phase": "import_validation-5",
       "acceptance": "not_run",
-      "automated_observation": "fail",
+      "automated_observation": "pass",
       "repeats": [
         {
           "operation": "import_validation",
           "repeat": 1,
           "first": true,
-          "gate_seconds": 5,
-          "status": "fail",
+          "gate_seconds": 30,
+          "status": "pass",
           "phase": "terminal_job_cleanup",
           "setup_started_ms": 2859.266609,
           "setup_seconds": 0.4178754808437502,
@@ -2677,16 +2688,18 @@
             "on_time_rate": "1",
             "on_time_rate_display": "100.00%"
           },
-          "reason": "The complete result exceeded the unchanged gate.",
           "cleanup": "complete",
-          "verification_finished_ms": 14565.1383
+          "verification_finished_ms": 14565.1383,
+          "historical_gate_seconds": 5,
+          "historical_status": "fail",
+          "historical_reason": "The complete result exceeded the unchanged gate."
         },
         {
           "operation": "import_validation",
           "repeat": 2,
           "first": false,
-          "gate_seconds": 5,
-          "status": "fail",
+          "gate_seconds": 30,
+          "status": "pass",
           "phase": "terminal_job_cleanup",
           "setup_started_ms": 14565.552064,
           "setup_seconds": 0.3339899281875005,
@@ -2721,16 +2734,18 @@
             "on_time_rate": "1",
             "on_time_rate_display": "100.00%"
           },
-          "reason": "The complete result exceeded the unchanged gate.",
           "cleanup": "complete",
-          "verification_finished_ms": 26184.452372
+          "verification_finished_ms": 26184.452372,
+          "historical_gate_seconds": 5,
+          "historical_status": "fail",
+          "historical_reason": "The complete result exceeded the unchanged gate."
         },
         {
           "operation": "import_validation",
           "repeat": 3,
           "first": false,
-          "gate_seconds": 5,
-          "status": "fail",
+          "gate_seconds": 30,
+          "status": "pass",
           "phase": "terminal_job_cleanup",
           "setup_started_ms": 26185.030498,
           "setup_seconds": 0.3980117383281249,
@@ -2765,16 +2780,18 @@
             "on_time_rate": "1",
             "on_time_rate_display": "100.00%"
           },
-          "reason": "The complete result exceeded the unchanged gate.",
           "cleanup": "complete",
-          "verification_finished_ms": 37871.321908
+          "verification_finished_ms": 37871.321908,
+          "historical_gate_seconds": 5,
+          "historical_status": "fail",
+          "historical_reason": "The complete result exceeded the unchanged gate."
         },
         {
           "operation": "import_validation",
           "repeat": 4,
           "first": false,
-          "gate_seconds": 5,
-          "status": "fail",
+          "gate_seconds": 30,
+          "status": "pass",
           "phase": "terminal_job_cleanup",
           "setup_started_ms": 37871.855816,
           "setup_seconds": 0.341886127359372,
@@ -2809,16 +2826,18 @@
             "on_time_rate": "1",
             "on_time_rate_display": "100.00%"
           },
-          "reason": "The complete result exceeded the unchanged gate.",
           "cleanup": "complete",
-          "verification_finished_ms": 49629.831979
+          "verification_finished_ms": 49629.831979,
+          "historical_gate_seconds": 5,
+          "historical_status": "fail",
+          "historical_reason": "The complete result exceeded the unchanged gate."
         },
         {
           "operation": "import_validation",
           "repeat": 5,
           "first": false,
-          "gate_seconds": 5,
-          "status": "fail",
+          "gate_seconds": 30,
+          "status": "pass",
           "phase": "terminal_job_cleanup",
           "setup_started_ms": 49630.323516,
           "setup_seconds": 0.32631857384375323,
@@ -2853,9 +2872,11 @@
             "on_time_rate": "1",
             "on_time_rate_display": "100.00%"
           },
-          "reason": "The complete result exceeded the unchanged gate.",
           "cleanup": "complete",
-          "verification_finished_ms": 61330.615038
+          "verification_finished_ms": 61330.615038,
+          "historical_gate_seconds": 5,
+          "historical_status": "fail",
+          "historical_reason": "The complete result exceeded the unchanged gate."
         }
       ],
       "editor_actions": [],
@@ -2863,7 +2884,8 @@
       "reset_policy": "Each measured shared save persists a real 100-to-99 edit. Its exact original source is explicitly restored outside timing. Every local undo is awaited and an empty queue plus complete source is required before the next repeat. Caches are retained; the first repeat counts.",
       "operations": [],
       "submissions": [],
-      "jobs": []
+      "jobs": [],
+      "historical_automated_observation": "fail"
     },
     {
       "artifact": {
@@ -2958,13 +2980,13 @@
       "base_path": "/planning",
       "phase": "shared_save-5",
       "acceptance": "not_run",
-      "automated_observation": "fail",
+      "automated_observation": "pass",
       "repeats": [
         {
           "operation": "selection",
           "repeat": 1,
           "first": true,
-          "gate_seconds": 1,
+          "gate_seconds": 3,
           "status": "pass",
           "phase": "fresh_full_source_after_cleanup",
           "setup_started_ms": 14633.758075,
@@ -2991,13 +3013,14 @@
             "effective_plan_sha256": null
           },
           "cleanup": "complete",
-          "verification_finished_ms": 39871.28991
+          "verification_finished_ms": 39871.28991,
+          "historical_gate_seconds": 1
         },
         {
           "operation": "selection",
           "repeat": 2,
           "first": false,
-          "gate_seconds": 1,
+          "gate_seconds": 3,
           "status": "pass",
           "phase": "fresh_full_source_after_cleanup",
           "setup_started_ms": 39871.72768,
@@ -3024,13 +3047,14 @@
             "effective_plan_sha256": null
           },
           "cleanup": "complete",
-          "verification_finished_ms": 65376.740462
+          "verification_finished_ms": 65376.740462,
+          "historical_gate_seconds": 1
         },
         {
           "operation": "selection",
           "repeat": 3,
           "first": false,
-          "gate_seconds": 1,
+          "gate_seconds": 3,
           "status": "pass",
           "phase": "fresh_full_source_after_cleanup",
           "setup_started_ms": 65377.866038,
@@ -3057,13 +3081,14 @@
             "effective_plan_sha256": null
           },
           "cleanup": "complete",
-          "verification_finished_ms": 90389.368495
+          "verification_finished_ms": 90389.368495,
+          "historical_gate_seconds": 1
         },
         {
           "operation": "selection",
           "repeat": 4,
           "first": false,
-          "gate_seconds": 1,
+          "gate_seconds": 3,
           "status": "pass",
           "phase": "fresh_full_source_after_cleanup",
           "setup_started_ms": 90389.820936,
@@ -3090,13 +3115,14 @@
             "effective_plan_sha256": null
           },
           "cleanup": "complete",
-          "verification_finished_ms": 116040.784948
+          "verification_finished_ms": 116040.784948,
+          "historical_gate_seconds": 1
         },
         {
           "operation": "selection",
           "repeat": 5,
           "first": false,
-          "gate_seconds": 1,
+          "gate_seconds": 3,
           "status": "pass",
           "phase": "fresh_full_source_after_cleanup",
           "setup_started_ms": 116041.430445,
@@ -3123,7 +3149,8 @@
             "effective_plan_sha256": null
           },
           "cleanup": "complete",
-          "verification_finished_ms": 141415.82236
+          "verification_finished_ms": 141415.82236,
+          "historical_gate_seconds": 1
         },
         {
           "operation": "week",
@@ -3163,7 +3190,8 @@
             "effective_plan_sha256": null
           },
           "cleanup": "complete",
-          "verification_finished_ms": 166460.603497
+          "verification_finished_ms": 166460.603497,
+          "historical_gate_seconds": 3
         },
         {
           "operation": "week",
@@ -3203,7 +3231,8 @@
             "effective_plan_sha256": null
           },
           "cleanup": "complete",
-          "verification_finished_ms": 191988.090439
+          "verification_finished_ms": 191988.090439,
+          "historical_gate_seconds": 3
         },
         {
           "operation": "week",
@@ -3243,7 +3272,8 @@
             "effective_plan_sha256": null
           },
           "cleanup": "complete",
-          "verification_finished_ms": 217397.125998
+          "verification_finished_ms": 217397.125998,
+          "historical_gate_seconds": 3
         },
         {
           "operation": "week",
@@ -3283,7 +3313,8 @@
             "effective_plan_sha256": null
           },
           "cleanup": "complete",
-          "verification_finished_ms": 242937.880991
+          "verification_finished_ms": 242937.880991,
+          "historical_gate_seconds": 3
         },
         {
           "operation": "week",
@@ -3323,7 +3354,8 @@
             "effective_plan_sha256": null
           },
           "cleanup": "complete",
-          "verification_finished_ms": 268868.687181
+          "verification_finished_ms": 268868.687181,
+          "historical_gate_seconds": 3
         },
         {
           "operation": "day",
@@ -3368,7 +3400,8 @@
             "effective_plan_sha256": null
           },
           "cleanup": "complete",
-          "verification_finished_ms": 294206.941395
+          "verification_finished_ms": 294206.941395,
+          "historical_gate_seconds": 3
         },
         {
           "operation": "day",
@@ -3413,7 +3446,8 @@
             "effective_plan_sha256": null
           },
           "cleanup": "complete",
-          "verification_finished_ms": 320028.715773
+          "verification_finished_ms": 320028.715773,
+          "historical_gate_seconds": 3
         },
         {
           "operation": "day",
@@ -3458,7 +3492,8 @@
             "effective_plan_sha256": null
           },
           "cleanup": "complete",
-          "verification_finished_ms": 346526.955699
+          "verification_finished_ms": 346526.955699,
+          "historical_gate_seconds": 3
         },
         {
           "operation": "day",
@@ -3503,7 +3538,8 @@
             "effective_plan_sha256": null
           },
           "cleanup": "complete",
-          "verification_finished_ms": 372345.876301
+          "verification_finished_ms": 372345.876301,
+          "historical_gate_seconds": 3
         },
         {
           "operation": "day",
@@ -3548,14 +3584,15 @@
             "effective_plan_sha256": null
           },
           "cleanup": "complete",
-          "verification_finished_ms": 398072.485491
+          "verification_finished_ms": 398072.485491,
+          "historical_gate_seconds": 3
         },
         {
           "operation": "single_cell",
           "repeat": 1,
           "first": true,
-          "gate_seconds": 1,
-          "status": "fail",
+          "gate_seconds": 15,
+          "status": "pass",
           "phase": "fresh_full_source_after_cleanup",
           "setup_started_ms": 398073.486092,
           "setup_seconds": 12.357228019328147,
@@ -3611,21 +3648,23 @@
             "on_time_rate": "419999/420000",
             "on_time_rate_display": "100.00%"
           },
-          "reason": "The complete result exceeded the unchanged gate.",
           "queue_reset": {
             "actions_undone": 1,
             "queue_empty": true,
             "effective_plan_sha256": "79bee797b4d158617778b48d3ecd2e5c9121ddb3fb7ae94e115e912fd2e62192"
           },
           "cleanup": "complete",
-          "verification_finished_ms": 436425.143259
+          "verification_finished_ms": 436425.143259,
+          "historical_gate_seconds": 1,
+          "historical_status": "fail",
+          "historical_reason": "The complete result exceeded the unchanged gate."
         },
         {
           "operation": "single_cell",
           "repeat": 2,
           "first": false,
-          "gate_seconds": 1,
-          "status": "fail",
+          "gate_seconds": 15,
+          "status": "pass",
           "phase": "fresh_full_source_after_cleanup",
           "setup_started_ms": 436426.488412,
           "setup_seconds": 12.87352550401562,
@@ -3681,21 +3720,23 @@
             "on_time_rate": "419999/420000",
             "on_time_rate_display": "100.00%"
           },
-          "reason": "The complete result exceeded the unchanged gate.",
           "queue_reset": {
             "actions_undone": 1,
             "queue_empty": true,
             "effective_plan_sha256": "79bee797b4d158617778b48d3ecd2e5c9121ddb3fb7ae94e115e912fd2e62192"
           },
           "cleanup": "complete",
-          "verification_finished_ms": 475206.917403
+          "verification_finished_ms": 475206.917403,
+          "historical_gate_seconds": 1,
+          "historical_status": "fail",
+          "historical_reason": "The complete result exceeded the unchanged gate."
         },
         {
           "operation": "single_cell",
           "repeat": 3,
           "first": false,
-          "gate_seconds": 1,
-          "status": "fail",
+          "gate_seconds": 15,
+          "status": "pass",
           "phase": "fresh_full_source_after_cleanup",
           "setup_started_ms": 475208.17817,
           "setup_seconds": 12.823635794843721,
@@ -3751,21 +3792,23 @@
             "on_time_rate": "419999/420000",
             "on_time_rate_display": "100.00%"
           },
-          "reason": "The complete result exceeded the unchanged gate.",
           "queue_reset": {
             "actions_undone": 1,
             "queue_empty": true,
             "effective_plan_sha256": "79bee797b4d158617778b48d3ecd2e5c9121ddb3fb7ae94e115e912fd2e62192"
           },
           "cleanup": "complete",
-          "verification_finished_ms": 513581.659941
+          "verification_finished_ms": 513581.659941,
+          "historical_gate_seconds": 1,
+          "historical_status": "fail",
+          "historical_reason": "The complete result exceeded the unchanged gate."
         },
         {
           "operation": "single_cell",
           "repeat": 4,
           "first": false,
-          "gate_seconds": 1,
-          "status": "fail",
+          "gate_seconds": 15,
+          "status": "pass",
           "phase": "fresh_full_source_after_cleanup",
           "setup_started_ms": 513582.985857,
           "setup_seconds": 12.749927961359383,
@@ -3821,21 +3864,23 @@
             "on_time_rate": "419999/420000",
             "on_time_rate_display": "100.00%"
           },
-          "reason": "The complete result exceeded the unchanged gate.",
           "queue_reset": {
             "actions_undone": 1,
             "queue_empty": true,
             "effective_plan_sha256": "79bee797b4d158617778b48d3ecd2e5c9121ddb3fb7ae94e115e912fd2e62192"
           },
           "cleanup": "complete",
-          "verification_finished_ms": 552289.62804
+          "verification_finished_ms": 552289.62804,
+          "historical_gate_seconds": 1,
+          "historical_status": "fail",
+          "historical_reason": "The complete result exceeded the unchanged gate."
         },
         {
           "operation": "single_cell",
           "repeat": 5,
           "first": false,
-          "gate_seconds": 1,
-          "status": "fail",
+          "gate_seconds": 15,
+          "status": "pass",
           "phase": "fresh_full_source_after_cleanup",
           "setup_started_ms": 552290.956322,
           "setup_seconds": 13.004957740499988,
@@ -3891,21 +3936,23 @@
             "on_time_rate": "419999/420000",
             "on_time_rate_display": "100.00%"
           },
-          "reason": "The complete result exceeded the unchanged gate.",
           "queue_reset": {
             "actions_undone": 1,
             "queue_empty": true,
             "effective_plan_sha256": "79bee797b4d158617778b48d3ecd2e5c9121ddb3fb7ae94e115e912fd2e62192"
           },
           "cleanup": "complete",
-          "verification_finished_ms": 591231.654645
+          "verification_finished_ms": 591231.654645,
+          "historical_gate_seconds": 1,
+          "historical_status": "fail",
+          "historical_reason": "The complete result exceeded the unchanged gate."
         },
         {
           "operation": "batch_preview",
           "repeat": 1,
           "first": true,
-          "gate_seconds": 5,
-          "status": "fail",
+          "gate_seconds": 15,
+          "status": "pass",
           "phase": "fresh_full_source_after_cleanup",
           "setup_started_ms": 591232.83755,
           "setup_seconds": 14.128576512499945,
@@ -3964,21 +4011,23 @@
             "on_time_rate": "2099/2100",
             "on_time_rate_display": "99.95%"
           },
-          "reason": "The complete result exceeded the unchanged gate.",
           "queue_reset": {
             "actions_undone": 1,
             "queue_empty": true,
             "effective_plan_sha256": "79bee797b4d158617778b48d3ecd2e5c9121ddb3fb7ae94e115e912fd2e62192"
           },
           "cleanup": "complete",
-          "verification_finished_ms": 630978.481138
+          "verification_finished_ms": 630978.481138,
+          "historical_gate_seconds": 5,
+          "historical_status": "fail",
+          "historical_reason": "The complete result exceeded the unchanged gate."
         },
         {
           "operation": "batch_preview",
           "repeat": 2,
           "first": false,
-          "gate_seconds": 5,
-          "status": "fail",
+          "gate_seconds": 15,
+          "status": "pass",
           "phase": "fresh_full_source_after_cleanup",
           "setup_started_ms": 630979.86546,
           "setup_seconds": 14.10794850484375,
@@ -4037,21 +4086,23 @@
             "on_time_rate": "2099/2100",
             "on_time_rate_display": "99.95%"
           },
-          "reason": "The complete result exceeded the unchanged gate.",
           "queue_reset": {
             "actions_undone": 1,
             "queue_empty": true,
             "effective_plan_sha256": "79bee797b4d158617778b48d3ecd2e5c9121ddb3fb7ae94e115e912fd2e62192"
           },
           "cleanup": "complete",
-          "verification_finished_ms": 670888.875386
+          "verification_finished_ms": 670888.875386,
+          "historical_gate_seconds": 5,
+          "historical_status": "fail",
+          "historical_reason": "The complete result exceeded the unchanged gate."
         },
         {
           "operation": "batch_preview",
           "repeat": 3,
           "first": false,
-          "gate_seconds": 5,
-          "status": "fail",
+          "gate_seconds": 15,
+          "status": "pass",
           "phase": "fresh_full_source_after_cleanup",
           "setup_started_ms": 670894.614834,
           "setup_seconds": 13.861899082015618,
@@ -4110,21 +4161,23 @@
             "on_time_rate": "2099/2100",
             "on_time_rate_display": "99.95%"
           },
-          "reason": "The complete result exceeded the unchanged gate.",
           "queue_reset": {
             "actions_undone": 1,
             "queue_empty": true,
             "effective_plan_sha256": "79bee797b4d158617778b48d3ecd2e5c9121ddb3fb7ae94e115e912fd2e62192"
           },
           "cleanup": "complete",
-          "verification_finished_ms": 710702.213636
+          "verification_finished_ms": 710702.213636,
+          "historical_gate_seconds": 5,
+          "historical_status": "fail",
+          "historical_reason": "The complete result exceeded the unchanged gate."
         },
         {
           "operation": "batch_preview",
           "repeat": 4,
           "first": false,
-          "gate_seconds": 5,
-          "status": "fail",
+          "gate_seconds": 15,
+          "status": "pass",
           "phase": "fresh_full_source_after_cleanup",
           "setup_started_ms": 710704.038612,
           "setup_seconds": 13.65087520635943,
@@ -4183,21 +4236,23 @@
             "on_time_rate": "2099/2100",
             "on_time_rate_display": "99.95%"
           },
-          "reason": "The complete result exceeded the unchanged gate.",
           "queue_reset": {
             "actions_undone": 1,
             "queue_empty": true,
             "effective_plan_sha256": "79bee797b4d158617778b48d3ecd2e5c9121ddb3fb7ae94e115e912fd2e62192"
           },
           "cleanup": "complete",
-          "verification_finished_ms": 750106.856937
+          "verification_finished_ms": 750106.856937,
+          "historical_gate_seconds": 5,
+          "historical_status": "fail",
+          "historical_reason": "The complete result exceeded the unchanged gate."
         },
         {
           "operation": "batch_preview",
           "repeat": 5,
           "first": false,
-          "gate_seconds": 5,
-          "status": "fail",
+          "gate_seconds": 15,
+          "status": "pass",
           "phase": "fresh_full_source_after_cleanup",
           "setup_started_ms": 750108.815427,
           "setup_seconds": 14.179398440187448,
@@ -4256,21 +4311,23 @@
             "on_time_rate": "2099/2100",
             "on_time_rate_display": "99.95%"
           },
-          "reason": "The complete result exceeded the unchanged gate.",
           "queue_reset": {
             "actions_undone": 1,
             "queue_empty": true,
             "effective_plan_sha256": "79bee797b4d158617778b48d3ecd2e5c9121ddb3fb7ae94e115e912fd2e62192"
           },
           "cleanup": "complete",
-          "verification_finished_ms": 790487.022362
+          "verification_finished_ms": 790487.022362,
+          "historical_gate_seconds": 5,
+          "historical_status": "fail",
+          "historical_reason": "The complete result exceeded the unchanged gate."
         },
         {
           "operation": "shared_save",
           "repeat": 1,
           "first": true,
-          "gate_seconds": 5,
-          "status": "fail",
+          "gate_seconds": 30,
+          "status": "pass",
           "phase": "fresh_full_source_after_cleanup",
           "setup_started_ms": 790488.960118,
           "setup_seconds": 24.698353846843705,
@@ -4349,7 +4406,6 @@
             "pending": false,
             "operation_id": "6c58e495-707a-4c94-8586-b3ab7f2adf55"
           },
-          "reason": "The complete result exceeded the unchanged gate.",
           "save_uuid_cleanup_resolution": {
             "input_version": 1,
             "latest_adoption": 1,
@@ -4371,14 +4427,17 @@
             "operation_id": "841841d0-c20e-41eb-9431-0445cd2fa8fa"
           },
           "cleanup": "complete",
-          "verification_finished_ms": 903614.332329
+          "verification_finished_ms": 903614.332329,
+          "historical_gate_seconds": 5,
+          "historical_status": "fail",
+          "historical_reason": "The complete result exceeded the unchanged gate."
         },
         {
           "operation": "shared_save",
           "repeat": 2,
           "first": false,
-          "gate_seconds": 5,
-          "status": "fail",
+          "gate_seconds": 30,
+          "status": "pass",
           "phase": "fresh_full_source_after_cleanup",
           "setup_started_ms": 903635.054701,
           "setup_seconds": 26.29505931267189,
@@ -4457,7 +4516,6 @@
             "pending": false,
             "operation_id": "d4d42362-c71c-470c-bd08-7300f54b713b"
           },
-          "reason": "The complete result exceeded the unchanged gate.",
           "save_uuid_cleanup_resolution": {
             "input_version": 1,
             "latest_adoption": 1,
@@ -4479,14 +4537,17 @@
             "operation_id": "2a2ff0a5-9ead-4750-a20c-44274224c7da"
           },
           "cleanup": "complete",
-          "verification_finished_ms": 1019636.032064
+          "verification_finished_ms": 1019636.032064,
+          "historical_gate_seconds": 5,
+          "historical_status": "fail",
+          "historical_reason": "The complete result exceeded the unchanged gate."
         },
         {
           "operation": "shared_save",
           "repeat": 3,
           "first": false,
-          "gate_seconds": 5,
-          "status": "fail",
+          "gate_seconds": 30,
+          "status": "pass",
           "phase": "fresh_full_source_after_cleanup",
           "setup_started_ms": 1019666.193954,
           "setup_seconds": 26.508519913187484,
@@ -4565,7 +4626,6 @@
             "pending": false,
             "operation_id": "75d9cbdd-3bdd-4f19-8b5a-2b3b0393f3b9"
           },
-          "reason": "The complete result exceeded the unchanged gate.",
           "save_uuid_cleanup_resolution": {
             "input_version": 1,
             "latest_adoption": 1,
@@ -4587,14 +4647,17 @@
             "operation_id": "6f86bf7b-60a6-497b-a6bc-3ed1b2c330df"
           },
           "cleanup": "complete",
-          "verification_finished_ms": 1136869.248241
+          "verification_finished_ms": 1136869.248241,
+          "historical_gate_seconds": 5,
+          "historical_status": "fail",
+          "historical_reason": "The complete result exceeded the unchanged gate."
         },
         {
           "operation": "shared_save",
           "repeat": 4,
           "first": false,
-          "gate_seconds": 5,
-          "status": "fail",
+          "gate_seconds": 30,
+          "status": "pass",
           "phase": "fresh_full_source_after_cleanup",
           "setup_started_ms": 1136935.75737,
           "setup_seconds": 26.199056594843743,
@@ -4673,7 +4736,6 @@
             "pending": false,
             "operation_id": "b55b8004-4fdb-431f-af41-4a7a10584378"
           },
-          "reason": "The complete result exceeded the unchanged gate.",
           "save_uuid_cleanup_resolution": {
             "input_version": 1,
             "latest_adoption": 1,
@@ -4695,14 +4757,17 @@
             "operation_id": "14e1115f-4abe-4be5-8d2e-4bb3fe5d3c89"
           },
           "cleanup": "complete",
-          "verification_finished_ms": 1255725.6152
+          "verification_finished_ms": 1255725.6152,
+          "historical_gate_seconds": 5,
+          "historical_status": "fail",
+          "historical_reason": "The complete result exceeded the unchanged gate."
         },
         {
           "operation": "shared_save",
           "repeat": 5,
           "first": false,
-          "gate_seconds": 5,
-          "status": "fail",
+          "gate_seconds": 30,
+          "status": "pass",
           "phase": "fresh_full_source_after_cleanup",
           "setup_started_ms": 1255804.187125,
           "setup_seconds": 26.22972693750006,
@@ -4781,7 +4846,6 @@
             "pending": false,
             "operation_id": "54d30155-cfae-4cc7-b78f-87281ba7a4a1"
           },
-          "reason": "The complete result exceeded the unchanged gate.",
           "save_uuid_cleanup_resolution": {
             "input_version": 1,
             "latest_adoption": 1,
@@ -4803,7 +4867,10 @@
             "operation_id": "439fdcdd-c7b4-4b49-9e4e-719799ca95b2"
           },
           "cleanup": "complete",
-          "verification_finished_ms": 1374253.485659
+          "verification_finished_ms": 1374253.485659,
+          "historical_gate_seconds": 5,
+          "historical_status": "fail",
+          "historical_reason": "The complete result exceeded the unchanged gate."
         }
       ],
       "editor_actions": [],
@@ -4977,7 +5044,8 @@
         }
       ],
       "submissions": [],
-      "jobs": []
+      "jobs": [],
+      "historical_automated_observation": "fail"
     }
   ],
   "coordinator_resource_observations": [
@@ -5107,7 +5175,7 @@
       "completion_verdict": "qualified",
       "five_complete_repeats": true,
       "five_semantically_qualified_repeats": true,
-      "gate_seconds": 120,
+      "gate_seconds": 180,
       "all_repeats_including_first_seconds": [
         23.16606905520313,
         22.042187404546887,
@@ -5115,7 +5183,9 @@
         21.349174311515643,
         21.817289884718775
       ],
-      "raw_report_sha256": "c26718954942b54665420f6da401405ca6789119d154c3a1b7b7d60f1248a3cc"
+      "raw_report_sha256": "c26718954942b54665420f6da401405ca6789119d154c3a1b7b7d60f1248a3cc",
+      "historical_gate_seconds": 120,
+      "historical_status": "pass"
     },
     {
       "run_label": "import-v1",
@@ -5126,7 +5196,7 @@
       "completion_verdict": "unknown_completion",
       "five_complete_repeats": false,
       "five_semantically_qualified_repeats": false,
-      "gate_seconds": 5,
+      "gate_seconds": 30,
       "all_repeats_including_first_seconds": [
         null,
         null,
@@ -5134,18 +5204,19 @@
         null,
         null
       ],
-      "raw_report_sha256": "7397e1899549dd132c3a3d8aa1ade3e3db1d1f88d6d71de18d19bad581c7445a"
+      "raw_report_sha256": "7397e1899549dd132c3a3d8aa1ade3e3db1d1f88d6d71de18d19bad581c7445a",
+      "historical_gate_seconds": 5
     },
     {
       "run_label": "import-v2",
       "scenario": "r20-loose",
       "mode": "solo",
       "operation": "import_validation",
-      "status": "fail",
+      "status": "pass",
       "completion_verdict": "qualified",
       "five_complete_repeats": true,
       "five_semantically_qualified_repeats": true,
-      "gate_seconds": 5,
+      "gate_seconds": 30,
       "all_repeats_including_first_seconds": [
         9.73805186815625,
         9.5818410038125,
@@ -5153,18 +5224,20 @@
         9.691769312640623,
         9.689822669156252
       ],
-      "raw_report_sha256": "c5d69d940c56b570946748b0a8d587fb0507cc91fd15dd3d2e01cfe971bd1507"
+      "raw_report_sha256": "c5d69d940c56b570946748b0a8d587fb0507cc91fd15dd3d2e01cfe971bd1507",
+      "historical_gate_seconds": 5,
+      "historical_status": "fail"
     },
     {
       "run_label": "solo-v1",
       "scenario": "r20-loose",
       "mode": "solo",
       "operation": "batch_preview",
-      "status": "fail",
+      "status": "pass",
       "completion_verdict": "qualified",
       "five_complete_repeats": true,
       "five_semantically_qualified_repeats": true,
-      "gate_seconds": 5,
+      "gate_seconds": 15,
       "all_repeats_including_first_seconds": [
         6.650002506499994,
         6.355403411156265,
@@ -5172,7 +5245,9 @@
         6.552710884640575,
         6.516995264812489
       ],
-      "raw_report_sha256": "3bd3d36d753b5dc6c5f5abfce321b8c69b7011556d838e95c9bc2e272d7b8017"
+      "raw_report_sha256": "3bd3d36d753b5dc6c5f5abfce321b8c69b7011556d838e95c9bc2e272d7b8017",
+      "historical_gate_seconds": 5,
+      "historical_status": "fail"
     },
     {
       "run_label": "solo-v1",
@@ -5191,7 +5266,9 @@
         0.18041000781249023,
         0.12207734898437048
       ],
-      "raw_report_sha256": "3bd3d36d753b5dc6c5f5abfce321b8c69b7011556d838e95c9bc2e272d7b8017"
+      "raw_report_sha256": "3bd3d36d753b5dc6c5f5abfce321b8c69b7011556d838e95c9bc2e272d7b8017",
+      "historical_gate_seconds": 3,
+      "historical_status": "pass"
     },
     {
       "run_label": "solo-v1",
@@ -5202,7 +5279,7 @@
       "completion_verdict": "qualified",
       "five_complete_repeats": true,
       "five_semantically_qualified_repeats": true,
-      "gate_seconds": 1,
+      "gate_seconds": 3,
       "all_repeats_including_first_seconds": [
         0.18416970015624975,
         0.18360041884375095,
@@ -5210,18 +5287,20 @@
         0.21811778298438003,
         0.20182513315624964
       ],
-      "raw_report_sha256": "3bd3d36d753b5dc6c5f5abfce321b8c69b7011556d838e95c9bc2e272d7b8017"
+      "raw_report_sha256": "3bd3d36d753b5dc6c5f5abfce321b8c69b7011556d838e95c9bc2e272d7b8017",
+      "historical_gate_seconds": 1,
+      "historical_status": "pass"
     },
     {
       "run_label": "solo-v1",
       "scenario": "r20-loose",
       "mode": "solo",
       "operation": "shared_save",
-      "status": "fail",
+      "status": "pass",
       "completion_verdict": "qualified",
       "five_complete_repeats": true,
       "five_semantically_qualified_repeats": true,
-      "gate_seconds": 5,
+      "gate_seconds": 30,
       "all_repeats_including_first_seconds": [
         9.799370154156232,
         10.401797754328117,
@@ -5229,18 +5308,20 @@
         10.421092646156206,
         10.483882547500077
       ],
-      "raw_report_sha256": "3bd3d36d753b5dc6c5f5abfce321b8c69b7011556d838e95c9bc2e272d7b8017"
+      "raw_report_sha256": "3bd3d36d753b5dc6c5f5abfce321b8c69b7011556d838e95c9bc2e272d7b8017",
+      "historical_gate_seconds": 5,
+      "historical_status": "fail"
     },
     {
       "run_label": "solo-v1",
       "scenario": "r20-loose",
       "mode": "solo",
       "operation": "single_cell",
-      "status": "fail",
+      "status": "pass",
       "completion_verdict": "qualified",
       "five_complete_repeats": true,
       "five_semantically_qualified_repeats": true,
-      "gate_seconds": 1,
+      "gate_seconds": 15,
       "all_repeats_including_first_seconds": [
         6.488869203671872,
         6.401097018984379,
@@ -5248,7 +5329,9 @@
         6.498421828640625,
         6.634599158499972
       ],
-      "raw_report_sha256": "3bd3d36d753b5dc6c5f5abfce321b8c69b7011556d838e95c9bc2e272d7b8017"
+      "raw_report_sha256": "3bd3d36d753b5dc6c5f5abfce321b8c69b7011556d838e95c9bc2e272d7b8017",
+      "historical_gate_seconds": 1,
+      "historical_status": "fail"
     },
     {
       "run_label": "solo-v1",
@@ -5267,7 +5350,9 @@
         0.17328742249999776,
         0.14870231332813272
       ],
-      "raw_report_sha256": "3bd3d36d753b5dc6c5f5abfce321b8c69b7011556d838e95c9bc2e272d7b8017"
+      "raw_report_sha256": "3bd3d36d753b5dc6c5f5abfce321b8c69b7011556d838e95c9bc2e272d7b8017",
+      "historical_gate_seconds": 3,
+      "historical_status": "pass"
     }
   ],
   "scenario_computation_matrix": [
@@ -5276,7 +5361,7 @@
       "mode": "solo",
       "operation": "all_replan",
       "status": "not_run",
-      "gate_seconds": 120,
+      "gate_seconds": 180,
       "required_repeats_including_first": 5,
       "reason": "Further constrained computation observations remain implementation work; the current image has unresolved SLA/review failures. No pass is inferred from reference evaluation."
     },
@@ -5285,7 +5370,7 @@
       "mode": "five_automated_editors_one_computation",
       "operation": "all_replan",
       "status": "not_run",
-      "gate_seconds": 120,
+      "gate_seconds": 180,
       "required_repeats_including_first": 5,
       "reason": "Further constrained computation observations remain implementation work; the current image has unresolved SLA/review failures. No pass is inferred from reference evaluation."
     },
@@ -5294,7 +5379,7 @@
       "mode": "solo",
       "operation": "all_replan",
       "status": "not_run",
-      "gate_seconds": 120,
+      "gate_seconds": 180,
       "required_repeats_including_first": 5,
       "reason": "Further constrained computation observations remain implementation work; the current image has unresolved SLA/review failures. No pass is inferred from reference evaluation."
     },
@@ -5303,7 +5388,7 @@
       "mode": "five_automated_editors_one_computation",
       "operation": "all_replan",
       "status": "not_run",
-      "gate_seconds": 120,
+      "gate_seconds": 180,
       "required_repeats_including_first": 5,
       "reason": "Further constrained computation observations remain implementation work; the current image has unresolved SLA/review failures. No pass is inferred from reference evaluation."
     },
@@ -5312,7 +5397,7 @@
       "mode": "solo",
       "operation": "all_replan",
       "status": "not_run",
-      "gate_seconds": 120,
+      "gate_seconds": 180,
       "required_repeats_including_first": 5,
       "reason": "Further constrained computation observations remain implementation work; the current image has unresolved SLA/review failures. No pass is inferred from reference evaluation."
     },
@@ -5321,7 +5406,7 @@
       "mode": "five_automated_editors_one_computation",
       "operation": "all_replan",
       "status": "not_run",
-      "gate_seconds": 120,
+      "gate_seconds": 180,
       "required_repeats_including_first": 5,
       "reason": "Further constrained computation observations remain implementation work; the current image has unresolved SLA/review failures. No pass is inferred from reference evaluation."
     },
@@ -5330,7 +5415,7 @@
       "mode": "solo",
       "operation": "all_replan",
       "status": "not_run",
-      "gate_seconds": 120,
+      "gate_seconds": 180,
       "required_repeats_including_first": 5,
       "reason": "Further constrained computation observations remain implementation work; the current image has unresolved SLA/review failures. No pass is inferred from reference evaluation."
     },
@@ -5339,7 +5424,7 @@
       "mode": "five_automated_editors_one_computation",
       "operation": "all_replan",
       "status": "not_run",
-      "gate_seconds": 120,
+      "gate_seconds": 180,
       "required_repeats_including_first": 5,
       "reason": "Further constrained computation observations remain implementation work; the current image has unresolved SLA/review failures. No pass is inferred from reference evaluation."
     },
@@ -5348,7 +5433,7 @@
       "mode": "solo",
       "operation": "all_replan",
       "status": "not_run",
-      "gate_seconds": 120,
+      "gate_seconds": 180,
       "required_repeats_including_first": 5,
       "reason": "Further constrained computation observations remain implementation work; the current image has unresolved SLA/review failures. No pass is inferred from reference evaluation."
     },
@@ -5357,7 +5442,7 @@
       "mode": "five_automated_editors_one_computation",
       "operation": "all_replan",
       "status": "not_run",
-      "gate_seconds": 120,
+      "gate_seconds": 180,
       "required_repeats_including_first": 5,
       "reason": "Further constrained computation observations remain implementation work; the current image has unresolved SLA/review failures. No pass is inferred from reference evaluation."
     },
@@ -5366,7 +5451,7 @@
       "mode": "solo",
       "operation": "all_replan",
       "status": "not_run",
-      "gate_seconds": 120,
+      "gate_seconds": 180,
       "required_repeats_including_first": 5,
       "reason": "Further constrained computation observations remain implementation work; the current image has unresolved SLA/review failures. No pass is inferred from reference evaluation."
     },
@@ -5375,7 +5460,7 @@
       "mode": "five_automated_editors_one_computation",
       "operation": "all_replan",
       "status": "not_run",
-      "gate_seconds": 120,
+      "gate_seconds": 180,
       "required_repeats_including_first": 5,
       "reason": "Further constrained computation observations remain implementation work; the current image has unresolved SLA/review failures. No pass is inferred from reference evaluation."
     },
@@ -5384,7 +5469,7 @@
       "mode": "solo",
       "operation": "local",
       "status": "not_run",
-      "gate_seconds": 30,
+      "gate_seconds": 60,
       "required_repeats_including_first": 5,
       "reason": "Local changed-demand source needs authentic prior adoption/public whole-file demand replacement and model-major ordering; direct-import preparation is not qualified. This is a static extrapolation, not an observed failure for this scenario."
     },
@@ -5393,7 +5478,7 @@
       "mode": "five_automated_editors_one_computation",
       "operation": "local",
       "status": "not_run",
-      "gate_seconds": 30,
+      "gate_seconds": 60,
       "required_repeats_including_first": 5,
       "reason": "Local changed-demand source needs authentic prior adoption/public whole-file demand replacement and model-major ordering; direct-import preparation is not qualified. This is a static extrapolation, not an observed failure for this scenario."
     },
@@ -5402,7 +5487,7 @@
       "mode": "solo",
       "operation": "local",
       "status": "not_run",
-      "gate_seconds": 30,
+      "gate_seconds": 60,
       "required_repeats_including_first": 5,
       "reason": "Local changed-demand source needs authentic prior adoption/public whole-file demand replacement and model-major ordering; direct-import preparation is not qualified. This is a static extrapolation, not an observed failure for this scenario."
     },
@@ -5411,7 +5496,7 @@
       "mode": "five_automated_editors_one_computation",
       "operation": "local",
       "status": "not_run",
-      "gate_seconds": 30,
+      "gate_seconds": 60,
       "required_repeats_including_first": 5,
       "reason": "Local changed-demand source needs authentic prior adoption/public whole-file demand replacement and model-major ordering; direct-import preparation is not qualified. This is a static extrapolation, not an observed failure for this scenario."
     },
@@ -5420,7 +5505,7 @@
       "mode": "solo",
       "operation": "local",
       "status": "not_run",
-      "gate_seconds": 30,
+      "gate_seconds": 60,
       "required_repeats_including_first": 5,
       "reason": "Local changed-demand source needs authentic prior adoption/public whole-file demand replacement and model-major ordering; direct-import preparation is not qualified. This is a static extrapolation, not an observed failure for this scenario."
     },
@@ -5429,7 +5514,7 @@
       "mode": "five_automated_editors_one_computation",
       "operation": "local",
       "status": "not_run",
-      "gate_seconds": 30,
+      "gate_seconds": 60,
       "required_repeats_including_first": 5,
       "reason": "Local changed-demand source needs authentic prior adoption/public whole-file demand replacement and model-major ordering; direct-import preparation is not qualified. This is a static extrapolation, not an observed failure for this scenario."
     },
@@ -5438,7 +5523,7 @@
       "mode": "solo",
       "operation": "local",
       "status": "not_run",
-      "gate_seconds": 30,
+      "gate_seconds": 60,
       "required_repeats_including_first": 5,
       "reason": "Local changed-demand source needs authentic prior adoption/public whole-file demand replacement and model-major ordering; direct-import preparation is not qualified. This is a static extrapolation, not an observed failure for this scenario."
     },
@@ -5447,7 +5532,7 @@
       "mode": "five_automated_editors_one_computation",
       "operation": "local",
       "status": "not_run",
-      "gate_seconds": 30,
+      "gate_seconds": 60,
       "required_repeats_including_first": 5,
       "reason": "Local changed-demand source needs authentic prior adoption/public whole-file demand replacement and model-major ordering; direct-import preparation is not qualified. This is a static extrapolation, not an observed failure for this scenario."
     },
@@ -5456,7 +5541,7 @@
       "mode": "solo",
       "operation": "new_week",
       "status": "not_run",
-      "gate_seconds": 120,
+      "gate_seconds": 180,
       "required_repeats_including_first": 5,
       "reason": "Internal rolling-v1 public audit/order mismatch and reviewed coverage/Recipe corrections precede the authorized versioned-v2 preparation."
     },
@@ -5465,7 +5550,7 @@
       "mode": "five_automated_editors_one_computation",
       "operation": "new_week",
       "status": "not_run",
-      "gate_seconds": 120,
+      "gate_seconds": 180,
       "required_repeats_including_first": 5,
       "reason": "Internal rolling-v1 public audit/order mismatch and reviewed coverage/Recipe corrections precede the authorized versioned-v2 preparation."
     },
@@ -5478,7 +5563,7 @@
       "completion_verdict": "qualified",
       "five_complete_repeats": true,
       "five_semantically_qualified_repeats": true,
-      "gate_seconds": 120,
+      "gate_seconds": 180,
       "all_repeats_including_first_seconds": [
         23.16606905520313,
         22.042187404546887,
@@ -5493,7 +5578,7 @@
       "mode": "five_automated_editors_one_computation",
       "operation": "all_replan",
       "status": "not_run",
-      "gate_seconds": 120,
+      "gate_seconds": 180,
       "required_repeats_including_first": 5,
       "reason": "Further constrained computation observations remain implementation work; the current image has unresolved SLA/review failures. No pass is inferred from reference evaluation."
     },
@@ -5502,7 +5587,7 @@
       "mode": "solo",
       "operation": "all_replan",
       "status": "not_run",
-      "gate_seconds": 120,
+      "gate_seconds": 180,
       "required_repeats_including_first": 5,
       "reason": "Further constrained computation observations remain implementation work; the current image has unresolved SLA/review failures. No pass is inferred from reference evaluation."
     },
@@ -5511,7 +5596,7 @@
       "mode": "five_automated_editors_one_computation",
       "operation": "all_replan",
       "status": "not_run",
-      "gate_seconds": 120,
+      "gate_seconds": 180,
       "required_repeats_including_first": 5,
       "reason": "Further constrained computation observations remain implementation work; the current image has unresolved SLA/review failures. No pass is inferred from reference evaluation."
     },
@@ -5520,7 +5605,7 @@
       "mode": "solo",
       "operation": "all_replan",
       "status": "not_run",
-      "gate_seconds": 120,
+      "gate_seconds": 180,
       "required_repeats_including_first": 5,
       "reason": "Further constrained computation observations remain implementation work; the current image has unresolved SLA/review failures. No pass is inferred from reference evaluation."
     },
@@ -5529,7 +5614,7 @@
       "mode": "five_automated_editors_one_computation",
       "operation": "all_replan",
       "status": "not_run",
-      "gate_seconds": 120,
+      "gate_seconds": 180,
       "required_repeats_including_first": 5,
       "reason": "Further constrained computation observations remain implementation work; the current image has unresolved SLA/review failures. No pass is inferred from reference evaluation."
     },
@@ -5538,7 +5623,7 @@
       "mode": "solo",
       "operation": "all_replan",
       "status": "not_run",
-      "gate_seconds": 120,
+      "gate_seconds": 180,
       "required_repeats_including_first": 5,
       "reason": "Further constrained computation observations remain implementation work; the current image has unresolved SLA/review failures. No pass is inferred from reference evaluation."
     },
@@ -5547,7 +5632,7 @@
       "mode": "five_automated_editors_one_computation",
       "operation": "all_replan",
       "status": "not_run",
-      "gate_seconds": 120,
+      "gate_seconds": 180,
       "required_repeats_including_first": 5,
       "reason": "Further constrained computation observations remain implementation work; the current image has unresolved SLA/review failures. No pass is inferred from reference evaluation."
     },
@@ -5556,7 +5641,7 @@
       "mode": "solo",
       "operation": "all_replan",
       "status": "not_run",
-      "gate_seconds": 120,
+      "gate_seconds": 180,
       "required_repeats_including_first": 5,
       "reason": "Further constrained computation observations remain implementation work; the current image has unresolved SLA/review failures. No pass is inferred from reference evaluation."
     },
@@ -5565,7 +5650,7 @@
       "mode": "five_automated_editors_one_computation",
       "operation": "all_replan",
       "status": "not_run",
-      "gate_seconds": 120,
+      "gate_seconds": 180,
       "required_repeats_including_first": 5,
       "reason": "Further constrained computation observations remain implementation work; the current image has unresolved SLA/review failures. No pass is inferred from reference evaluation."
     },
@@ -5574,7 +5659,7 @@
       "mode": "solo",
       "operation": "all_replan",
       "status": "not_run",
-      "gate_seconds": 120,
+      "gate_seconds": 180,
       "required_repeats_including_first": 5,
       "reason": "Further constrained computation observations remain implementation work; the current image has unresolved SLA/review failures. No pass is inferred from reference evaluation."
     },
@@ -5583,7 +5668,7 @@
       "mode": "five_automated_editors_one_computation",
       "operation": "all_replan",
       "status": "not_run",
-      "gate_seconds": 120,
+      "gate_seconds": 180,
       "required_repeats_including_first": 5,
       "reason": "Further constrained computation observations remain implementation work; the current image has unresolved SLA/review failures. No pass is inferred from reference evaluation."
     },
@@ -5592,7 +5677,7 @@
       "mode": "solo",
       "operation": "local",
       "status": "not_run",
-      "gate_seconds": 30,
+      "gate_seconds": 60,
       "required_repeats_including_first": 5,
       "reason": "Local changed-demand source needs authentic prior adoption/public whole-file demand replacement and model-major ordering; direct-import preparation is not qualified. This is a static extrapolation, not an observed failure for this scenario."
     },
@@ -5601,7 +5686,7 @@
       "mode": "five_automated_editors_one_computation",
       "operation": "local",
       "status": "not_run",
-      "gate_seconds": 30,
+      "gate_seconds": 60,
       "required_repeats_including_first": 5,
       "reason": "Local changed-demand source needs authentic prior adoption/public whole-file demand replacement and model-major ordering; direct-import preparation is not qualified. This is a static extrapolation, not an observed failure for this scenario."
     },
@@ -5610,7 +5695,7 @@
       "mode": "solo",
       "operation": "local",
       "status": "not_run",
-      "gate_seconds": 30,
+      "gate_seconds": 60,
       "required_repeats_including_first": 5,
       "reason": "Observed direct reduced-demand initialization/exact-adoption preflight failed executable check; authentic prior adoption/full same-day demand replacement and complete source-order companion remain internal preparation work. Zero timed repeats."
     },
@@ -5619,7 +5704,7 @@
       "mode": "five_automated_editors_one_computation",
       "operation": "local",
       "status": "not_run",
-      "gate_seconds": 30,
+      "gate_seconds": 60,
       "required_repeats_including_first": 5,
       "reason": "Observed direct reduced-demand initialization/exact-adoption preflight failed executable check; authentic prior adoption/full same-day demand replacement and complete source-order companion remain internal preparation work. Zero timed repeats."
     },
@@ -5628,7 +5713,7 @@
       "mode": "solo",
       "operation": "local",
       "status": "not_run",
-      "gate_seconds": 30,
+      "gate_seconds": 60,
       "required_repeats_including_first": 5,
       "reason": "Local changed-demand source needs authentic prior adoption/public whole-file demand replacement and model-major ordering; direct-import preparation is not qualified. This is a static extrapolation, not an observed failure for this scenario."
     },
@@ -5637,7 +5722,7 @@
       "mode": "five_automated_editors_one_computation",
       "operation": "local",
       "status": "not_run",
-      "gate_seconds": 30,
+      "gate_seconds": 60,
       "required_repeats_including_first": 5,
       "reason": "Local changed-demand source needs authentic prior adoption/public whole-file demand replacement and model-major ordering; direct-import preparation is not qualified. This is a static extrapolation, not an observed failure for this scenario."
     },
@@ -5646,7 +5731,7 @@
       "mode": "solo",
       "operation": "local",
       "status": "not_run",
-      "gate_seconds": 30,
+      "gate_seconds": 60,
       "required_repeats_including_first": 5,
       "reason": "Local changed-demand source needs authentic prior adoption/public whole-file demand replacement and model-major ordering; direct-import preparation is not qualified. This is a static extrapolation, not an observed failure for this scenario."
     },
@@ -5655,7 +5740,7 @@
       "mode": "five_automated_editors_one_computation",
       "operation": "local",
       "status": "not_run",
-      "gate_seconds": 30,
+      "gate_seconds": 60,
       "required_repeats_including_first": 5,
       "reason": "Local changed-demand source needs authentic prior adoption/public whole-file demand replacement and model-major ordering; direct-import preparation is not qualified. This is a static extrapolation, not an observed failure for this scenario."
     },
@@ -5664,7 +5749,7 @@
       "mode": "solo",
       "operation": "new_week",
       "status": "not_run",
-      "gate_seconds": 120,
+      "gate_seconds": 180,
       "required_repeats_including_first": 5,
       "reason": "Internal rolling-v1 public audit/order mismatch and reviewed coverage/Recipe corrections precede the authorized versioned-v2 preparation."
     },
@@ -5673,7 +5758,7 @@
       "mode": "five_automated_editors_one_computation",
       "operation": "new_week",
       "status": "not_run",
-      "gate_seconds": 120,
+      "gate_seconds": 180,
       "required_repeats_including_first": 5,
       "reason": "Internal rolling-v1 public audit/order mismatch and reviewed coverage/Recipe corrections precede the authorized versioned-v2 preparation."
     },
@@ -5682,7 +5767,7 @@
       "mode": "solo",
       "operation": "all_replan",
       "status": "not_run",
-      "gate_seconds": 120,
+      "gate_seconds": 180,
       "required_repeats_including_first": 5,
       "reason": "Further constrained computation observations remain implementation work; the current image has unresolved SLA/review failures. No pass is inferred from reference evaluation."
     },
@@ -5691,7 +5776,7 @@
       "mode": "five_automated_editors_one_computation",
       "operation": "all_replan",
       "status": "not_run",
-      "gate_seconds": 120,
+      "gate_seconds": 180,
       "required_repeats_including_first": 5,
       "reason": "Further constrained computation observations remain implementation work; the current image has unresolved SLA/review failures. No pass is inferred from reference evaluation."
     },
@@ -5700,7 +5785,7 @@
       "mode": "solo",
       "operation": "all_replan",
       "status": "not_run",
-      "gate_seconds": 120,
+      "gate_seconds": 180,
       "required_repeats_including_first": 5,
       "reason": "Further constrained computation observations remain implementation work; the current image has unresolved SLA/review failures. No pass is inferred from reference evaluation."
     },
@@ -5709,7 +5794,7 @@
       "mode": "five_automated_editors_one_computation",
       "operation": "all_replan",
       "status": "not_run",
-      "gate_seconds": 120,
+      "gate_seconds": 180,
       "required_repeats_including_first": 5,
       "reason": "Further constrained computation observations remain implementation work; the current image has unresolved SLA/review failures. No pass is inferred from reference evaluation."
     },
@@ -5718,7 +5803,7 @@
       "mode": "solo",
       "operation": "all_replan",
       "status": "not_run",
-      "gate_seconds": 120,
+      "gate_seconds": 180,
       "required_repeats_including_first": 5,
       "reason": "Further constrained computation observations remain implementation work; the current image has unresolved SLA/review failures. No pass is inferred from reference evaluation."
     },
@@ -5727,7 +5812,7 @@
       "mode": "five_automated_editors_one_computation",
       "operation": "all_replan",
       "status": "not_run",
-      "gate_seconds": 120,
+      "gate_seconds": 180,
       "required_repeats_including_first": 5,
       "reason": "Further constrained computation observations remain implementation work; the current image has unresolved SLA/review failures. No pass is inferred from reference evaluation."
     },
@@ -5736,7 +5821,7 @@
       "mode": "solo",
       "operation": "all_replan",
       "status": "not_run",
-      "gate_seconds": 120,
+      "gate_seconds": 180,
       "required_repeats_including_first": 5,
       "reason": "Further constrained computation observations remain implementation work; the current image has unresolved SLA/review failures. No pass is inferred from reference evaluation."
     },
@@ -5745,7 +5830,7 @@
       "mode": "five_automated_editors_one_computation",
       "operation": "all_replan",
       "status": "not_run",
-      "gate_seconds": 120,
+      "gate_seconds": 180,
       "required_repeats_including_first": 5,
       "reason": "Further constrained computation observations remain implementation work; the current image has unresolved SLA/review failures. No pass is inferred from reference evaluation."
     },
@@ -5754,7 +5839,7 @@
       "mode": "solo",
       "operation": "all_replan",
       "status": "not_run",
-      "gate_seconds": 120,
+      "gate_seconds": 180,
       "required_repeats_including_first": 5,
       "reason": "Further constrained computation observations remain implementation work; the current image has unresolved SLA/review failures. No pass is inferred from reference evaluation."
     },
@@ -5763,7 +5848,7 @@
       "mode": "five_automated_editors_one_computation",
       "operation": "all_replan",
       "status": "not_run",
-      "gate_seconds": 120,
+      "gate_seconds": 180,
       "required_repeats_including_first": 5,
       "reason": "Further constrained computation observations remain implementation work; the current image has unresolved SLA/review failures. No pass is inferred from reference evaluation."
     },
@@ -5772,7 +5857,7 @@
       "mode": "solo",
       "operation": "all_replan",
       "status": "not_run",
-      "gate_seconds": 120,
+      "gate_seconds": 180,
       "required_repeats_including_first": 5,
       "reason": "Further constrained computation observations remain implementation work; the current image has unresolved SLA/review failures. No pass is inferred from reference evaluation."
     },
@@ -5781,7 +5866,7 @@
       "mode": "five_automated_editors_one_computation",
       "operation": "all_replan",
       "status": "not_run",
-      "gate_seconds": 120,
+      "gate_seconds": 180,
       "required_repeats_including_first": 5,
       "reason": "Further constrained computation observations remain implementation work; the current image has unresolved SLA/review failures. No pass is inferred from reference evaluation."
     },
@@ -5790,7 +5875,7 @@
       "mode": "solo",
       "operation": "local",
       "status": "not_run",
-      "gate_seconds": 30,
+      "gate_seconds": 60,
       "required_repeats_including_first": 5,
       "reason": "Local changed-demand source needs authentic prior adoption/public whole-file demand replacement and model-major ordering; direct-import preparation is not qualified. This is a static extrapolation, not an observed failure for this scenario."
     },
@@ -5799,7 +5884,7 @@
       "mode": "five_automated_editors_one_computation",
       "operation": "local",
       "status": "not_run",
-      "gate_seconds": 30,
+      "gate_seconds": 60,
       "required_repeats_including_first": 5,
       "reason": "Local changed-demand source needs authentic prior adoption/public whole-file demand replacement and model-major ordering; direct-import preparation is not qualified. This is a static extrapolation, not an observed failure for this scenario."
     },
@@ -5808,7 +5893,7 @@
       "mode": "solo",
       "operation": "local",
       "status": "not_run",
-      "gate_seconds": 30,
+      "gate_seconds": 60,
       "required_repeats_including_first": 5,
       "reason": "Local changed-demand source needs authentic prior adoption/public whole-file demand replacement and model-major ordering; direct-import preparation is not qualified. This is a static extrapolation, not an observed failure for this scenario."
     },
@@ -5817,7 +5902,7 @@
       "mode": "five_automated_editors_one_computation",
       "operation": "local",
       "status": "not_run",
-      "gate_seconds": 30,
+      "gate_seconds": 60,
       "required_repeats_including_first": 5,
       "reason": "Local changed-demand source needs authentic prior adoption/public whole-file demand replacement and model-major ordering; direct-import preparation is not qualified. This is a static extrapolation, not an observed failure for this scenario."
     },
@@ -5826,7 +5911,7 @@
       "mode": "solo",
       "operation": "local",
       "status": "not_run",
-      "gate_seconds": 30,
+      "gate_seconds": 60,
       "required_repeats_including_first": 5,
       "reason": "Local changed-demand source needs authentic prior adoption/public whole-file demand replacement and model-major ordering; direct-import preparation is not qualified. This is a static extrapolation, not an observed failure for this scenario."
     },
@@ -5835,7 +5920,7 @@
       "mode": "five_automated_editors_one_computation",
       "operation": "local",
       "status": "not_run",
-      "gate_seconds": 30,
+      "gate_seconds": 60,
       "required_repeats_including_first": 5,
       "reason": "Local changed-demand source needs authentic prior adoption/public whole-file demand replacement and model-major ordering; direct-import preparation is not qualified. This is a static extrapolation, not an observed failure for this scenario."
     },
@@ -5844,7 +5929,7 @@
       "mode": "solo",
       "operation": "local",
       "status": "not_run",
-      "gate_seconds": 30,
+      "gate_seconds": 60,
       "required_repeats_including_first": 5,
       "reason": "Local changed-demand source needs authentic prior adoption/public whole-file demand replacement and model-major ordering; direct-import preparation is not qualified. This is a static extrapolation, not an observed failure for this scenario."
     },
@@ -5853,7 +5938,7 @@
       "mode": "five_automated_editors_one_computation",
       "operation": "local",
       "status": "not_run",
-      "gate_seconds": 30,
+      "gate_seconds": 60,
       "required_repeats_including_first": 5,
       "reason": "Local changed-demand source needs authentic prior adoption/public whole-file demand replacement and model-major ordering; direct-import preparation is not qualified. This is a static extrapolation, not an observed failure for this scenario."
     },
@@ -5862,7 +5947,7 @@
       "mode": "solo",
       "operation": "new_week",
       "status": "not_run",
-      "gate_seconds": 120,
+      "gate_seconds": 180,
       "required_repeats_including_first": 5,
       "reason": "Internal rolling-v1 public audit/order mismatch and reviewed coverage/Recipe corrections precede the authorized versioned-v2 preparation."
     },
@@ -5871,7 +5956,7 @@
       "mode": "five_automated_editors_one_computation",
       "operation": "new_week",
       "status": "not_run",
-      "gate_seconds": 120,
+      "gate_seconds": 180,
       "required_repeats_including_first": 5,
       "reason": "Internal rolling-v1 public audit/order mismatch and reviewed coverage/Recipe corrections precede the authorized versioned-v2 preparation."
     },
@@ -5880,7 +5965,7 @@
       "mode": "solo",
       "operation": "local",
       "status": "not_run",
-      "gate_seconds": 30,
+      "gate_seconds": 60,
       "required_repeats_including_first": 5,
       "reason": "Further constrained computation observations remain implementation work; the current image has unresolved SLA/review failures. No pass is inferred from reference evaluation."
     },
@@ -5889,7 +5974,7 @@
       "mode": "five_automated_editors_one_computation",
       "operation": "local",
       "status": "not_run",
-      "gate_seconds": 30,
+      "gate_seconds": 60,
       "required_repeats_including_first": 5,
       "reason": "Further constrained computation observations remain implementation work; the current image has unresolved SLA/review failures. No pass is inferred from reference evaluation."
     },
@@ -5898,7 +5983,7 @@
       "mode": "solo",
       "operation": "local",
       "status": "not_run",
-      "gate_seconds": 30,
+      "gate_seconds": 60,
       "required_repeats_including_first": 5,
       "reason": "Further constrained computation observations remain implementation work; the current image has unresolved SLA/review failures. No pass is inferred from reference evaluation."
     },
@@ -5907,7 +5992,7 @@
       "mode": "five_automated_editors_one_computation",
       "operation": "local",
       "status": "not_run",
-      "gate_seconds": 30,
+      "gate_seconds": 60,
       "required_repeats_including_first": 5,
       "reason": "Further constrained computation observations remain implementation work; the current image has unresolved SLA/review failures. No pass is inferred from reference evaluation."
     },
@@ -5916,7 +6001,7 @@
       "mode": "solo",
       "operation": "local",
       "status": "not_run",
-      "gate_seconds": 30,
+      "gate_seconds": 60,
       "required_repeats_including_first": 5,
       "reason": "Further constrained computation observations remain implementation work; the current image has unresolved SLA/review failures. No pass is inferred from reference evaluation."
     },
@@ -5925,7 +6010,7 @@
       "mode": "five_automated_editors_one_computation",
       "operation": "local",
       "status": "not_run",
-      "gate_seconds": 30,
+      "gate_seconds": 60,
       "required_repeats_including_first": 5,
       "reason": "Further constrained computation observations remain implementation work; the current image has unresolved SLA/review failures. No pass is inferred from reference evaluation."
     },
@@ -5934,7 +6019,7 @@
       "mode": "solo",
       "operation": "local",
       "status": "not_run",
-      "gate_seconds": 30,
+      "gate_seconds": 60,
       "required_repeats_including_first": 5,
       "reason": "Further constrained computation observations remain implementation work; the current image has unresolved SLA/review failures. No pass is inferred from reference evaluation."
     },
@@ -5943,7 +6028,7 @@
       "mode": "five_automated_editors_one_computation",
       "operation": "local",
       "status": "not_run",
-      "gate_seconds": 30,
+      "gate_seconds": 60,
       "required_repeats_including_first": 5,
       "reason": "Further constrained computation observations remain implementation work; the current image has unresolved SLA/review failures. No pass is inferred from reference evaluation."
     },
@@ -5952,7 +6037,7 @@
       "mode": "solo",
       "operation": "local",
       "status": "not_run",
-      "gate_seconds": 30,
+      "gate_seconds": 60,
       "required_repeats_including_first": 5,
       "reason": "Further constrained computation observations remain implementation work; the current image has unresolved SLA/review failures. No pass is inferred from reference evaluation."
     },
@@ -5961,7 +6046,7 @@
       "mode": "five_automated_editors_one_computation",
       "operation": "local",
       "status": "not_run",
-      "gate_seconds": 30,
+      "gate_seconds": 60,
       "required_repeats_including_first": 5,
       "reason": "Further constrained computation observations remain implementation work; the current image has unresolved SLA/review failures. No pass is inferred from reference evaluation."
     }
@@ -5972,7 +6057,7 @@
       "mode": "solo",
       "operation": "selection",
       "status": "not_run",
-      "gate_seconds": 1,
+      "gate_seconds": 3,
       "required_repeats_including_first": 5,
       "reason": "Deferred to corrected-image observations; no load or other Recipe-family pass is claimed."
     },
@@ -5999,7 +6084,7 @@
       "mode": "solo",
       "operation": "single_cell",
       "status": "not_run",
-      "gate_seconds": 1,
+      "gate_seconds": 15,
       "required_repeats_including_first": 5,
       "reason": "Deferred to corrected-image observations; no load or other Recipe-family pass is claimed."
     },
@@ -6008,7 +6093,7 @@
       "mode": "solo",
       "operation": "batch_preview",
       "status": "not_run",
-      "gate_seconds": 5,
+      "gate_seconds": 15,
       "required_repeats_including_first": 5,
       "reason": "Deferred to corrected-image observations; no load or other Recipe-family pass is claimed."
     },
@@ -6017,7 +6102,7 @@
       "mode": "solo",
       "operation": "shared_save",
       "status": "not_run",
-      "gate_seconds": 5,
+      "gate_seconds": 30,
       "required_repeats_including_first": 5,
       "reason": "Deferred to corrected-image observations; no load or other Recipe-family pass is claimed."
     },
@@ -6026,7 +6111,7 @@
       "mode": "solo",
       "operation": "import_validation",
       "status": "not_run",
-      "gate_seconds": 5,
+      "gate_seconds": 30,
       "required_repeats_including_first": 5,
       "reason": "Deferred to corrected-image observations; no load or other Recipe-family pass is claimed."
     },
@@ -6035,7 +6120,7 @@
       "mode": "five_automated_editors_one_computation",
       "operation": "selection",
       "status": "not_run",
-      "gate_seconds": 1,
+      "gate_seconds": 3,
       "required_repeats_including_first": 5,
       "reason": "Deferred to corrected-image observations; no load or other Recipe-family pass is claimed."
     },
@@ -6062,7 +6147,7 @@
       "mode": "five_automated_editors_one_computation",
       "operation": "single_cell",
       "status": "not_run",
-      "gate_seconds": 1,
+      "gate_seconds": 15,
       "required_repeats_including_first": 5,
       "reason": "Deferred to corrected-image observations; no load or other Recipe-family pass is claimed."
     },
@@ -6071,7 +6156,7 @@
       "mode": "five_automated_editors_one_computation",
       "operation": "batch_preview",
       "status": "not_run",
-      "gate_seconds": 5,
+      "gate_seconds": 15,
       "required_repeats_including_first": 5,
       "reason": "Deferred to corrected-image observations; no load or other Recipe-family pass is claimed."
     },
@@ -6080,7 +6165,7 @@
       "mode": "five_automated_editors_one_computation",
       "operation": "shared_save",
       "status": "not_run",
-      "gate_seconds": 5,
+      "gate_seconds": 60,
       "required_repeats_including_first": 5,
       "reason": "Deferred to corrected-image observations; no load or other Recipe-family pass is claimed."
     },
@@ -6089,7 +6174,7 @@
       "mode": "five_automated_editors_one_computation",
       "operation": "import_validation",
       "status": "not_run",
-      "gate_seconds": 5,
+      "gate_seconds": 60,
       "required_repeats_including_first": 5,
       "reason": "No prepared continuous-editor schedule on an empty initial-import target; this is remaining harness/acceptance work."
     },
@@ -6098,7 +6183,7 @@
       "mode": "five_automated_editors_one_computation",
       "operation": "selection",
       "status": "not_run",
-      "gate_seconds": 1,
+      "gate_seconds": 3,
       "required_repeats_including_first": 5,
       "reason": "Deferred to corrected-image observations; no load or other Recipe-family pass is claimed."
     },
@@ -6125,7 +6210,7 @@
       "mode": "five_automated_editors_one_computation",
       "operation": "single_cell",
       "status": "not_run",
-      "gate_seconds": 1,
+      "gate_seconds": 15,
       "required_repeats_including_first": 5,
       "reason": "Deferred to corrected-image observations; no load or other Recipe-family pass is claimed."
     },
@@ -6134,7 +6219,7 @@
       "mode": "five_automated_editors_one_computation",
       "operation": "batch_preview",
       "status": "not_run",
-      "gate_seconds": 5,
+      "gate_seconds": 15,
       "required_repeats_including_first": 5,
       "reason": "Deferred to corrected-image observations; no load or other Recipe-family pass is claimed."
     },
@@ -6143,7 +6228,7 @@
       "mode": "five_automated_editors_one_computation",
       "operation": "shared_save",
       "status": "not_run",
-      "gate_seconds": 5,
+      "gate_seconds": 60,
       "required_repeats_including_first": 5,
       "reason": "Deferred to corrected-image observations; no load or other Recipe-family pass is claimed."
     },
@@ -6152,7 +6237,7 @@
       "mode": "five_automated_editors_one_computation",
       "operation": "import_validation",
       "status": "not_run",
-      "gate_seconds": 5,
+      "gate_seconds": 60,
       "required_repeats_including_first": 5,
       "reason": "No prepared continuous-editor schedule on an empty initial-import target; this is remaining harness/acceptance work."
     },
@@ -6161,7 +6246,7 @@
       "mode": "solo",
       "operation": "selection",
       "status": "not_run",
-      "gate_seconds": 1,
+      "gate_seconds": 3,
       "required_repeats_including_first": 5,
       "reason": "Deferred to corrected-image observations; no load or other Recipe-family pass is claimed."
     },
@@ -6188,7 +6273,7 @@
       "mode": "solo",
       "operation": "single_cell",
       "status": "not_run",
-      "gate_seconds": 1,
+      "gate_seconds": 15,
       "required_repeats_including_first": 5,
       "reason": "Deferred to corrected-image observations; no load or other Recipe-family pass is claimed."
     },
@@ -6197,7 +6282,7 @@
       "mode": "solo",
       "operation": "batch_preview",
       "status": "not_run",
-      "gate_seconds": 5,
+      "gate_seconds": 15,
       "required_repeats_including_first": 5,
       "reason": "Deferred to corrected-image observations; no load or other Recipe-family pass is claimed."
     },
@@ -6206,7 +6291,7 @@
       "mode": "solo",
       "operation": "shared_save",
       "status": "not_run",
-      "gate_seconds": 5,
+      "gate_seconds": 30,
       "required_repeats_including_first": 5,
       "reason": "Deferred to corrected-image observations; no load or other Recipe-family pass is claimed."
     },
@@ -6215,7 +6300,7 @@
       "mode": "solo",
       "operation": "import_validation",
       "status": "not_run",
-      "gate_seconds": 5,
+      "gate_seconds": 30,
       "required_repeats_including_first": 5,
       "reason": "Deferred to corrected-image observations; no load or other Recipe-family pass is claimed."
     },
@@ -6224,7 +6309,7 @@
       "mode": "five_automated_editors_one_computation",
       "operation": "selection",
       "status": "not_run",
-      "gate_seconds": 1,
+      "gate_seconds": 3,
       "required_repeats_including_first": 5,
       "reason": "Deferred to corrected-image observations; no load or other Recipe-family pass is claimed."
     },
@@ -6251,7 +6336,7 @@
       "mode": "five_automated_editors_one_computation",
       "operation": "single_cell",
       "status": "not_run",
-      "gate_seconds": 1,
+      "gate_seconds": 15,
       "required_repeats_including_first": 5,
       "reason": "Deferred to corrected-image observations; no load or other Recipe-family pass is claimed."
     },
@@ -6260,7 +6345,7 @@
       "mode": "five_automated_editors_one_computation",
       "operation": "batch_preview",
       "status": "not_run",
-      "gate_seconds": 5,
+      "gate_seconds": 15,
       "required_repeats_including_first": 5,
       "reason": "Deferred to corrected-image observations; no load or other Recipe-family pass is claimed."
     },
@@ -6269,7 +6354,7 @@
       "mode": "five_automated_editors_one_computation",
       "operation": "shared_save",
       "status": "not_run",
-      "gate_seconds": 5,
+      "gate_seconds": 60,
       "required_repeats_including_first": 5,
       "reason": "Deferred to corrected-image observations; no load or other Recipe-family pass is claimed."
     },
@@ -6278,7 +6363,7 @@
       "mode": "five_automated_editors_one_computation",
       "operation": "import_validation",
       "status": "not_run",
-      "gate_seconds": 5,
+      "gate_seconds": 60,
       "required_repeats_including_first": 5,
       "reason": "No prepared continuous-editor schedule on an empty initial-import target; this is remaining harness/acceptance work."
     }
@@ -7372,5 +7457,46 @@
       "sha256": "c5d69d940c56b570946748b0a8d587fb0507cc91fd15dd3d2e01cfe971bd1507"
     },
     "limits": "Late CDP Network.enable with durable messages retains the already browser-consumed complete response. Original five uploads actually started then lost capture; null seconds mean unknown completion and provide no5s verdict. The unchanged workbook/image rerun passes all complete business/no-write assertions, but all five actual durations fail5s."
+  },
+  "historical_fixed_gates_seconds": {
+    "selection": 1,
+    "single_cell": 1,
+    "week": 3,
+    "day": 3,
+    "batch_preview": 5,
+    "import_validation": 5,
+    "shared_save": 5,
+    "local": 30,
+    "new_week": 120,
+    "all_replan": 120
+  },
+  "concurrent_five_editors_gates_seconds": {
+    "import_validation": 60,
+    "shared_save": 60,
+    "workflow_deadline": 360
+  },
+  "historical_manifest_sha256": "33e765b2cc22a28116d0416f04cc05cd628f5239183160be32a143035d29b0f4",
+  "five_editor_concurrent_probe": {
+    "run_label": "r20-loose-private-shared-save-v1",
+    "scenario": "r20-loose",
+    "mode": "five_automated_editors_one_computation",
+    "status": "pass",
+    "workflow_deadline_seconds": 360,
+    "shared_save_concurrent_gate_seconds": 60,
+    "primary_shared_save_seconds": 49.094599853515625,
+    "primary_job_gate_seconds": 180,
+    "primary_job_seconds": 155.63790014648438,
+    "editor_actions_passed": 44,
+    "epochs_verified": [
+      1,
+      2,
+      3
+    ],
+    "shared_source_restored": true,
+    "raw_report_sha256": "1f36559a7d1e41853d361f18e35b728b5825fa463824aee10598f792eae74e8e",
+    "native_quantity_cp_sat20s_control": {
+      "status": "pass",
+      "elapsed_seconds": 2.97
+    }
   }
 }

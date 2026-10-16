@@ -5,7 +5,7 @@ import { resolve,dirname } from 'node:path'
 import { tmpdir } from 'node:os'
 import { fileURLToPath } from 'node:url'
 import { spawn } from 'node:child_process'
-import { guardFunctionalWorker } from './functional-worker.mjs'
+import { guardFunctionalWorker, identity } from './functional-worker.mjs'
 import { setTimeout as delay } from 'node:timers/promises'
 const directory=dirname(fileURLToPath(import.meta.url)),script=resolve(directory,'functional-worker.fixture.mjs')
 const limits={setup_ms:4000,action_ms:5000,cleanup_ms:1000,absolute_ms:10000}
@@ -31,7 +31,7 @@ for(const phase of ['setup','action'])test('independent guardian interrupts bloc
   const output=mkdtempSync(resolve(tmpdir(),'auto-plan-functional-hard-')),sentinel=spawn(process.execPath,['-e','setInterval(()=>{},1000)'],{stdio:'ignore'})
   const bounded={setup_ms:phase==='setup'?1000:3000,action_ms:1000,cleanup_ms:1000,absolute_ms:5000}
   try{
-    const raw=readFileSync('/proc/'+sentinel.pid+'/stat','utf8'),sentinelStart=raw.slice(raw.lastIndexOf(')')+2).trim().split(/\s+/)[19]
+    const sentinelStart=identity(sentinel.pid)?.start
     await assert.rejects(guardFunctionalWorker({script,output,cwd:directory,limits:bounded,args:[JSON.stringify({limits:bounded,setup:50,block:phase,hardBlock:true,unrelated:{browser_pid:sentinel.pid,browser_start:sentinelStart}})]}),/guardian deadline/)
     process.kill(sentinel.pid,0)
     const failure=JSON.parse(readFileSync(resolve(output,'controller-interruption.json')));assert.equal(failure.phase,phase)
@@ -65,7 +65,7 @@ for(const action of [1000,100])test('late readiness cannot renew an exhausted se
 test('malformed ownership still cleans known real children',{timeout:10000},async()=>{
   const output=mkdtempSync(resolve(tmpdir(),'auto-plan-functional-bad-owned-'))
   const bound={setup_ms:3000,action_ms:3000,cleanup_ms:1000,absolute_ms:7000}
-  const alive=row=>{try{const raw=readFileSync('/proc/'+row.pid+'/stat','utf8'),fields=raw.slice(raw.lastIndexOf(')')+2).trim().split(/\s+/);return fields[19]===row.start&&fields[0]!=='Z'}catch{return false}}
+  const alive=row=>{const cur=identity(row.pid);return Boolean(cur&&cur.start===row.start&&!cur.stat.startsWith('Z'))}
   try{
     await assert.rejects(guardFunctionalWorker({script,output,cwd:directory,limits:bound,args:[JSON.stringify({limits:bound,setup:50,action:4000,malformedOwned:true})]}))
     const rows=JSON.parse(readFileSync(resolve(output,'rescue.json')))
@@ -79,9 +79,9 @@ test('malformed ownership still cleans known real children',{timeout:10000},asyn
 
 test('fast successful exit cleans a registered detached child and preserves unrelated sentinel',{timeout:10000},async()=>{
   const output=mkdtempSync(resolve(tmpdir(),'auto-plan-functional-fast-exit-')),sentinel=spawn(process.execPath,['-e','setInterval(()=>{},1000)'],{stdio:'ignore'})
-  const alive=row=>{try{const raw=readFileSync('/proc/'+row.pid+'/stat','utf8'),fields=raw.slice(raw.lastIndexOf(')')+2).trim().split(/\s+/);return fields[19]===row.start&&fields[0]!=='Z'}catch{return false}}
+  const alive=row=>{const cur=identity(row.pid);return Boolean(cur&&cur.start===row.start&&!cur.stat.startsWith('Z'))}
   try{
-    const raw=readFileSync('/proc/'+sentinel.pid+'/stat','utf8'),sentinelStart=raw.slice(raw.lastIndexOf(')')+2).trim().split(/\s+/)[19]
+    const sentinelStart=identity(sentinel.pid)?.start
     const result=await guardFunctionalWorker({script,output,cwd:directory,limits,poll_ms:800,args:[JSON.stringify({limits,fastExit:true,unrelated:{browser_pid:sentinel.pid,browser_start:sentinelStart}})]})
     assert.equal(result.code,0)
     const rows=JSON.parse(readFileSync(resolve(output,'rescue.json')))

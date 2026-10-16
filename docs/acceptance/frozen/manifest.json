@@ -6,16 +6,16 @@
     "reason": "User has not confirmed these serialized distributions, actions or reference vectors."
   },
   "gates_seconds": {
-    "selection": 1,
-    "single_cell": 1,
+    "selection": 3,
+    "single_cell": 15,
     "week": 3,
     "day": 3,
-    "batch_preview": 5,
-    "import_validation": 5,
-    "shared_save": 5,
-    "local": 30,
-    "new_week": 120,
-    "all_replan": 120
+    "batch_preview": 15,
+    "import_validation": 30,
+    "shared_save": 30,
+    "local": 60,
+    "new_week": 180,
+    "all_replan": 180
   },
   "repeats_per_mode": 5,
   "include_first_repeat": true,

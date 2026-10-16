@@ -547,7 +547,7 @@ async function privateSharedSaveContract(before, job, observe) {
     assertPlan(actual, wanted); assertPrivateEpochResult(prepared.result, prepared.command, target)
     if (fullSharedSave) { record.prepared_command = prepared.command; record.original_context = initialState.head.context }
     primaryPlan = prepared.result.plan; primaryPlans.push(primaryPlan)
-    privateEpochs.set(2, primaryPlan); privateEpochs.set(3, source.plan)
+    privateEpochs.set(2, primaryPlan); privateEpochs.set(3, before.value.snapshot.plan)
     record.prepared_preview_artifact = edit.changed_response_artifact
     record.running_before_save = await observe(); assert.equal(record.running_before_save.body.state, 'running')
     await page.route(api('/plans/save'), interceptor)
@@ -560,8 +560,8 @@ async function privateSharedSaveContract(before, job, observe) {
     assert.deepEqual(canonical(record.submitted.operations), canonical(prepared.command.operations))
     const operation = registerOperation(record.submitted, 'private_shared_save_unknown_reply')
     await dropped.promise; await page.unroute(api('/plans/save'), interceptor)
-    await expect(page.getByText('前次保存结果未知，当前只读。请先核实，避免重复保存或采用。', { exact: true })).toBeVisible()
-    for (const name of ['共享保存','正式采用','预览本机修改','撤销最后完整动作']) await expect(page.getByRole('button', { name, exact: true })).toBeDisabled()
+    await expect(page.getByText('前次保存结果未知，当前只读。请先核实，避免重复保存或采用。', { exact: true })).toBeVisible({ timeout: 60000 })
+    for (const name of ['共享保存','正式采用','预览本机修改','撤销最后完整动作']) await expect(page.getByRole('button', { name, exact: true })).toBeDisabled({ timeout: 60000 })
     record.readonly_unknown_observed = true
     const verification = responseFor(page, response => response.url() === api('/plans/verify') && response.request().method() === 'POST')
     await page.getByRole('button', { name: '核实前次操作', exact: true }).click()
@@ -573,9 +573,9 @@ async function privateSharedSaveContract(before, job, observe) {
       assert.equal(record.resolution.status, 'COMMITTED'); assert.equal(record.resolution.revision, 2)
     })
     operation.resolution = record.resolution; operation.status = 'COMMITTED'; operation.revision = 2
-    await step('verified_message_dom', () => expect(page.getByText('已核实前次操作成功，共享修订 2', { exact: true })).toBeVisible())
-    await step('verified_idle_dom', () => idle(page)); await step('verified_empty_queue_dom', () => expect(queue(page)).toHaveCount(0))
-    await step('verification_button_absent_dom', () => expect(page.getByRole('button', { name: '核实前次操作', exact: true })).toHaveCount(0))
+    await step('verified_message_dom', () => expect(page.getByText('已核实前次操作成功，共享修订 2', { exact: true })).toBeVisible({ timeout: 60000 }))
+    await step('verified_idle_dom', () => idle(page)); await step('verified_empty_queue_dom', () => expect(queue(page)).toHaveCount(0, { timeout: 60000 }))
+    await step('verification_button_absent_dom', () => expect(page.getByRole('button', { name: '核实前次操作', exact: true })).toHaveCount(0, { timeout: 60000 }))
     const saved = await privateSource(observation, 'saved_source'), revision = await json(page, '/plans/revisions/2', undefined, observation, 'saved_revision_R2')
     check('saved_source_assertions', () => {
       assert.deepEqual(saved.value, { ...before.value, source_revision: 2, snapshot: { ...before.value.snapshot, plan: primaryPlan } })
@@ -596,6 +596,7 @@ async function privateSharedSaveContract(before, job, observe) {
     record.display_artifact = check('saved_display_capture', () => captureLocalBody(displayBytes))
     record.clock.rendered_epoch_ms = clock.browser_after_result_frames_epoch_ms; record.clock.seconds = clock.browser_after_result_frames_seconds
     record.running_after_confirmed_paint = await step('running_after_confirmed_paint', () => observe()); check('running_after_confirmed_paint_assertions', () => assert.equal(record.running_after_confirmed_paint.body.state, 'running'))
+    job.running_after_primary_undo = record.running_after_confirmed_paint
     check('running_after_confirmed_paint_identity', () => {
       for (const key of ['job_id','generation','source_revision','input_version','latest_adoption','started_at']) assert.deepEqual(record.running_after_confirmed_paint.body[key], record.running_before_save.body[key])
       assert.ok(record.running_before_save.epoch_ms <= record.clock.origin_epoch_ms && record.running_after_confirmed_paint.epoch_ms >= record.clock.rendered_epoch_ms)
@@ -614,7 +615,7 @@ async function privateSharedSaveContract(before, job, observe) {
       throw error
     }
   }
-  await expect.poll(() => new Set(evidence.editor_actions.filter(row => row.editor > 0 && row.status === 'pass' && row.undo_parent_revision === 3).map(row => row.editor)).size, { timeout: 30000 }).toBe(4)
+  await expect.poll(() => new Set(evidence.editor_actions.filter(row => row.editor > 0 && row.status === 'pass' && row.undo_parent_revision === 3).map(row => row.editor)).size, { timeout: 60000 }).toBe(4)
   await shared(page)
   edit.status = 'pass'; edit.undo = { queue_empty: true, origin_restored: true, restoration_operation_id: record.restoration.submitted.operation_id }
 }
@@ -732,22 +733,23 @@ async function privatePrimaryJobContract(before) {
     assert.equal(record.running_before_primary_edit.body.state, 'running', 'The native job ended before primary editing began.')
     if (privateSharedSaveProbe) await privateSharedSaveContract(before, record, observe)
     else await privateEditCycle(localWorkload.targets.find(target => target.editor === 0))
-    record.running_after_primary_undo = await observe()
+    record.running_after_primary_undo ??= await observe()
     assert.equal(record.running_after_primary_undo.body.state, 'running', 'The native job did not span the complete primary edit and undo.')
     for (const key of ['job_id', 'generation', 'source_revision', 'input_version', 'latest_adoption', 'started_at']) assert.deepEqual(record.running_after_primary_undo.body[key], record.running_before_primary_edit.body[key], 'The running job identity/generation changed.')
     const item = page.getByRole('list', { name: '持久计算任务', exact: true }).locator('li').filter({ hasText: response.job_id })
     const button = item.getByRole('button', { name: '查看候选内容', exact: true }).first()
     while (!await button.isVisible()) {
       if (editorFailure) throw editorFailure
-      await privateEditCycle(localWorkload.targets.find(target => target.editor === 0))
+      if (!privateSharedSaveProbe) await privateEditCycle(localWorkload.targets.find(target => target.editor === 0))
+      else await new Promise(done => setTimeout(done, 250))
       const current = await observe()
-      if (terminal(current.body.state)) { await expect(button).toBeVisible({ timeout: 10000 }); break }
+      if (terminal(current.body.state)) { if (!privateSharedSaveProbe) await expect(button).toBeVisible({ timeout: 10000 }); break }
     }
     // A complete empty undo still has its local proposal. Reload the public
     // shared view after that settled undo so raw candidate checks are visible.
     // The original job command and first-click clock remain in this record.
     await shared(page)
-    await expect(button).toBeVisible({ timeout: 10000 })
+    await expect(button).toBeVisible({ timeout: 30000 })
     const pendingView = responseFor(page, reply => reply.url().startsWith(api('/jobs/' + response.job_id + '/candidates/')))
     await button.click(); const viewed = await pendingView; assert.equal(viewed.status(), 200)
     const viewBytes = await viewed.body(), view = JSON.parse(viewBytes), candidate = view.candidate

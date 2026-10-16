@@ -16,7 +16,7 @@ def prepare(repo, output, template=None):
     from scripts.acceptance.input_companion import content_digest
     frozen = repo/'docs/acceptance/frozen'
     parent_bytes = (frozen/'manifest.json').read_bytes()
-    assert hashlib.sha256(parent_bytes).hexdigest() == '33e765b2cc22a28116d0416f04cc05cd628f5239183160be32a143035d29b0f4'
+    assert hashlib.sha256(parent_bytes).hexdigest() == '986bffaad672f68add9b40ad76a15972b8354d5a9d0d9cf66593de0980ae94db'
     parent = json.loads(parent_bytes)
     original = next(row for row in parent['scenarios'] if row['id'] == 'r20-loose')
     output.mkdir(parents=True, exist_ok=False)

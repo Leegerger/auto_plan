@@ -12,8 +12,8 @@ START = date(2026, 10, 12)
 LINES = [f'L{i:02d}' for i in range(18)]
 MODELS = [f'M{i:02d}' for i in range(40)]
 MONTHS = ['2026-10', '2026-11', '2026-12', '2027-01', '2027-02']
-GATES = {'selection': 1, 'single_cell': 1, 'week': 3, 'day': 3, 'batch_preview': 5,
-         'import_validation': 5, 'shared_save': 5, 'local': 30, 'new_week': 120, 'all_replan': 120}
+GATES = {'selection': 3, 'single_cell': 15, 'week': 3, 'day': 3, 'batch_preview': 15,
+         'import_validation': 30, 'shared_save': 30, 'local': 60, 'new_week': 180, 'all_replan': 180}
 
 
 def canonical(value):

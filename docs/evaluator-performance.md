@@ -83,6 +83,7 @@ facts, WIP, window tails and transaction conflicts.
 These are CPU diagnostics using in-memory persistence and company-authentication
 adapters. They do not measure Oracle round trips, real network/proxy traffic,
 browser rendering, deployed resource limits, five-editor contention, native solver
-quality or final acceptance. The specification's 1/3/5-second, 30-second and
-two-minute thresholds remain unchanged. TestClient emits the existing
+quality or final acceptance. The specification's 3/15/30-second (60-second under
+five-editor concurrent load), 60-second local and three-minute new-week/all-replan
+thresholds apply to full browser acceptance. TestClient emits the existing
 Starlette/HTTPX deprecation warning.

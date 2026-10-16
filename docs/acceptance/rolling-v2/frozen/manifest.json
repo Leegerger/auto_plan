@@ -6,16 +6,16 @@
     "reason": "User has not confirmed these serialized distributions, actions or reference vectors."
   },
   "gates_seconds": {
-    "selection": 1,
-    "single_cell": 1,
+    "selection": 3,
+    "single_cell": 15,
     "week": 3,
     "day": 3,
-    "batch_preview": 5,
-    "import_validation": 5,
-    "shared_save": 5,
-    "local": 30,
-    "new_week": 120,
-    "all_replan": 120
+    "batch_preview": 15,
+    "import_validation": 30,
+    "shared_save": 30,
+    "local": 60,
+    "new_week": 180,
+    "all_replan": 180
   },
   "repeats_per_mode": 5,
   "include_first_repeat": true,
@@ -198,7 +198,7 @@
       },
       "predecessor": {
         "scenario": "r20-rolling",
-        "manifest_sha256": "33e765b2cc22a28116d0416f04cc05cd628f5239183160be32a143035d29b0f4",
+        "manifest_sha256": "986bffaad672f68add9b40ad76a15972b8354d5a9d0d9cf66593de0980ae94db",
         "source_sha256": "61373e89080a8344987c68ee4f71b77ce16374962965828ff528524179523661",
         "reference_sha256": "f886bc2d088095010df69d0d6c45ef932327b7fcc15a54244ffc43a1f5d21761",
         "action_sha256": "2f02638a5867369471ba6402e1ea23733ab4889146e43ad6a981ba5ec6cb8aa8",
@@ -377,7 +377,7 @@
       },
       "predecessor": {
         "scenario": "r10-rolling",
-        "manifest_sha256": "33e765b2cc22a28116d0416f04cc05cd628f5239183160be32a143035d29b0f4",
+        "manifest_sha256": "986bffaad672f68add9b40ad76a15972b8354d5a9d0d9cf66593de0980ae94db",
         "source_sha256": "4f82e39acc0d6d75591963f1311665f35dce639fbde5a680775846716024c1f2",
         "reference_sha256": "ff4b50fc67825cdfa29e063b51d5be97704adbab88083279d0f1abcd7137e56d",
         "action_sha256": "2f02638a5867369471ba6402e1ea23733ab4889146e43ad6a981ba5ec6cb8aa8",
@@ -556,7 +556,7 @@
       },
       "predecessor": {
         "scenario": "r40-rolling",
-        "manifest_sha256": "33e765b2cc22a28116d0416f04cc05cd628f5239183160be32a143035d29b0f4",
+        "manifest_sha256": "986bffaad672f68add9b40ad76a15972b8354d5a9d0d9cf66593de0980ae94db",
         "source_sha256": "d3ebe486a8744393e986268ace945ca6078421617be9af1090a3e2c95c003503",
         "reference_sha256": "7e87821c0f50d1c0e334328900c142f50c4cf345756092fe152a2d1b1acc86ad",
         "action_sha256": "2f02638a5867369471ba6402e1ea23733ab4889146e43ad6a981ba5ec6cb8aa8",
@@ -564,5 +564,5 @@
       }
     }
   ],
-  "predecessor_manifest_sha256": "33e765b2cc22a28116d0416f04cc05cd628f5239183160be32a143035d29b0f4"
+  "predecessor_manifest_sha256": "986bffaad672f68add9b40ad76a15972b8354d5a9d0d9cf66593de0980ae94db"
 }

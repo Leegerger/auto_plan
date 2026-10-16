@@ -8,8 +8,8 @@ import { FULL_SHARED_ID, FULL_SHARED_CONTRACT } from './private-shared-workload.
 const sha=bytes=>createHash('sha256').update(bytes).digest('hex')
 export function writeFullSharedFixture(root,directory) {
   const parent=writeFullPrivateFixture(root,directory), parentBytes=readFileSync(resolve(directory,'manifest.json'))
-  assert.equal(sha(parentBytes),'67b8b5793460d682da724850ae992c56d1b667898163a661ae173dac7f9e8657')
-  assert.equal(sha(readFileSync(resolve(directory,'editing-workload.json'))),'ab571ec54eac0aff4c4d32d0992b0d7fb7afe99cd38b421ad80f52b33380e4e8')
+  assert.equal(sha(parentBytes),'bb19ba0f84f4c4155e902dd002b4c66144896dd580264cd034f81aaac1467048')
+  assert.equal(sha(readFileSync(resolve(directory,'editing-workload.json'))),'3563914edc547e8ebf0d2c8c47b4f0329f61e0d8f2907630136993e365b40810')
   writeFileSync(resolve(directory,'predecessor-full-private-manifest.json'),parentBytes)
   const manifest=JSON.parse(parentBytes),scenario={...parent.scenario,id:FULL_SHARED_ID,predecessor:{scenario:parent.scenario.id,manifest:{path:'predecessor-full-private-manifest.json',sha256:sha(parentBytes)}}}
   const declaration={...parent.declaration,scenario:FULL_SHARED_ID,source_manifest_sha256:sha(parentBytes),shared_save:structuredClone(FULL_SHARED_CONTRACT),

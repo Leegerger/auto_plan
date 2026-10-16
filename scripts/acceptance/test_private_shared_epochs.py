@@ -62,7 +62,7 @@ def test_full_r20_private_edits_follow_original_save_and_restore_epochs(tmp_path
     root = Path(__file__).resolve().parents[2]
     frozen = root / 'docs/acceptance/frozen'
     manifest = (frozen / 'manifest.json').read_bytes()
-    assert hashlib.sha256(manifest).hexdigest() == '33e765b2cc22a28116d0416f04cc05cd628f5239183160be32a143035d29b0f4'
+    assert hashlib.sha256(manifest).hexdigest() == '986bffaad672f68add9b40ad76a15972b8354d5a9d0d9cf66593de0980ae94db'
     scenario = next(row for row in json.loads(manifest)['scenarios'] if row['id'] == 'r20-loose')
     assert scenario['source']['sha256'] == scenario['reference']['sha256'] == 'd019627a21ca1507f9145aac1575c55fa03c8be52838d0f47c85088a8703d909'
     assert scenario['action']['sha256'] == '7f524927f3aa5d0df789c60c938557530b26322addb90ad5b4c14bf8a7ae2f4c'

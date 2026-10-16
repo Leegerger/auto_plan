@@ -10,7 +10,7 @@ import { setTimeout as delay } from 'node:timers/promises'
 
 export const FUNCTIONAL_LIMITS=Object.freeze({setup_ms:180000,action_ms:150000,cleanup_ms:15000,absolute_ms:345000})
 const epoch=()=>performance.timeOrigin+performance.now()
-function identity(pid){try{const raw=readFileSync('/proc/'+pid+'/stat','utf8'),v=raw.slice(raw.lastIndexOf(')')+2).trim().split(/\s+/);return {pid:Number(pid),ppid:Number(v[1]),stat:v[0],start:v[19]}}catch(e){if(['ENOENT','ESRCH'].includes(e.code))return null;throw e}}
+export function identity(pid){try{const raw=readFileSync('/proc/'+pid+'/stat','utf8'),v=raw.slice(raw.lastIndexOf(')')+2).trim().split(/\s+/);return {pid:Number(pid),ppid:Number(v[1]),stat:v[0],start:v[19]}}catch(e){if(!['ENOENT','ESRCH'].includes(e.code))throw e;try{const m=execFileSync('ps',['-o','pid=,ppid=,stat=,lstart=','-p',String(pid)],{encoding:'utf8'}).trim().match(/^(\d+)\s+(\d+)\s+(\S+)\s+(.+)$/);return m?{pid:Number(m[1]),ppid:Number(m[2]),stat:m[3],start:m[4].replace(/\D/g,'')}:null}catch{return null}}}
 function tree(pid,start){
   if(!start||identity(pid)?.start!==start)return []
   const rows=execFileSync('ps',['-e','-o','pid=,ppid=,pgid=,stat='],{encoding:'utf8'}).trim().split('\n').map(r=>r.trim().split(/\s+/)),owned=new Set([String(pid)])

@@ -2,8 +2,8 @@ import { spawn } from 'node:child_process'
 import { readFileSync,writeFileSync,unlinkSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { setTimeout as delay } from 'node:timers/promises'
-import { functionalBudget, resourceRegistration } from './functional-worker.mjs'
-const output=process.argv[2],options=JSON.parse(process.argv[3]),start=pid=>{const raw=readFileSync('/proc/'+pid+'/stat','utf8');return raw.slice(raw.lastIndexOf(')')+2).trim().split(/\s+/)[19]}
+import { functionalBudget, identity, resourceRegistration } from './functional-worker.mjs'
+const output=process.argv[2],options=JSON.parse(process.argv[3]),start=pid=>identity(pid)?.start
 if(options.fastExit)await delay(250)
 const resource=spawn(process.execPath,['-e','setInterval(()=>{},1000)'],{detached:true,stdio:'ignore'})
 writeFileSync(resolve(output,'owned-processes.json'),JSON.stringify({server_pid:resource.pid,server_start:start(resource.pid),attempt:process.env.AUTO_PLAN_FUNCTIONAL_ATTEMPT,worker_pid:process.pid,worker_start:start(process.pid),registrations:[resourceRegistration(resource.pid)],...options.unrelated}))

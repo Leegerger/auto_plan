@@ -25,7 +25,7 @@ def test_all_rolling_companions_preserve_their_own_business_case_and_gates(tmp_p
     manifest=json.loads((target/'manifest.json').read_text())
     assert {r['id'] for r in manifest['scenarios']}=={'r10-rolling-v2','r20-rolling-v2','r40-rolling-v2'}
     assert manifest['gates_seconds']==original['gates_seconds']
-    assert manifest['gates_seconds']['new_week']==120
+    assert manifest['gates_seconds']['new_week']==180
     assert manifest['include_first_repeat'] and manifest['repeats_per_mode']==5
     for scenario in manifest['scenarios']:
         prior=next(r for r in original['scenarios'] if r['id']==scenario['predecessor']['scenario'])

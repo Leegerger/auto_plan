@@ -4,6 +4,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import subprocess
 from threading import Lock, local
 from time import perf_counter_ns
 from uuid import UUID
@@ -17,6 +18,14 @@ def identity(pid):
         raw = Path(f'/proc/{pid}/stat').read_text()
         fields = raw[raw.rfind(')')+2:].split()
         return {'pid': pid, 'start': fields[19], 'pgid': int(fields[2])}
+    except (OSError, ValueError, IndexError):
+        pass
+    try:
+        out = subprocess.run(['ps', '-o', 'pid=,pgid=,stat=,lstart=', '-p', str(pid)], capture_output=True, text=True, check=False).stdout.strip()
+        parts = out.split(None, 3)
+        if len(parts) < 4 or parts[2].startswith('Z'):
+            return None
+        return {'pid': int(parts[0]), 'start': ''.join(ch for ch in parts[3] if ch.isdigit()), 'pgid': int(parts[1])}
     except (OSError, ValueError, IndexError):
         return None
 

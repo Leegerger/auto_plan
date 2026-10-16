@@ -10,7 +10,7 @@ export function writeFullPrivateFixture(root, directory) {
   const frozen = resolve(root, 'docs/acceptance/frozen'), raw = readFileSync(resolve(frozen, 'manifest.json'))
   assert.notEqual(resolve(directory), frozen, 'Canonical fixtures are read-only.')
   assert.deepEqual(readdirSync(directory), [], 'Provide a new empty owned fixture directory.')
-  assert.equal(sha(raw), '33e765b2cc22a28116d0416f04cc05cd628f5239183160be32a143035d29b0f4')
+  assert.equal(sha(raw), '986bffaad672f68add9b40ad76a15972b8354d5a9d0d9cf66593de0980ae94db')
   const manifest = JSON.parse(raw), original = manifest.scenarios.find(row => row.id === 'r20-loose')
   assert.equal(original.source.sha256, 'd019627a21ca1507f9145aac1575c55fa03c8be52838d0f47c85088a8703d909')
   assert.equal(original.reference.sha256, original.source.sha256)

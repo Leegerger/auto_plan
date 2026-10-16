@@ -14,7 +14,7 @@ from scripts.acceptance.public_preparation import PublicPreparation, validate_ta
 from scripts.acceptance.validate import load
 
 ROOT = Path(__file__).resolve().parents[2]
-V1_MANIFEST = '33e765b2cc22a28116d0416f04cc05cd628f5239183160be32a143035d29b0f4'
+V1_MANIFEST = '986bffaad672f68add9b40ad76a15972b8354d5a9d0d9cf66593de0980ae94db'
 
 
 def prepare_public(call, fixtures, config, output):

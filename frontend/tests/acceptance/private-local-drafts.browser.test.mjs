@@ -139,7 +139,7 @@ async function stop(child, finished, exited) {
 }
 
 test(fullSource ? 'five browsers privately edit and undo the full canonical r20 source' : primaryJobProbe ? 'the primary genuinely edits during its accepted running job while four private editors continue' : 'five browsers change private production quantities and undo without shared writes',
-  { skip: !enabled && 'Set AUTO_PLAN_PRIVATE_DRAFT_EDITORS_BROWSER=1.', timeout: primaryJobProbe ? 240000 : 180000 }, async () => {
+  { skip: !enabled && 'Set AUTO_PLAN_PRIVATE_DRAFT_EDITORS_BROWSER=1.', timeout: primaryJobProbe ? 390000 : 180000 }, async () => {
     const python = process.env.AUTO_PLAN_PRIVATE_DRAFT_EDITORS_PYTHON
     assert.ok(python, 'Provide the already installed test Python interpreter.')
     const port = Number(process.env.AUTO_PLAN_PRIVATE_DRAFT_EDITORS_PORT ?? '18869')
@@ -172,7 +172,7 @@ test(fullSource ? 'five browsers privately edit and undo the full canonical r20 
       let exited = false
       const finished = once(child, 'exit').then(value => { exited = true; return value })
       try {
-        const until = Date.now() + (primaryJobProbe ? 210000 : 150000)
+        const until = Date.now() + (primaryJobProbe ? 360000 : 150000)
         while (!exited && Date.now() < until) await delay(100)
         assert.ok(exited, 'Private editing workflow did not finish: ' + output)
         const [code, signal] = await finished

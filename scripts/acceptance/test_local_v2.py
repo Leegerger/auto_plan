@@ -36,7 +36,7 @@ def test_all_twelve_companions_keep_original_business_actions_and_v1_bytes(compa
                 for band in ('near', 'far') for sign in ('increase', 'decrease')}
     assert {row['id'] for row in frozen['scenarios']} == expected
     assert frozen['gates_seconds'] == original['gates_seconds']
-    assert frozen['gates_seconds']['local'] == 30
+    assert frozen['gates_seconds']['local'] == 60
     assert frozen['repeats_per_mode'] == 5 and frozen['include_first_repeat'] is True
     for row in frozen['scenarios']:
         predecessor = next(r for r in original['scenarios'] if r['id'] == row['predecessor']['scenario'])
