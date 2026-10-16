@@ -77,9 +77,12 @@ def test_native_quantity_public_job_keeps_source_uuid_candidate_and_owned_proces
             assert response.status_code == 200
             response = client.get('/auto_plan/api/jobs/source')
             after = proof.capture('source-after', response)
+            source_status = response.status_code
             response = client.post('/auto_plan/api/jobs/verify',json=verify)
             verified_after = proof.capture('verified-after', response, verify)
+            verify_status = response.status_code
             # Complete bodies above are retained before these business assertions.
+            assert source_status == verify_status == 200
             assert candidate['snapshot'] == before['snapshot']
             assert (candidate['source_revision'],candidate['input_version'],candidate['latest_adoption']) == (0,1,0)
             assert candidate['request'] == command['request']
