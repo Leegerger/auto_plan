@@ -2,6 +2,7 @@
 import os
 import subprocess
 import tempfile
+from datetime import datetime, timezone
 from pathlib import Path
 import uvicorn
 from auto_plan.app import create_app
@@ -18,7 +19,8 @@ if __name__ == '__main__':
         settings = Settings(initial_admin_id='ADMIN', public_origin=f'https://localhost:{port}', base_path='/planning', frontend_dist=Path('frontend/dist'))
         access = MemoryAccessStore()
         inputs = MemoryInputStore()
-        options = {}
+        # Browser business fixtures use October 2026 dates, independent of wall time.
+        options = {'clock': lambda: datetime(2026, 10, 14, tzinfo=timezone.utc)}
         if os.getenv('AUTO_PLAN_BROWSER_OUTPUT_FIXTURE') == '1':
             from datetime import datetime, timezone
             from auto_plan.input_models import InputSnapshot

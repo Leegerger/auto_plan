@@ -26,7 +26,7 @@ test('editor previews daily quantities and lossless hours with visible boundary 
     cycle_times: [{ model_code: 'PREVIEW_M', days: '0' }],
   }
   const applied = await page.request.post('/planning/api/inputs/apply', {
-    headers: { Origin: 'https://localhost:8774', 'X-Auto-Plan-Request': '1' },
+    headers: { Origin: new URL(page.url()).origin, 'X-Auto-Plan-Request': '1' },
     data: { base_version: current.input_version, changes },
   })
   expect(applied.ok()).toBeTruthy()
