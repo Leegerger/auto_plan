@@ -7498,5 +7498,33 @@
       "status": "pass",
       "elapsed_seconds": 2.97
     }
-  }
+  },
+  "closure_revalidation_runs": [
+    {
+      "run_id": "closure-five-browser-failed-2026-10-21",
+      "status": "FAIL",
+      "index": {
+        "path": "docs/validation/acceptance/closure-five-browser-failed-2026-10-21.json",
+        "sha256": "021279ab60961df5646370e1540cd399f066ea9334824bed991b9e4967164101"
+      },
+      "raw_archive": {
+        "path": "docs/validation/acceptance/closure-five-browser-failed-2026-10-21.tar.gz",
+        "sha256": "3a2a0490a85128d0b1b5a0f4f9b85a2adf49aeaa48d8bfc6f03d8d352ddfe0c6"
+      },
+      "original_report_sha256": "63b3f7dc580268b046640d62355a2ab32aeeb050d5bf97b390bc13dc91677647",
+      "scenario": "r20-loose-private-shared-save-v1",
+      "target_kind": "adapter",
+      "shared_save_seconds": 111.85669995117188,
+      "shared_save_gate_seconds": 60,
+      "job_state_after_confirmed_paint": "interrupted",
+      "job_reason": "stop_deadline",
+      "workflow_deadline_seconds": 360,
+      "workflow_status": "timeout",
+      "restored_full_source_confirmed": true,
+      "history_and_adoption_closure": "not_completed",
+      "owned_processes_and_groups": "absent_at_later_host_check",
+      "acceptance": "not_run",
+      "scope": "Separate failed closure revalidation; historical pass summary is retained without reclassification."
+    }
+  ]
 }
