@@ -13,9 +13,9 @@ def test_synchronous_compute_cannot_bypass_the_durable_queue(shared_client):
     assert response.json()['replacement'] == '/jobs'
 
 
-def submission(**extra):
+def submission(*, compute_seconds=1, **extra):
     return {'submission_id': str(uuid4()), 'base_revision': 0, 'input_version': 1, 'latest_adoption': 0,
-        'request': {'scope': {'start_date': '2026-10-15', 'end_date': '2026-10-15', 'line_codes': ['L']}, 'time_limit_seconds': 1}, **extra}
+        'request': {'scope': {'start_date': '2026-10-15', 'end_date': '2026-10-15', 'line_codes': ['L']}, 'time_limit_seconds': compute_seconds}, **extra}
 
 
 def test_submission_is_recoverable_by_separate_uuid_and_never_writes_a_revision(shared_client):
@@ -44,7 +44,7 @@ def test_adopting_a_full_zero_candidate_records_its_named_week_through_shared_sa
     client,plans,_=shared_client
     controller=install_controller(client,plans)
     try:
-        request=submission(request={'scope':{'start_date':'2027-01-18','end_date':'2027-01-24','line_codes':['L','B'],'model_codes':['M','N','P']},'mode':'new_week','time_limit_seconds':1})
+        request=submission(request={'scope':{'start_date':'2027-01-18','end_date':'2027-01-24','line_codes':['L','B'],'model_codes':['M','N','P']},'mode':'new_week','time_limit_seconds':10})
         accepted=client.post('/auto_plan/api/jobs',json=request)
         assert accepted.status_code==200,accepted.text
         identity=accepted.json()['job_id']
@@ -97,7 +97,9 @@ def test_fresh_compute_commits_complete_candidate_and_reference_application_pres
     setup(inputs,[{'model_code':'M','week':'2026-10-12','quantity':1}])
     controller=install_controller(client,plans)
     try:
-        submitted=client.post('/auto_plan/api/jobs',json=submission())
+        # Functional candidate checks include fresh native process startup.
+        # Dedicated stop/deadline tests keep the one-second fixture default.
+        submitted=client.post('/auto_plan/api/jobs',json=submission(compute_seconds=10))
         assert submitted.status_code==200,submitted.text
         identity=submitted.json()['job_id']
         finished=wait_job(client,identity)
@@ -252,7 +254,7 @@ def test_partial_order_exchange_gets_fresh_certificate_instead_of_full_candidate
     plans.context=PlanningContext(locks=[{'date':'2026-10-15','line_code':'L','model_code':model,'quantity':1} for model in ('M','N')])
     controller=install_controller(client,plans)
     try:
-        body=submission(latest_adoption=1)
+        body=submission(compute_seconds=10,latest_adoption=1)
         result=calculate(client,{k:v for k,v in body.items() if k!='submission_id'})
         assert result.status_code==200,result.text
         candidate=result.json()['candidates'][0]
@@ -281,7 +283,7 @@ def test_capacity_invalid_half_of_rebalance_is_rejected_before_shared_save(share
     plans.revisions[0]['snapshot']['plan']=plans.plan.model_dump(mode='json')
     controller=install_controller(client,plans)
     try:
-        body=submission()
+        body=submission(compute_seconds=10)
         result=calculate(client,{k:v for k,v in body.items() if k!='submission_id'})
         assert result.status_code==200,result.text
         candidate=result.json()['candidates'][0]
