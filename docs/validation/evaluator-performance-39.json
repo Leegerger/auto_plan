@@ -1,0 +1,879 @@
+{
+  "ticket": 39,
+  "baseline_commit": "f1d035e",
+  "fixture_sha256": "69f83b724605421093648a73e949c5e868444a7319d96cac4f45dc7377790837",
+  "scope": "CPU-only local TestClient diagnostic; excludes Oracle, network, proxy, browser rendering, concurrent editors and native solvers",
+  "stages": {
+    "before": {
+      "stage": "before",
+      "environment": {
+        "python": "3.14.2 (main, Jan 27 2026, 23:59:57) [Clang 21.1.4 ]",
+        "platform": "Linux-6.8.0-90-generic-x86_64-with-glibc2.39",
+        "cpu_model": "Intel(R) Core(TM) i3-6100 CPU @ 3.70GHz",
+        "logical_cpu_count": 4,
+        "affinity": [
+          0,
+          1,
+          2,
+          3
+        ],
+        "cpu_max": null,
+        "memory_max": null,
+        "load_average": [
+          1.0244140625,
+          1.34228515625,
+          1.37939453125
+        ],
+        "packages": {
+          "fastapi": "0.143.1",
+          "starlette": "1.8.0",
+          "pydantic": "2.14.1",
+          "httpx": "0.28.1",
+          "oracledb": "4.0.2"
+        },
+        "source_import": "/tmp/auto-plan-spec-23/performance-39/before/source/src/auto_plan/__init__.py",
+        "exclusive_resources": false,
+        "container_measurement": false
+      },
+      "fixture_sha256": "69f83b724605421093648a73e949c5e868444a7319d96cac4f45dc7377790837",
+      "fixture_bytes": 1278026,
+      "requests": [
+        {
+          "kind": "diagnostic",
+          "repeat": 0,
+          "seconds": 1.9114772453904152,
+          "cpu_seconds": 1.9113116349999997,
+          "through_checks_seconds": 2.229193951934576,
+          "decode_check_hash_seconds": 0.3177123926579952,
+          "response_bytes": 7539791,
+          "canonical_sha256": "facc0f739dc86899aa56c28b724c6cdbca01e677d5c9f9b6cbea6672f2efeded",
+          "within_5_seconds": true,
+          "totals": {
+            "computation_complete": true,
+            "expected": 420000,
+            "outside_window": 0,
+            "unallocated": 0,
+            "on_time": 420000,
+            "late": 0,
+            "pending": 0,
+            "gap": 0,
+            "on_time_rate": "1",
+            "on_time_rate_display": "100.00%"
+          },
+          "checks": {
+            "capacity_valid": true,
+            "computation_complete": true,
+            "executable": true,
+            "expected_output": 420000,
+            "on_time_output": 420000,
+            "gap": 0,
+            "weekly_rows": 600,
+            "switch_count": 4182,
+            "issues": 0
+          }
+        },
+        {
+          "kind": "diagnostic",
+          "repeat": 1,
+          "seconds": 2.1035822480916977,
+          "cpu_seconds": 2.097220011,
+          "through_checks_seconds": 2.4348776303231716,
+          "decode_check_hash_seconds": 0.33129025623202324,
+          "response_bytes": 7539791,
+          "canonical_sha256": "facc0f739dc86899aa56c28b724c6cdbca01e677d5c9f9b6cbea6672f2efeded",
+          "within_5_seconds": true,
+          "totals": {
+            "computation_complete": true,
+            "expected": 420000,
+            "outside_window": 0,
+            "unallocated": 0,
+            "on_time": 420000,
+            "late": 0,
+            "pending": 0,
+            "gap": 0,
+            "on_time_rate": "1",
+            "on_time_rate_display": "100.00%"
+          },
+          "checks": {
+            "capacity_valid": true,
+            "computation_complete": true,
+            "executable": true,
+            "expected_output": 420000,
+            "on_time_output": 420000,
+            "gap": 0,
+            "weekly_rows": 600,
+            "switch_count": 4182,
+            "issues": 0
+          }
+        },
+        {
+          "kind": "diagnostic",
+          "repeat": 2,
+          "seconds": 1.838080458343029,
+          "cpu_seconds": 1.837818617,
+          "through_checks_seconds": 2.2206280268728733,
+          "decode_check_hash_seconds": 0.38254331797361374,
+          "response_bytes": 7539791,
+          "canonical_sha256": "facc0f739dc86899aa56c28b724c6cdbca01e677d5c9f9b6cbea6672f2efeded",
+          "within_5_seconds": true,
+          "totals": {
+            "computation_complete": true,
+            "expected": 420000,
+            "outside_window": 0,
+            "unallocated": 0,
+            "on_time": 420000,
+            "late": 0,
+            "pending": 0,
+            "gap": 0,
+            "on_time_rate": "1",
+            "on_time_rate_display": "100.00%"
+          },
+          "checks": {
+            "capacity_valid": true,
+            "computation_complete": true,
+            "executable": true,
+            "expected_output": 420000,
+            "on_time_output": 420000,
+            "gap": 0,
+            "weekly_rows": 600,
+            "switch_count": 4182,
+            "issues": 0
+          }
+        },
+        {
+          "kind": "shared",
+          "repeat": 0,
+          "seconds": 13.331487156450748,
+          "cpu_seconds": 13.144167077,
+          "through_checks_seconds": 13.948538444936275,
+          "decode_check_hash_seconds": 0.6170455440878868,
+          "response_bytes": 9950393,
+          "canonical_sha256": "818f88c696c764fd3f53a86dbd3dfe87670ca68ce184858ffdfa24d268c17d31",
+          "within_5_seconds": false,
+          "totals": {
+            "computation_complete": true,
+            "expected": 419960,
+            "outside_window": 0,
+            "unallocated": 0,
+            "on_time": 419960,
+            "late": 0,
+            "pending": 0,
+            "gap": 40,
+            "on_time_rate": "10499/10500",
+            "on_time_rate_display": "99.99%"
+          },
+          "checks": null
+        },
+        {
+          "kind": "shared",
+          "repeat": 1,
+          "seconds": 12.461150407791138,
+          "cpu_seconds": 12.409984526999999,
+          "through_checks_seconds": 13.579795274883509,
+          "decode_check_hash_seconds": 1.1186380572617054,
+          "response_bytes": 9950393,
+          "canonical_sha256": "818f88c696c764fd3f53a86dbd3dfe87670ca68ce184858ffdfa24d268c17d31",
+          "within_5_seconds": false,
+          "totals": {
+            "computation_complete": true,
+            "expected": 419960,
+            "outside_window": 0,
+            "unallocated": 0,
+            "on_time": 419960,
+            "late": 0,
+            "pending": 0,
+            "gap": 40,
+            "on_time_rate": "10499/10500",
+            "on_time_rate_display": "99.99%"
+          },
+          "checks": null
+        },
+        {
+          "kind": "shared",
+          "repeat": 2,
+          "seconds": 14.340150833129883,
+          "cpu_seconds": 14.198993031999997,
+          "through_checks_seconds": 14.942640714347363,
+          "decode_check_hash_seconds": 0.6024844199419022,
+          "response_bytes": 9950393,
+          "canonical_sha256": "818f88c696c764fd3f53a86dbd3dfe87670ca68ce184858ffdfa24d268c17d31",
+          "within_5_seconds": false,
+          "totals": {
+            "computation_complete": true,
+            "expected": 419960,
+            "outside_window": 0,
+            "unallocated": 0,
+            "on_time": 419960,
+            "late": 0,
+            "pending": 0,
+            "gap": 40,
+            "on_time_rate": "10499/10500",
+            "on_time_rate_display": "99.99%"
+          },
+          "checks": null
+        }
+      ],
+      "peak_rss_kib": 522652
+    },
+    "after": {
+      "stage": "after",
+      "environment": {
+        "python": "3.14.2 (main, Jan 27 2026, 23:59:57) [Clang 21.1.4 ]",
+        "platform": "Linux-6.8.0-90-generic-x86_64-with-glibc2.39",
+        "cpu_model": "Intel(R) Core(TM) i3-6100 CPU @ 3.70GHz",
+        "logical_cpu_count": 4,
+        "affinity": [
+          0,
+          1,
+          2,
+          3
+        ],
+        "cpu_max": null,
+        "memory_max": null,
+        "load_average": [
+          2.544921875,
+          2.595703125,
+          2.47705078125
+        ],
+        "packages": {
+          "fastapi": "0.143.1",
+          "starlette": "1.8.0",
+          "pydantic": "2.14.1",
+          "httpx": "0.28.1",
+          "oracledb": "4.0.2"
+        },
+        "source_import": "/tmp/auto-plan-spec-23/worktrees/16/src/auto_plan/__init__.py",
+        "exclusive_resources": false,
+        "container_measurement": false
+      },
+      "fixture_sha256": "69f83b724605421093648a73e949c5e868444a7319d96cac4f45dc7377790837",
+      "fixture_bytes": 1278026,
+      "requests": [
+        {
+          "kind": "diagnostic",
+          "repeat": 0,
+          "seconds": 2.917637459933758,
+          "cpu_seconds": 2.82740305,
+          "through_checks_seconds": 3.4140851236879826,
+          "decode_check_hash_seconds": 0.4964387118816376,
+          "response_bytes": 7539791,
+          "canonical_sha256": "facc0f739dc86899aa56c28b724c6cdbca01e677d5c9f9b6cbea6672f2efeded",
+          "within_5_seconds": true,
+          "totals": {
+            "computation_complete": true,
+            "expected": 420000,
+            "outside_window": 0,
+            "unallocated": 0,
+            "on_time": 420000,
+            "late": 0,
+            "pending": 0,
+            "gap": 0,
+            "on_time_rate": "1",
+            "on_time_rate_display": "100.00%"
+          },
+          "checks": {
+            "capacity_valid": true,
+            "computation_complete": true,
+            "executable": true,
+            "expected_output": 420000,
+            "on_time_output": 420000,
+            "gap": 0,
+            "weekly_rows": 600,
+            "switch_count": 4182,
+            "issues": 0
+          }
+        },
+        {
+          "kind": "diagnostic",
+          "repeat": 1,
+          "seconds": 2.6785214245319366,
+          "cpu_seconds": 2.6500791679999995,
+          "through_checks_seconds": 3.1590717174112797,
+          "decode_check_hash_seconds": 0.48054417967796326,
+          "response_bytes": 7539791,
+          "canonical_sha256": "facc0f739dc86899aa56c28b724c6cdbca01e677d5c9f9b6cbea6672f2efeded",
+          "within_5_seconds": true,
+          "totals": {
+            "computation_complete": true,
+            "expected": 420000,
+            "outside_window": 0,
+            "unallocated": 0,
+            "on_time": 420000,
+            "late": 0,
+            "pending": 0,
+            "gap": 0,
+            "on_time_rate": "1",
+            "on_time_rate_display": "100.00%"
+          },
+          "checks": {
+            "capacity_valid": true,
+            "computation_complete": true,
+            "executable": true,
+            "expected_output": 420000,
+            "on_time_output": 420000,
+            "gap": 0,
+            "weekly_rows": 600,
+            "switch_count": 4182,
+            "issues": 0
+          }
+        },
+        {
+          "kind": "diagnostic",
+          "repeat": 2,
+          "seconds": 3.090621631592512,
+          "cpu_seconds": 2.8780740380000003,
+          "through_checks_seconds": 3.569107737392187,
+          "decode_check_hash_seconds": 0.4784802682697773,
+          "response_bytes": 7539791,
+          "canonical_sha256": "facc0f739dc86899aa56c28b724c6cdbca01e677d5c9f9b6cbea6672f2efeded",
+          "within_5_seconds": true,
+          "totals": {
+            "computation_complete": true,
+            "expected": 420000,
+            "outside_window": 0,
+            "unallocated": 0,
+            "on_time": 420000,
+            "late": 0,
+            "pending": 0,
+            "gap": 0,
+            "on_time_rate": "1",
+            "on_time_rate_display": "100.00%"
+          },
+          "checks": {
+            "capacity_valid": true,
+            "computation_complete": true,
+            "executable": true,
+            "expected_output": 420000,
+            "on_time_output": 420000,
+            "gap": 0,
+            "weekly_rows": 600,
+            "switch_count": 4182,
+            "issues": 0
+          }
+        },
+        {
+          "kind": "shared",
+          "repeat": 0,
+          "seconds": 4.971375904977322,
+          "cpu_seconds": 4.956041774999999,
+          "through_checks_seconds": 5.772542219609022,
+          "decode_check_hash_seconds": 0.8011601902544498,
+          "response_bytes": 9950393,
+          "canonical_sha256": "818f88c696c764fd3f53a86dbd3dfe87670ca68ce184858ffdfa24d268c17d31",
+          "within_5_seconds": true,
+          "totals": {
+            "computation_complete": true,
+            "expected": 419960,
+            "outside_window": 0,
+            "unallocated": 0,
+            "on_time": 419960,
+            "late": 0,
+            "pending": 0,
+            "gap": 40,
+            "on_time_rate": "10499/10500",
+            "on_time_rate_display": "99.99%"
+          },
+          "checks": null
+        },
+        {
+          "kind": "shared",
+          "repeat": 1,
+          "seconds": 5.118149157613516,
+          "cpu_seconds": 5.030177780999999,
+          "through_checks_seconds": 5.968527462333441,
+          "decode_check_hash_seconds": 0.8503711894154549,
+          "response_bytes": 9950393,
+          "canonical_sha256": "818f88c696c764fd3f53a86dbd3dfe87670ca68ce184858ffdfa24d268c17d31",
+          "within_5_seconds": false,
+          "totals": {
+            "computation_complete": true,
+            "expected": 419960,
+            "outside_window": 0,
+            "unallocated": 0,
+            "on_time": 419960,
+            "late": 0,
+            "pending": 0,
+            "gap": 40,
+            "on_time_rate": "10499/10500",
+            "on_time_rate_display": "99.99%"
+          },
+          "checks": null
+        },
+        {
+          "kind": "shared",
+          "repeat": 2,
+          "seconds": 5.031018555164337,
+          "cpu_seconds": 4.942855992000002,
+          "through_checks_seconds": 5.833666939288378,
+          "decode_check_hash_seconds": 0.8026413805782795,
+          "response_bytes": 9950393,
+          "canonical_sha256": "818f88c696c764fd3f53a86dbd3dfe87670ca68ce184858ffdfa24d268c17d31",
+          "within_5_seconds": false,
+          "totals": {
+            "computation_complete": true,
+            "expected": 419960,
+            "outside_window": 0,
+            "unallocated": 0,
+            "on_time": 419960,
+            "late": 0,
+            "pending": 0,
+            "gap": 40,
+            "on_time_rate": "10499/10500",
+            "on_time_rate_display": "99.99%"
+          },
+          "checks": null
+        }
+      ],
+      "peak_rss_kib": 414336
+    },
+    "after-render": {
+      "stage": "after-render",
+      "environment": {
+        "python": "3.14.2 (main, Jan 27 2026, 23:59:57) [Clang 21.1.4 ]",
+        "platform": "Linux-6.8.0-90-generic-x86_64-with-glibc2.39",
+        "cpu_model": "Intel(R) Core(TM) i3-6100 CPU @ 3.70GHz",
+        "logical_cpu_count": 4,
+        "affinity": [
+          0,
+          1,
+          2,
+          3
+        ],
+        "cpu_max": null,
+        "memory_max": null,
+        "load_average": [
+          2.95361328125,
+          2.7646484375,
+          2.55078125
+        ],
+        "packages": {
+          "fastapi": "0.143.1",
+          "starlette": "1.8.0",
+          "pydantic": "2.14.1",
+          "httpx": "0.28.1",
+          "oracledb": "4.0.2"
+        },
+        "source_import": "/tmp/auto-plan-spec-23/worktrees/16/src/auto_plan/__init__.py",
+        "exclusive_resources": false,
+        "container_measurement": false
+      },
+      "fixture_sha256": "69f83b724605421093648a73e949c5e868444a7319d96cac4f45dc7377790837",
+      "fixture_bytes": 1278026,
+      "requests": [
+        {
+          "kind": "diagnostic",
+          "repeat": 0,
+          "seconds": 2.744520116597414,
+          "cpu_seconds": 2.732849449,
+          "through_checks_seconds": 3.226783461868763,
+          "decode_check_hash_seconds": 0.48225709795951843,
+          "response_bytes": 7539791,
+          "canonical_sha256": "facc0f739dc86899aa56c28b724c6cdbca01e677d5c9f9b6cbea6672f2efeded",
+          "within_5_seconds": true,
+          "totals": {
+            "computation_complete": true,
+            "expected": 420000,
+            "outside_window": 0,
+            "unallocated": 0,
+            "on_time": 420000,
+            "late": 0,
+            "pending": 0,
+            "gap": 0,
+            "on_time_rate": "1",
+            "on_time_rate_display": "100.00%"
+          },
+          "checks": {
+            "capacity_valid": true,
+            "computation_complete": true,
+            "executable": true,
+            "expected_output": 420000,
+            "on_time_output": 420000,
+            "gap": 0,
+            "weekly_rows": 600,
+            "switch_count": 4182,
+            "issues": 0
+          }
+        },
+        {
+          "kind": "diagnostic",
+          "repeat": 1,
+          "seconds": 2.7520382665097713,
+          "cpu_seconds": 2.6682860039999996,
+          "through_checks_seconds": 3.3017022013664246,
+          "decode_check_hash_seconds": 0.5496571436524391,
+          "response_bytes": 7539791,
+          "canonical_sha256": "facc0f739dc86899aa56c28b724c6cdbca01e677d5c9f9b6cbea6672f2efeded",
+          "within_5_seconds": true,
+          "totals": {
+            "computation_complete": true,
+            "expected": 420000,
+            "outside_window": 0,
+            "unallocated": 0,
+            "on_time": 420000,
+            "late": 0,
+            "pending": 0,
+            "gap": 0,
+            "on_time_rate": "1",
+            "on_time_rate_display": "100.00%"
+          },
+          "checks": {
+            "capacity_valid": true,
+            "computation_complete": true,
+            "executable": true,
+            "expected_output": 420000,
+            "on_time_output": 420000,
+            "gap": 0,
+            "weekly_rows": 600,
+            "switch_count": 4182,
+            "issues": 0
+          }
+        },
+        {
+          "kind": "diagnostic",
+          "repeat": 2,
+          "seconds": 2.654233992099762,
+          "cpu_seconds": 2.6518626099999993,
+          "through_checks_seconds": 3.1311268284916878,
+          "decode_check_hash_seconds": 0.476885836571455,
+          "response_bytes": 7539791,
+          "canonical_sha256": "facc0f739dc86899aa56c28b724c6cdbca01e677d5c9f9b6cbea6672f2efeded",
+          "within_5_seconds": true,
+          "totals": {
+            "computation_complete": true,
+            "expected": 420000,
+            "outside_window": 0,
+            "unallocated": 0,
+            "on_time": 420000,
+            "late": 0,
+            "pending": 0,
+            "gap": 0,
+            "on_time_rate": "1",
+            "on_time_rate_display": "100.00%"
+          },
+          "checks": {
+            "capacity_valid": true,
+            "computation_complete": true,
+            "executable": true,
+            "expected_output": 420000,
+            "on_time_output": 420000,
+            "gap": 0,
+            "weekly_rows": 600,
+            "switch_count": 4182,
+            "issues": 0
+          }
+        },
+        {
+          "kind": "shared",
+          "repeat": 0,
+          "seconds": 3.4704235568642616,
+          "cpu_seconds": 3.465581751,
+          "through_checks_seconds": 4.340413138270378,
+          "decode_check_hash_seconds": 0.8699839822947979,
+          "response_bytes": 9950393,
+          "canonical_sha256": "818f88c696c764fd3f53a86dbd3dfe87670ca68ce184858ffdfa24d268c17d31",
+          "within_5_seconds": true,
+          "totals": {
+            "computation_complete": true,
+            "expected": 419960,
+            "outside_window": 0,
+            "unallocated": 0,
+            "on_time": 419960,
+            "late": 0,
+            "pending": 0,
+            "gap": 40,
+            "on_time_rate": "10499/10500",
+            "on_time_rate_display": "99.99%"
+          },
+          "checks": null
+        },
+        {
+          "kind": "shared",
+          "repeat": 1,
+          "seconds": 3.862672556191683,
+          "cpu_seconds": 3.597917959,
+          "through_checks_seconds": 4.681990701705217,
+          "decode_check_hash_seconds": 0.8193130753934383,
+          "response_bytes": 9950393,
+          "canonical_sha256": "818f88c696c764fd3f53a86dbd3dfe87670ca68ce184858ffdfa24d268c17d31",
+          "within_5_seconds": true,
+          "totals": {
+            "computation_complete": true,
+            "expected": 419960,
+            "outside_window": 0,
+            "unallocated": 0,
+            "on_time": 419960,
+            "late": 0,
+            "pending": 0,
+            "gap": 40,
+            "on_time_rate": "10499/10500",
+            "on_time_rate_display": "99.99%"
+          },
+          "checks": null
+        },
+        {
+          "kind": "shared",
+          "repeat": 2,
+          "seconds": 3.422751609236002,
+          "cpu_seconds": 3.417810919000001,
+          "through_checks_seconds": 4.241527818143368,
+          "decode_check_hash_seconds": 0.8187695406377316,
+          "response_bytes": 9950393,
+          "canonical_sha256": "818f88c696c764fd3f53a86dbd3dfe87670ca68ce184858ffdfa24d268c17d31",
+          "within_5_seconds": true,
+          "totals": {
+            "computation_complete": true,
+            "expected": 419960,
+            "outside_window": 0,
+            "unallocated": 0,
+            "on_time": 419960,
+            "late": 0,
+            "pending": 0,
+            "gap": 40,
+            "on_time_rate": "10499/10500",
+            "on_time_rate_display": "99.99%"
+          },
+          "checks": null
+        }
+      ],
+      "peak_rss_kib": 407496
+    },
+    "final": {
+      "kind": "CPU diagnostic; excludes Oracle, network, browser and concurrent editors",
+      "source_commit": "f1d035e49e5f28306352942e1e332763c21c3c15",
+      "source_import": "/tmp/auto-plan-spec-23/worktrees/16/src/auto_plan",
+      "source_files_sha256": {
+        "__init__.py": "44a6cc69163920d3c31bd7c412c53230f6879aeac6b8269bb0ce0f9c77d69f57",
+        "access.py": "c1a1126386cb5d9870b546bcdf08103565c0b1a65107f886e5b2bb8a5b43cf72",
+        "app.py": "aad9696ab5fa438b6a825f827a773eb48cc865ebe71ec5d4ae091c8caf70f7c4",
+        "certificate.py": "cc222c81f66d9c6d3fec7c6378a51496bf3d7d6c2c0e64783175701a851de93f",
+        "company_auth.py": "ce1a3397f582780246d0df97caf56b128ec73b5484c2e80e591f3bb49a2318c5",
+        "exact.py": "5c269751fd4bc08e14956d4e34bac2bd881f03bdc48ecfe28119c05a4281062b",
+        "input_api.py": "8acaa11218f75f119d60a132d0cfb638bd130d12f902918440ec579bedf28e51",
+        "input_lookup.py": "00ce385bd33196e513d18ede4bb062936661195fccf6a7ccc963db576d884bcd",
+        "input_models.py": "516f711c4fe03fe5955dba138dbb9ed107a7bdb4eb0bd077dccfacd253d0f6d0",
+        "input_tables.py": "1badcd42785067170a30b5ca76384ba16c8ddec3f83799a21db6420159078f99",
+        "inputs.py": "ab40d72b842f1d3a0a2b5c08be52e8a92a71a9d07d9bcfd954b04e026be7c0c3",
+        "migrate.py": "2c7ee1c050fb160677243e5dc6894ab713067940e407830ea5ebfec3824eb275",
+        "oracle_access.py": "cdf74e93009f97a97a516dbeedf4e0cb2d38b82da3762b9485d80cc06ef2c892",
+        "oracle_inputs.py": "ae7799b497d237840d15776dc41a4d7dec7534c8634f863d6a5f7da063ca4a95",
+        "oracle_plans.py": "5b2cb013b98ba1755cb0dd361f6c73c2a77edd9fbcadbed7ca28f66b7cea62cc",
+        "output_rules.py": "ff54f2d68b012cde824d2cb45e6cdfdbf040795c4bdbcc727df6e02503163217",
+        "plan_api.py": "7c7ee3b40a8e9c0ee9372852deab1a73cc6c43eb4ead22941d81e95beb5648bc",
+        "plan_models.py": "b93a73915e40cd261f85639e712eb1f55f820986882c5c6c47f875f9332efec3",
+        "plan_operations.py": "744469fce61da11fac7de69bcc41c0f4816582608d25bd82d90302526b6ff02b",
+        "plans.py": "1f970d3a34521d668a9d5af152e319c059ad497ea9f88ea6c39d97698e0e4fcc",
+        "production_time.py": "1035f71212719e7c7bf2f255b08ada7a7d6f47049c1c5d3b293915db4c2d3a52",
+        "recipe_states.py": "12d1f66f11b996c4a69475cc4213167fdf314d264b4b6abe3da44271121d3880",
+        "rules.py": "60b7ec564415ce1e04b880c70eaa097ae54f8872cab91e77f37c0bcd7f277cd5",
+        "settings.py": "2063b77a14616651d910e426dff4a0d6b997e96045a15f6b980492582213f638",
+        "shared_plan_api.py": "7808361984e0c99cc1d1bfe7b1315049dcc1ec9b98f84b3cadfc3d79355b2ae9"
+      },
+      "fixture_sha256": "69f83b724605421093648a73e949c5e868444a7319d96cac4f45dc7377790837",
+      "fixture_bytes": 1278026,
+      "environment": {
+        "python": "3.14.2",
+        "platform": "Linux-6.8.0-90-generic-x86_64-with-glibc2.39",
+        "cpu_model": "Intel(R) Core(TM) i3-6100 CPU @ 3.70GHz",
+        "affinity": [
+          0,
+          1,
+          2,
+          3
+        ],
+        "cpu_max": null,
+        "memory_max": null,
+        "load_average": [
+          2.58984375,
+          2.8662109375,
+          2.6298828125
+        ],
+        "exclusive_resources": false,
+        "packages": {
+          "fastapi": "0.143.1",
+          "starlette": "1.8.0",
+          "pydantic": "2.14.1",
+          "httpx": "0.28.1",
+          "oracledb": "4.0.2"
+        }
+      },
+      "requests": [
+        {
+          "kind": "diagnostic",
+          "repeat": 0,
+          "seconds": 2.7186085171997547,
+          "cpu_seconds": 2.7121079310000002,
+          "response_bytes": 7539791,
+          "canonical_sha256": "facc0f739dc86899aa56c28b724c6cdbca01e677d5c9f9b6cbea6672f2efeded",
+          "within_5_seconds": true,
+          "through_checks_seconds": 3.2101214937865734,
+          "totals": {
+            "computation_complete": true,
+            "expected": 420000,
+            "outside_window": 0,
+            "unallocated": 0,
+            "on_time": 420000,
+            "late": 0,
+            "pending": 0,
+            "gap": 0,
+            "on_time_rate": "1",
+            "on_time_rate_display": "100.00%"
+          }
+        },
+        {
+          "kind": "diagnostic",
+          "repeat": 1,
+          "seconds": 2.7885572090744972,
+          "cpu_seconds": 2.7114465039999995,
+          "response_bytes": 7539791,
+          "canonical_sha256": "facc0f739dc86899aa56c28b724c6cdbca01e677d5c9f9b6cbea6672f2efeded",
+          "within_5_seconds": true,
+          "through_checks_seconds": 3.2702558487653732,
+          "totals": {
+            "computation_complete": true,
+            "expected": 420000,
+            "outside_window": 0,
+            "unallocated": 0,
+            "on_time": 420000,
+            "late": 0,
+            "pending": 0,
+            "gap": 0,
+            "on_time_rate": "1",
+            "on_time_rate_display": "100.00%"
+          }
+        },
+        {
+          "kind": "diagnostic",
+          "repeat": 2,
+          "seconds": 2.6411470025777817,
+          "cpu_seconds": 2.6291152790000005,
+          "response_bytes": 7539791,
+          "canonical_sha256": "facc0f739dc86899aa56c28b724c6cdbca01e677d5c9f9b6cbea6672f2efeded",
+          "within_5_seconds": true,
+          "through_checks_seconds": 3.1543810591101646,
+          "totals": {
+            "computation_complete": true,
+            "expected": 420000,
+            "outside_window": 0,
+            "unallocated": 0,
+            "on_time": 420000,
+            "late": 0,
+            "pending": 0,
+            "gap": 0,
+            "on_time_rate": "1",
+            "on_time_rate_display": "100.00%"
+          }
+        },
+        {
+          "kind": "shared",
+          "repeat": 0,
+          "seconds": 3.3171861581504345,
+          "cpu_seconds": 3.3159201729999985,
+          "response_bytes": 9950393,
+          "canonical_sha256": "818f88c696c764fd3f53a86dbd3dfe87670ca68ce184858ffdfa24d268c17d31",
+          "within_5_seconds": true,
+          "through_checks_seconds": 4.127161532640457,
+          "totals": {
+            "computation_complete": true,
+            "expected": 419960,
+            "outside_window": 0,
+            "unallocated": 0,
+            "on_time": 419960,
+            "late": 0,
+            "pending": 0,
+            "gap": 40,
+            "on_time_rate": "10499/10500",
+            "on_time_rate_display": "99.99%"
+          }
+        },
+        {
+          "kind": "shared",
+          "repeat": 1,
+          "seconds": 3.4242646396160126,
+          "cpu_seconds": 3.396382432000001,
+          "response_bytes": 9950393,
+          "canonical_sha256": "818f88c696c764fd3f53a86dbd3dfe87670ca68ce184858ffdfa24d268c17d31",
+          "within_5_seconds": true,
+          "through_checks_seconds": 4.2650870606303215,
+          "totals": {
+            "computation_complete": true,
+            "expected": 419960,
+            "outside_window": 0,
+            "unallocated": 0,
+            "on_time": 419960,
+            "late": 0,
+            "pending": 0,
+            "gap": 40,
+            "on_time_rate": "10499/10500",
+            "on_time_rate_display": "99.99%"
+          }
+        },
+        {
+          "kind": "shared",
+          "repeat": 2,
+          "seconds": 3.538350433111191,
+          "cpu_seconds": 3.5122308209999993,
+          "response_bytes": 9950393,
+          "canonical_sha256": "818f88c696c764fd3f53a86dbd3dfe87670ca68ce184858ffdfa24d268c17d31",
+          "within_5_seconds": true,
+          "through_checks_seconds": 4.350169435143471,
+          "totals": {
+            "computation_complete": true,
+            "expected": 419960,
+            "outside_window": 0,
+            "unallocated": 0,
+            "on_time": 419960,
+            "late": 0,
+            "pending": 0,
+            "gap": 40,
+            "on_time_rate": "10499/10500",
+            "on_time_rate_display": "99.99%"
+          }
+        }
+      ],
+      "peak_rss_kib": 409072
+    }
+  },
+  "complete_response_equivalence": {
+    "all_stages_match_baseline": true,
+    "diagnostic_sha256": "facc0f739dc86899aa56c28b724c6cdbca01e677d5c9f9b6cbea6672f2efeded",
+    "shared_sha256": "818f88c696c764fd3f53a86dbd3dfe87670ca68ce184858ffdfa24d268c17d31"
+  },
+  "public_error_paths": [
+    {
+      "case": "unauthenticated",
+      "status": 401,
+      "media_type": "application/json"
+    },
+    {
+      "case": "viewer cannot preview edits",
+      "status": 403,
+      "media_type": "application/json"
+    },
+    {
+      "case": "invalid command shape",
+      "status": 422,
+      "media_type": "application/json"
+    },
+    {
+      "case": "invalid operation",
+      "status": 422,
+      "media_type": "application/json"
+    },
+    {
+      "case": "changed input token",
+      "status": 409,
+      "media_type": "application/json"
+    }
+  ],
+  "regressions": {
+    "full_suite_before_direct_json_rendering": {
+      "passed": 75,
+      "skipped": 21
+    },
+    "final_focused_api_with_cpu_budget": {
+      "passed": 44,
+      "skipped": 0
+    },
+    "oracle_mutations": false
+  }
+}

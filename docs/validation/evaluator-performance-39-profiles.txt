@@ -1,0 +1,132 @@
+Baseline f1d035e, public shared preview, separately profiled request
+
+         51218886 function calls (49201437 primitive calls) in 31.621 seconds
+
+   Ordered by: cumulative time
+   List reduced from 805 to 30 due to restriction <30>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+      2/1    0.000    0.000   31.640   31.640 _client.py:1123(post)
+      2/1    0.000    0.000   31.639   31.639 testclient.py:432(request)
+        1    0.000    0.000   31.639   31.639 _client.py:771(request)
+        1    0.000    0.000   31.639   31.639 _client.py:879(send)
+        1    0.000    0.000   31.639   31.639 _client.py:930(_send_handling_auth)
+        1    0.000    0.000   31.639   31.639 _client.py:964(_send_handling_redirects)
+        1    0.000    0.000   31.639   31.639 _client.py:1001(_send_single_request)
+        1    0.000    0.000   31.638   31.638 testclient.py:217(handle_request)
+        2    0.000    0.000   31.636   15.818 from_thread.py:325(call)
+    47/44    0.000    0.000   31.617    0.719 {method 'run' of '_contextvars.Context' objects}
+        1    0.000    0.000   26.764   26.764 _api.py:240(_run_sync_endpoint)
+        1    0.000    0.000   26.764   26.764 shared_plan_api.py:45(preview)
+        1    0.000    0.000   26.764   26.764 shared_plan_api.py:18(invoke)
+        1    0.000    0.000   26.764   26.764 shared_plan_api.py:47(<lambda>)
+        1    0.000    0.000   26.764   26.764 plans.py:266(preview)
+        1    0.000    0.000   26.764   26.764 plan_support.py:25(read)
+        1    0.021    0.021   26.764   26.764 plans.py:267(<lambda>)
+        1    0.106    0.106   26.742   26.742 plans.py:217(_prepare)
+        5    1.260    0.252   24.913    4.983 rules.py:10(evaluate)
+        2    0.056    0.028   20.686   10.343 plans.py:86(effect_keys)
+        5    4.412    0.882   12.958    2.592 output_rules.py:30(output_evaluation)
+   290364    1.384    0.000    6.117    0.000 {method 'validate_python' of 'pydantic_core._pydantic_core.SchemaValidator' objects}
+   290358    0.193    0.000    5.792    0.000 main.py:270(__init__)
+   151890    0.804    0.000    5.297    0.000 exact.py:27(hours)
+   987324    2.853    0.000    5.288    0.000 fractions.py:206(__new__)
+       29    0.019    0.001    4.873    0.168 base_events.py:1966(_run_once)
+       41    0.000    0.000    4.853    0.118 events.py:92(_run)
+       23    0.000    0.000    4.853    0.211 _tasks.py:322(_run_coro)
+       15    0.000    0.000    4.851    0.323 base.py:144(coro)
+       15    0.000    0.000    4.851    0.323 exceptions.py:47(__call__)
+
+
+
+Final source identified by the file hashes in evaluator-performance-39.json
+Public shared preview, separately profiled request
+
+         8142819 function calls (7317183 primitive calls) in 11.106 seconds
+
+   Ordered by: cumulative time
+   List reduced from 795 to 80 due to restriction <80>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+      2/1    0.000    0.000   11.106   11.106 _client.py:1123(post)
+      2/1    0.000    0.000   11.105   11.105 testclient.py:432(request)
+        1    0.000    0.000   11.105   11.105 _client.py:771(request)
+        1    0.000    0.000   11.105   11.105 _client.py:879(send)
+        1    0.000    0.000   11.105   11.105 _client.py:930(_send_handling_auth)
+        1    0.000    0.000   11.105   11.105 _client.py:964(_send_handling_redirects)
+        1    0.000    0.000   11.105   11.105 _client.py:1001(_send_single_request)
+        1    0.000    0.000   11.102   11.102 testclient.py:217(handle_request)
+    47/44    0.000    0.000   11.100    0.252 {method 'run' of '_contextvars.Context' objects}
+        2    0.002    0.001   11.100    5.550 from_thread.py:325(call)
+        1    0.000    0.000   11.093   11.093 _api.py:240(_run_sync_endpoint)
+        1    0.000    0.000   11.093   11.093 shared_plan_api.py:45(preview)
+        1    0.000    0.000   11.093   11.093 shared_plan_api.py:18(invoke)
+        1    0.015    0.015   11.093   11.093 shared_plan_api.py:49(<lambda>)
+        1    0.000    0.000   10.866   10.866 plans.py:269(preview)
+        1    0.000    0.000   10.866   10.866 plan_support.py:25(read)
+        1    0.039    0.039   10.866   10.866 plans.py:270(<lambda>)
+        1    0.018    0.018   10.828   10.828 plans.py:220(_prepare)
+        1    0.483    0.483    7.601    7.601 rules.py:11(evaluate)
+    58084    0.676    0.000    2.915    0.000 {method 'validate_python' of 'pydantic_core._pydantic_core.SchemaValidator' objects}
+        1    0.593    0.593    2.865    2.865 output_rules.py:31(output_evaluation)
+    58078    0.088    0.000    2.428    0.000 main.py:270(__init__)
+    30378    0.350    0.000    2.102    0.000 exact.py:27(hours)
+   207580    1.080    0.000    2.089    0.000 fractions.py:206(__new__)
+668998/25    0.491    0.000    1.437    0.057 copy.py:110(deepcopy)
+ 62307/12    0.461    0.000    1.437    0.120 copy.py:198(_deepcopy_dict)
+12710/158    0.066    0.000    1.435    0.009 copy.py:172(_deepcopy_list)
+    43022    0.241    0.000    1.293    0.000 exact.py:9(exact_value)
+        3    0.002    0.001    0.959    0.320 plan_support.py:22(get_revision)
+    16807    0.072    0.000    0.831    0.000 main.py:410(model_copy)
+    75912    0.435    0.000    0.784    0.000 input_models.py:9(code_value)
+953370/953368    0.441    0.000    0.730    0.000 {built-in method builtins.isinstance}
+        5    0.000    0.000    0.575    0.115 main.py:746(model_validate)
+    60180    0.134    0.000    0.524    0.000 fractions.py:697(forward)
+    41975    0.097    0.000    0.500    0.000 {built-in method builtins.sum}
+        5    0.000    0.000    0.482    0.096 plan_support.py:18(inputs)
+        5    0.000    0.000    0.482    0.096 input_support.py:12(read)
+  15335/5    0.075    0.000    0.482    0.096 main.py:1053(__deepcopy__)
+        2    0.064    0.032    0.397    0.198 plans.py:88(effect_keys)
+    16805    0.009    0.000    0.391    0.000 main.py:472(model_dump)
+    16805    0.381    0.000    0.381    0.000 {method 'to_python' of 'pydantic_core._pydantic_core.SchemaSerializer' objects}
+        1    0.001    0.001    0.356    0.356 plans.py:77(plan_differences)
+  58700/1    0.230    0.000    0.355    0.355 plans.py:64(differences)
+   222868    0.141    0.000    0.289    0.000 <frozen abc>:117(__instancecheck__)
+    51484    0.070    0.000    0.280    0.000 __init__.py:169(fullmatch)
+    48078    0.121    0.000    0.274    0.000 {built-in method builtins.sorted}
+        3    0.000    0.000    0.250    0.083 plans.py:211(_snapshot)
+    16800    0.242    0.000    0.242    0.000 {method 'strftime' of 'datetime.date' objects}
+        5    0.148    0.030    0.235    0.047 recipe_states.py:17(analyze_recipe_states)
+   341580    0.166    0.000    0.231    0.000 input_models.py:10(<genexpr>)
+   445480    0.224    0.000    0.224    0.000 {method 'group' of 're.Match' objects}
+    16802    0.109    0.000    0.220    0.000 main.py:1034(__copy__)
+    52392    0.089    0.000    0.214    0.000 fractions.py:1021(_richcmp)
+        2    0.000    0.000    0.212    0.106 responses.py:34(__init__)
+        1    0.000    0.000    0.212    0.212 responses.py:187(__init__)
+        1    0.002    0.002    0.212    0.212 responses.py:197(render)
+    89148    0.204    0.000    0.204    0.000 {method 'match' of 're.Pattern' objects}
+    40230    0.040    0.000    0.201    0.000 fractions.py:1047(__gt__)
+   426474    0.197    0.000    0.197    0.000 {method 'get' of 'dict' objects}
+        4    0.000    0.000    0.194    0.048 __init__.py:185(dumps)
+        4    0.000    0.000    0.194    0.048 encoder.py:185(encode)
+        4    0.194    0.048    0.194    0.048 encoder.py:207(iterencode)
+    17401    0.060    0.000    0.187    0.000 output_rules.py:17(rational)
+    12600    0.040    0.000    0.162    0.000 fractions.py:711(reverse)
+   222868    0.148    0.000    0.148    0.000 {built-in method _abc._abc_instancecheck}
+     8400    0.049    0.000    0.138    0.000 input_lookup.py:42(critical_parameters)
+    93347    0.091    0.000    0.138    0.000 copy.py:212(_keep_alive)
+   308328    0.133    0.000    0.133    0.000 {built-in method __new__ of type object at 0x1545d40}
+    30798    0.061    0.000    0.128    0.000 fractions.py:794(_add)
+    68580    0.099    0.000    0.126    0.000 fractions.py:361(_from_coprime_ints)
+   313790    0.110    0.000    0.110    0.000 {method 'strip' of 'str' objects}
+    65741    0.062    0.000    0.109    0.000 copy.py:62(copy)
+    51489    0.077    0.000    0.108    0.000 __init__.py:330(_compile)
+     8400    0.013    0.000    0.107    0.000 rules.py:108(<genexpr>)
+    51487    0.102    0.000    0.102    0.000 {method 'fullmatch' of 're.Pattern' objects}
+    78243    0.073    0.000    0.100    0.000 input_models.py:25(integer_value)
+141302/133592    0.068    0.000    0.097    0.000 {built-in method builtins.hasattr}
+     4200    0.007    0.000    0.094    0.000 output_rules.py:217(<lambda>)
+    16800    0.042    0.000    0.081    0.000 fractions.py:826(_mul)
+        1    0.029    0.029    0.080    0.080 plans.py:173(protect)
+
+

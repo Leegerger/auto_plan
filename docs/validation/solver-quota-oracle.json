@@ -1,0 +1,25 @@
+{
+  "enumerated_inputs": [
+    0,
+    2000
+  ],
+  "yield": "931/1000",
+  "ct": "1/2",
+  "demands": [
+    600,
+    400
+  ],
+  "material_second_week": 428,
+  "shipping_first_week": 1000,
+  "objective_nonzero_week_coordinates": [
+    101,
+    2,
+    0,
+    2
+  ],
+  "optimal_input_quantities": [
+    1070,
+    1071
+  ],
+  "eligible_minimum_input": 1070
+}

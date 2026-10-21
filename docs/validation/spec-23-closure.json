@@ -1,0 +1,582 @@
+{
+  "schema_version": 1,
+  "issue": "https://github.com/Leegerger/auto_plan/issues/23",
+  "scope": "Engineering implementation and representative A2 validation. Final business and production-site acceptance remain open in #40 and #22.",
+  "integration_branch": "integration/spec-23",
+  "regression_source_commit": "1af45bc38caea2f3f6d85e97e23982914a10b758",
+  "regression_source_commit_role": "Source of the final browser regression group; other groups have separate per-run provenance.",
+  "source_provenance": "Per-run metadata distinguishes source commits captured by the runner, source commits reconstructed from execution history, and unavailable initial provenance. No source SHA is inferred for the initial full Python or initial Node commands. Earlier business coverage is combined with targeted reruns for subsequent test-only changes. The closure commit adds validation artifacts only.",
+  "representative_browser_source_commit": "99e92cd7455a61693a2a1c07149c282e87b403e9",
+  "review": {
+    "baseline": "d0d6a5a369fc0599bd657c41b7509e9d30fe0d4c",
+    "standards": {
+      "remaining_findings": 0,
+      "evidence_member": "standards-review.json"
+    },
+    "spec": {
+      "remaining_findings": 0,
+      "evidence_member": "spec-review.json"
+    },
+    "final_node_delta": {
+      "remaining_findings": 0,
+      "spec_evidence_member": "node-contract-spec-review.json",
+      "standards_evidence_member": "standards-review.json"
+    },
+    "final_preview_fixture_delta": {
+      "remaining_findings": 0,
+      "spec_evidence_member": "preview-spec-review.json",
+      "standards_evidence_member": "standards-review.json"
+    }
+  },
+  "regressions": {
+    "latest_required_commands_all_exit_zero": true,
+    "latest_python_case_outcomes": {
+      "passed": 488,
+      "skipped": 53,
+      "failed": 0,
+      "errors": 0
+    },
+    "python_case_count": 541,
+    "aggregation": "Latest result per classname::name across the four retained JUnit reports; this is combined coverage, not a single clean full-suite command.",
+    "python_suites": [
+      {
+        "name": "python",
+        "passed": 482,
+        "skipped": 53,
+        "failed": 0,
+        "errors": 0
+      },
+      {
+        "name": "business-regressions",
+        "passed": 392,
+        "skipped": 49,
+        "failed": 1,
+        "errors": 0
+      },
+      {
+        "name": "job-functional-regressions",
+        "passed": 14,
+        "skipped": 0,
+        "failed": 0,
+        "errors": 0
+      },
+      {
+        "name": "adapter-pin-regressions",
+        "passed": 1,
+        "skipped": 0,
+        "failed": 0,
+        "errors": 0
+      }
+    ],
+    "runs": [
+      {
+        "name": "python",
+        "command": [
+          "/root/codes/vibe_coding/auto_plan_2/.venv/bin/python",
+          "-m",
+          "pytest",
+          "-q",
+          "tests",
+          "scripts/acceptance",
+          "--junitxml=/tmp/spec-23-close/python.xml"
+        ],
+        "cwd": "/root/codes/vibe_coding/auto_plan_2",
+        "environment_overrides": {
+          "AUTO_PLAN_TEST_ORACLE": "0"
+        },
+        "exit_code": 124,
+        "elapsed_seconds": 900.1683283597231,
+        "log": "python.log",
+        "assertion_result": {
+          "name": "pytest",
+          "errors": "0",
+          "failures": "0",
+          "skipped": "53",
+          "tests": "535",
+          "time": "888.737",
+          "timestamp": "2026-10-21T14:17:13.802621+08:00",
+          "hostname": "fsscmdb2"
+        },
+        "runner_note": "All 535 test results were written before the outer 900-second process guard expired; preserve exit 124 separately from assertion results.",
+        "source_commit": null,
+        "source_commit_provenance": "Not captured. No source SHA is inferred for this initial command."
+      },
+      {
+        "name": "business-regressions",
+        "command": [
+          "/root/codes/vibe_coding/auto_plan_2/.venv/bin/python",
+          "-m",
+          "pytest",
+          "-q",
+          "tests",
+          "--junitxml=/tmp/spec-23-close/business-regressions.xml"
+        ],
+        "cwd": "/root/codes/vibe_coding/auto_plan_2",
+        "environment_overrides": {
+          "AUTO_PLAN_TEST_ORACLE": "0"
+        },
+        "exit_code": 1,
+        "elapsed_seconds": 327.57314836233854,
+        "log": "business-regressions.log",
+        "assertion_result": {
+          "name": "pytest",
+          "errors": "0",
+          "failures": "1",
+          "skipped": "49",
+          "tests": "442",
+          "time": "321.186",
+          "timestamp": "2026-10-21T14:40:34.149645+08:00",
+          "hostname": "fsscmdb2"
+        },
+        "runner_note": "Preserved original functional-fixture timeout failure; job-functional-regressions reruns the changed module after the explicit functional budget correction.",
+        "source_commit": "99e92cd7455a61693a2a1c07149c282e87b403e9",
+        "source_commit_provenance": "Reconstructed from root execution history; not captured in the original command record."
+      },
+      {
+        "name": "job-functional-regressions",
+        "command": [
+          "/root/codes/vibe_coding/auto_plan_2/.venv/bin/python",
+          "-m",
+          "pytest",
+          "-q",
+          "tests/test_jobs.py",
+          "tests/test_browser_job_freeze.py",
+          "--junitxml=/tmp/spec-23-close/job-functional-regressions.xml"
+        ],
+        "cwd": "/root/codes/vibe_coding/auto_plan_2",
+        "environment_overrides": {
+          "AUTO_PLAN_TEST_ORACLE": "0"
+        },
+        "exit_code": 0,
+        "elapsed_seconds": 83.13776533305645,
+        "log": "job-functional-regressions.log",
+        "source_commit": "76f779a29fe7e236351b4d03a1a08e8231295e48",
+        "source_commit_provenance": "Reconstructed from root execution history; not captured in the original command record."
+      },
+      {
+        "name": "adapter-pin-regressions",
+        "command": [
+          "/root/codes/vibe_coding/auto_plan_2/.venv/bin/python",
+          "-m",
+          "pytest",
+          "-q",
+          "scripts/acceptance/test_adapter_read_pin.py",
+          "--junitxml=/tmp/spec-23-close/adapter-pin-regressions.xml"
+        ],
+        "cwd": "/root/codes/vibe_coding/auto_plan_2",
+        "environment_overrides": {
+          "AUTO_PLAN_TEST_ORACLE": "0"
+        },
+        "exit_code": 0,
+        "elapsed_seconds": 0.9689396508038044,
+        "log": "adapter-pin-regressions.log",
+        "source_commit": "76f779a29fe7e236351b4d03a1a08e8231295e48",
+        "source_commit_provenance": "Reconstructed from root execution history; not captured in the original command record."
+      },
+      {
+        "name": "frontend-build",
+        "command": [
+          "npm",
+          "run",
+          "build"
+        ],
+        "cwd": "/root/codes/vibe_coding/auto_plan_2/frontend",
+        "environment_overrides": {
+          "AUTO_PLAN_TEST_ORACLE": "0"
+        },
+        "exit_code": 0,
+        "elapsed_seconds": 23.748597476631403,
+        "log": "frontend-build.log",
+        "source_commit": "76f779a29fe7e236351b4d03a1a08e8231295e48",
+        "source_commit_provenance": "Reconstructed from root execution history; not captured in the original command record."
+      },
+      {
+        "name": "node-contracts-initial",
+        "command": [
+          "node",
+          "--test",
+          "frontend/tests/acceptance/contracts.test.mjs",
+          "frontend/tests/acceptance/expected-source.test.mjs",
+          "frontend/tests/acceptance/functional-worker.test.mjs",
+          "frontend/tests/acceptance/initial-import-load.browser.test.mjs",
+          "frontend/tests/acceptance/input-consumption-trace.test.mjs",
+          "frontend/tests/acceptance/input-driver-replay.test.mjs",
+          "frontend/tests/acceptance/input-editor-unknown.browser.test.mjs",
+          "frontend/tests/acceptance/input-editors.browser.test.mjs",
+          "frontend/tests/acceptance/input-load.test.mjs",
+          "frontend/tests/acceptance/input-postteardown-replay.test.mjs",
+          "frontend/tests/acceptance/input-trace-collector.test.mjs",
+          "frontend/tests/acceptance/private-draft-contract.test.mjs",
+          "frontend/tests/acceptance/private-full-fixture.test.mjs",
+          "frontend/tests/acceptance/private-local-drafts.browser.test.mjs",
+          "frontend/tests/acceptance/private-observation.test.mjs",
+          "frontend/tests/acceptance/private-shared-epoch.test.mjs",
+          "frontend/tests/acceptance/private-shared-workload.test.mjs",
+          "frontend/tests/acceptance/upload-capture.browser.test.mjs",
+          "frontend/tests/acceptance/upload-observations.test.mjs"
+        ],
+        "cwd": "/root/codes/vibe_coding/auto_plan_2",
+        "environment_overrides": {
+          "AUTO_PLAN_TEST_ORACLE": "0"
+        },
+        "exit_code": 1,
+        "elapsed_seconds": 123.21380146965384,
+        "log": "node-contracts-initial.log",
+        "runner_note": "Two expected-source cases used system Python without pydantic; the configured rerun uses AUTO_PLAN_ACCEPTANCE_PYTHON from the project virtualenv. The guardian case correctly rejected exhausted action via settlement validation but the test required another valid rejection branch.",
+        "source_commit": null,
+        "source_commit_provenance": "Not captured. No source SHA is inferred for this initial command."
+      },
+      {
+        "name": "browser-default-initial",
+        "command": [
+          "npm",
+          "run",
+          "test:e2e",
+          "--",
+          "--reporter=line"
+        ],
+        "cwd": "/root/codes/vibe_coding/auto_plan_2/frontend",
+        "environment_overrides": {
+          "AUTO_PLAN_TEST_ORACLE": "0"
+        },
+        "exit_code": 1,
+        "elapsed_seconds": 192.18398348242044,
+        "log": "browser-default-initial.log",
+        "source_commit": "76f779a29fe7e236351b4d03a1a08e8231295e48",
+        "source_commit_provenance": "Reconstructed from root execution history; not captured in the original command record."
+      },
+      {
+        "name": "browser-shared-initial",
+        "command": [
+          "npm",
+          "run",
+          "test:e2e",
+          "--",
+          "shared-plans.spec.ts",
+          "manual-editing.spec.ts",
+          "quantity-change.spec.ts",
+          "stability.spec.ts",
+          "history.spec.ts",
+          "local-recovery.spec.ts",
+          "jobs.spec.ts",
+          "jobs-live.spec.ts",
+          "acceptance/navigation.spec.ts",
+          "--reporter=line"
+        ],
+        "cwd": "/root/codes/vibe_coding/auto_plan_2/frontend",
+        "environment_overrides": {
+          "AUTO_PLAN_BROWSER_TRANSACTIONS_FIXTURE": "1",
+          "AUTO_PLAN_TEST_ORACLE": "0"
+        },
+        "exit_code": 1,
+        "elapsed_seconds": 168.8066079840064,
+        "log": "browser-shared-initial.log",
+        "source_commit": "76f779a29fe7e236351b4d03a1a08e8231295e48",
+        "runner_note": "This combined-file invocation reused mutable fixture state across scenarios. The rerun starts a fresh frozen in-memory server for each spec file; original failures remain preserved.",
+        "source_commit_provenance": "Captured by the runner when the command group started."
+      },
+      {
+        "name": "node-contracts",
+        "command": [
+          "node",
+          "--test",
+          "frontend/tests/acceptance/contracts.test.mjs",
+          "frontend/tests/acceptance/expected-source.test.mjs",
+          "frontend/tests/acceptance/functional-worker.test.mjs",
+          "frontend/tests/acceptance/initial-import-load.browser.test.mjs",
+          "frontend/tests/acceptance/input-consumption-trace.test.mjs",
+          "frontend/tests/acceptance/input-driver-replay.test.mjs",
+          "frontend/tests/acceptance/input-editor-unknown.browser.test.mjs",
+          "frontend/tests/acceptance/input-editors.browser.test.mjs",
+          "frontend/tests/acceptance/input-load.test.mjs",
+          "frontend/tests/acceptance/input-postteardown-replay.test.mjs",
+          "frontend/tests/acceptance/input-trace-collector.test.mjs",
+          "frontend/tests/acceptance/private-draft-contract.test.mjs",
+          "frontend/tests/acceptance/private-full-fixture.test.mjs",
+          "frontend/tests/acceptance/private-local-drafts.browser.test.mjs",
+          "frontend/tests/acceptance/private-observation.test.mjs",
+          "frontend/tests/acceptance/private-shared-epoch.test.mjs",
+          "frontend/tests/acceptance/private-shared-workload.test.mjs",
+          "frontend/tests/acceptance/upload-capture.browser.test.mjs",
+          "frontend/tests/acceptance/upload-observations.test.mjs"
+        ],
+        "cwd": "/root/codes/vibe_coding/auto_plan_2",
+        "environment_overrides": {
+          "AUTO_PLAN_ACCEPTANCE_PYTHON": "/root/codes/vibe_coding/auto_plan_2/.venv/bin/python",
+          "AUTO_PLAN_TEST_ORACLE": "0"
+        },
+        "exit_code": 0,
+        "elapsed_seconds": 116.13278409838676,
+        "log": "node-contracts.log",
+        "source_commit": "2944c4572d6c8766bd597b9a97b978ad3395dc74",
+        "source_commit_provenance": "Captured by the runner when the command group started."
+      },
+      {
+        "name": "browser-default",
+        "command": [
+          "npm",
+          "run",
+          "test:e2e",
+          "--",
+          "--reporter=line"
+        ],
+        "cwd": "/root/codes/vibe_coding/auto_plan_2/frontend",
+        "environment_overrides": {
+          "AUTO_PLAN_ACCEPTANCE_PYTHON": "/root/codes/vibe_coding/auto_plan_2/.venv/bin/python",
+          "AUTO_PLAN_TEST_ORACLE": "0"
+        },
+        "exit_code": 0,
+        "elapsed_seconds": 19.83606769889593,
+        "log": "browser-default.log",
+        "source_commit": "1af45bc38caea2f3f6d85e97e23982914a10b758",
+        "source_commit_provenance": "Captured by the runner when the command group started."
+      },
+      {
+        "name": "browser-shared",
+        "command": [
+          "/root/codes/vibe_coding/auto_plan_2/.venv/bin/python",
+          "/tmp/spec-23-close/run-shared-browser-files.py"
+        ],
+        "cwd": "/root/codes/vibe_coding/auto_plan_2",
+        "environment_overrides": {
+          "AUTO_PLAN_BROWSER_TRANSACTIONS_FIXTURE": "1",
+          "AUTO_PLAN_TEST_ORACLE": "0"
+        },
+        "exit_code": 0,
+        "elapsed_seconds": 131.36960346624255,
+        "log": "browser-shared.log",
+        "source_commit": "1af45bc38caea2f3f6d85e97e23982914a10b758",
+        "source_commit_provenance": "Captured by the runner when the command group started."
+      },
+      {
+        "name": "browser-initialization",
+        "command": [
+          "npm",
+          "run",
+          "test:e2e",
+          "--",
+          "initialization.spec.ts",
+          "--reporter=line"
+        ],
+        "cwd": "/root/codes/vibe_coding/auto_plan_2/frontend",
+        "environment_overrides": {
+          "AUTO_PLAN_BROWSER_INITIALIZATION_FIXTURE": "1",
+          "AUTO_PLAN_TEST_ORACLE": "0"
+        },
+        "exit_code": 0,
+        "elapsed_seconds": 11.372848808765411,
+        "log": "browser-initialization.log",
+        "source_commit": "1af45bc38caea2f3f6d85e97e23982914a10b758",
+        "source_commit_provenance": "Captured by the runner when the command group started."
+      },
+      {
+        "name": "browser-output",
+        "command": [
+          "npm",
+          "run",
+          "test:e2e",
+          "--",
+          "output.spec.ts",
+          "--reporter=line"
+        ],
+        "cwd": "/root/codes/vibe_coding/auto_plan_2/frontend",
+        "environment_overrides": {
+          "AUTO_PLAN_BROWSER_OUTPUT_FIXTURE": "1",
+          "AUTO_PLAN_TEST_ORACLE": "0"
+        },
+        "exit_code": 0,
+        "elapsed_seconds": 7.000379968434572,
+        "log": "browser-output.log",
+        "source_commit": "1af45bc38caea2f3f6d85e97e23982914a10b758",
+        "source_commit_provenance": "Captured by the runner when the command group started."
+      },
+      {
+        "name": "browser-reset",
+        "command": [
+          "npm",
+          "run",
+          "test:e2e",
+          "--",
+          "execution-reset.spec.ts",
+          "--reporter=line"
+        ],
+        "cwd": "/root/codes/vibe_coding/auto_plan_2/frontend",
+        "environment_overrides": {
+          "AUTO_PLAN_BROWSER_RESET_FIXTURE": "1",
+          "AUTO_PLAN_TEST_ORACLE": "0"
+        },
+        "exit_code": 0,
+        "elapsed_seconds": 12.556579396128654,
+        "log": "browser-reset.log",
+        "source_commit": "1af45bc38caea2f3f6d85e97e23982914a10b758",
+        "source_commit_provenance": "Captured by the runner when the command group started."
+      }
+    ],
+    "exact_summary_lines": {
+      "job-functional-regressions": [
+        "14 passed, 1 warning in 82.08s (0:01:22)"
+      ],
+      "adapter-pin-regressions": [
+        "1 passed in 0.33s"
+      ],
+      "frontend-build": [
+        "✓ built in 12.60s"
+      ],
+      "node-contracts": [
+        "ℹ tests 135",
+        "ℹ pass 130",
+        "ℹ fail 0",
+        "ℹ cancelled 0",
+        "ℹ skipped 5"
+      ],
+      "browser-default": [
+        "  26 skipped",
+        "  6 passed (18.3s)"
+      ],
+      "browser-shared": [
+        "  1 passed (12.2s)",
+        "  1 passed (8.2s)",
+        "  1 passed (8.2s)",
+        "  1 passed (7.5s)",
+        "  2 passed (9.2s)",
+        "  10 passed (44.4s)",
+        "  6 passed (16.4s)",
+        "  1 passed (7.7s)",
+        "  1 passed (5.8s)"
+      ],
+      "browser-initialization": [
+        "  3 passed (10.1s)"
+      ],
+      "browser-output": [
+        "  1 passed (5.6s)"
+      ],
+      "browser-reset": [
+        "  1 passed (11.2s)"
+      ]
+    },
+    "node_case_outcomes": {
+      "tests": 135,
+      "pass": 130,
+      "fail": 0,
+      "skipped": 5,
+      "cancelled": 0
+    },
+    "isolated_shared_browser_file_stats": {
+      "shared-plans.spec.ts": {
+        "startTime": "2026-10-21T07:09:14.146Z",
+        "duration": 12164.889,
+        "expected": 1,
+        "skipped": 0,
+        "unexpected": 0,
+        "flaky": 0
+      },
+      "manual-editing.spec.ts": {
+        "startTime": "2026-10-21T07:09:27.677Z",
+        "duration": 8169.040000000001,
+        "expected": 1,
+        "skipped": 0,
+        "unexpected": 0,
+        "flaky": 0
+      },
+      "quantity-change.spec.ts": {
+        "startTime": "2026-10-21T07:09:37.131Z",
+        "duration": 8226.296999999999,
+        "expected": 1,
+        "skipped": 0,
+        "unexpected": 0,
+        "flaky": 0
+      },
+      "stability.spec.ts": {
+        "startTime": "2026-10-21T07:09:46.606Z",
+        "duration": 7518.385000000001,
+        "expected": 1,
+        "skipped": 0,
+        "unexpected": 0,
+        "flaky": 0
+      },
+      "history.spec.ts": {
+        "startTime": "2026-10-21T07:09:55.438Z",
+        "duration": 9191.502,
+        "expected": 2,
+        "skipped": 0,
+        "unexpected": 0,
+        "flaky": 0
+      },
+      "local-recovery.spec.ts": {
+        "startTime": "2026-10-21T07:10:05.955Z",
+        "duration": 44383.325000000004,
+        "expected": 10,
+        "skipped": 0,
+        "unexpected": 0,
+        "flaky": 0
+      },
+      "jobs.spec.ts": {
+        "startTime": "2026-10-21T07:10:51.650Z",
+        "duration": 16443.575999999997,
+        "expected": 6,
+        "skipped": 0,
+        "unexpected": 0,
+        "flaky": 0
+      },
+      "jobs-live.spec.ts": {
+        "startTime": "2026-10-21T07:11:09.305Z",
+        "duration": 7746.187,
+        "expected": 1,
+        "skipped": 0,
+        "unexpected": 0,
+        "flaky": 0
+      },
+      "acceptance/navigation.spec.ts": {
+        "startTime": "2026-10-21T07:11:18.292Z",
+        "duration": 5785.945000000001,
+        "expected": 1,
+        "skipped": 0,
+        "unexpected": 0,
+        "flaky": 0
+      }
+    },
+    "shared_fixture_isolation": "Each spec file starts and stops its own fresh in-memory browser server. The earlier multi-file state-contamination failure remains archived; no production reset endpoint was added.",
+    "oracle_enabled": false,
+    "preserved_prior_results": [
+      "The initial full Python run wrote all 535 passing/skipped case outcomes before the outer 900-second process guard expired. Its actual runner exit remains 124.",
+      "The subsequent 442-case business run had one fresh-compute functional-budget failure. The changed job module and browser-freeze API tests were rerun after the explicit ten-second functional fixture correction; all original business, stop and shutdown assertions remain.",
+      "The initial Node run had two missing-pydantic failures from using system Python and one overly specific guardian rejection assertion. The configured rerun uses the project Python and preserves the same action gate while accepting both valid rejection paths. The initial log and actual exit1 remain archived.",
+      "The initial default browser run also imported Node test files and exposed a fixed-date fixture using the real clock. Playwright now collects its existing 32 TypeScript cases only, and the default test server uses the same frozen clock as its explicit fixtures. The same precision test went red then green without changing its business assertions.",
+      "The initial combined shared browser invocation reused mutable in-memory state across spec files and failed eight cases. The final run executes every shared spec file in a separate server lifecycle; original logs and error contexts remain archived."
+    ]
+  },
+  "representative_browser": {
+    "status": "PASS",
+    "index": "acceptance/closure-five-browser-passed-2026-10-21.json",
+    "shared_save_seconds": 52.8,
+    "shared_save_gate_seconds": 60,
+    "candidate_display_seconds": 172.16910009765624,
+    "candidate_display_gate_seconds": 180,
+    "workflow_guard_seconds": 360,
+    "outer_test_seconds": 286.381495514,
+    "passed_editor_records": 33,
+    "job_terminal_state": "stopped",
+    "target": "Disposable in-memory adapter and synthetic authentication on a shared Linux host.",
+    "previous_failed_run_index": "acceptance/closure-five-browser-failed-2026-10-21.json",
+    "historical_report_limitation": "The historical 1f36559a report was not recovered; the new runs have independent identities and do not replace it."
+  },
+  "regression_archive": {
+    "path": "acceptance/spec-23-closure-regressions-2026-10-21.tar.gz",
+    "bytes": 208111,
+    "sha256": "6141f33e84ed5a444d8a26793b778642848bc0729573f85e7257ff922bd27af4",
+    "members": 86,
+    "manifest_sha256": "97c94889d4aa45753b21193db1a1095c66fe3edc07235b03739cd8b6bd7261ca",
+    "format": "USTAR sorted paths; uid/gid/mtime zero; mode0644; gzip filename empty and mtime zero"
+  },
+  "deferred": {
+    "acceptance_follow_up": "https://github.com/Leegerger/auto_plan/issues/40",
+    "real_excel_sample": "https://github.com/Leegerger/auto_plan/issues/22",
+    "decision_map_remains_open": "https://github.com/Leegerger/auto_plan/issues/1",
+    "a2_scope_decision": "https://github.com/Leegerger/auto_plan/issues/38#issuecomment-6219737738",
+    "not_run": [
+      "Full local/new-week browser E2E and extended repeated matrices",
+      "Real company authentication, 20 real accounts and five human business participants",
+      "User-confirmed references, real sample checks, production hardware/proxy and final business signoff"
+    ]
+  }
+}

@@ -1,0 +1,144 @@
+import test from 'node:test'
+import assert from 'node:assert/strict'
+import { mkdtempSync,readFileSync,existsSync } from 'node:fs'
+import { resolve,dirname } from 'node:path'
+import { tmpdir } from 'node:os'
+import { fileURLToPath } from 'node:url'
+import { spawn } from 'node:child_process'
+import { guardFunctionalWorker, identity } from './functional-worker.mjs'
+import { setTimeout as delay } from 'node:timers/promises'
+const directory=dirname(fileURLToPath(import.meta.url)),script=resolve(directory,'functional-worker.fixture.mjs')
+const limits={setup_ms:4000,action_ms:5000,cleanup_ms:1000,absolute_ms:10000}
+test('readiness cannot consume the independent action budget',{timeout:15000},async()=>{
+  const output=mkdtempSync(resolve(tmpdir(),'auto-plan-functional-budget-'))
+  console.log('Evidence '+output)
+  const result=await guardFunctionalWorker({script,output,cwd:directory,limits,args:[JSON.stringify({limits,setup:1500,action:4000})]})
+  assert.equal(result.code,0);assert.ok(existsSync(resolve(output,'completed.json')))
+  const cleanup=JSON.parse(readFileSync(resolve(output,'controller-cleanup.json')));assert.equal(cleanup.timed_out,false);assert.deepEqual(cleanup.remaining_live,[])
+})
+
+for(const phase of ['setup','action'])test('cooperative '+phase+' timeout retains uncertainty and reaps owned resources',{timeout:10000},async()=>{
+  const output=mkdtempSync(resolve(tmpdir(),'auto-plan-functional-soft-'))
+  const guardian={setup_ms:4000,action_ms:4000,cleanup_ms:1000,absolute_ms:9000},worker={...guardian,setup_ms:phase==='setup'?500:4000,action_ms:500}
+  const result=await guardFunctionalWorker({script,output,cwd:directory,limits:guardian,args:[JSON.stringify({limits:guardian,workerLimits:worker,setup:50,action:50,block:phase})]})
+  assert.equal(result.code,1)
+  const failure=JSON.parse(readFileSync(resolve(output,'worker-timeout.json')));assert.equal(failure.phase,phase)
+  for(const key of ['source_closure','input_acknowledgments','restoration'])assert.equal(failure[key],'unconfirmed')
+  const cleanup=JSON.parse(readFileSync(resolve(output,'controller-cleanup.json')));assert.equal(cleanup.worker_exited,true);assert.deepEqual(cleanup.remaining_live,[])
+})
+
+for(const phase of ['setup','action'])test('independent guardian interrupts blocked '+phase+' worker without touching unrelated process',{timeout:10000},async()=>{
+  const output=mkdtempSync(resolve(tmpdir(),'auto-plan-functional-hard-')),sentinel=spawn(process.execPath,['-e','setInterval(()=>{},1000)'],{stdio:'ignore'})
+  const bounded={setup_ms:phase==='setup'?1000:3000,action_ms:1000,cleanup_ms:1000,absolute_ms:5000}
+  try{
+    const sentinelStart=identity(sentinel.pid)?.start
+    await assert.rejects(guardFunctionalWorker({script,output,cwd:directory,limits:bounded,args:[JSON.stringify({limits:bounded,setup:50,block:phase,hardBlock:true,unrelated:{browser_pid:sentinel.pid,browser_start:sentinelStart}})]}),/guardian deadline/)
+    process.kill(sentinel.pid,0)
+    const failure=JSON.parse(readFileSync(resolve(output,'controller-interruption.json')));assert.equal(failure.phase,phase)
+    for(const key of ['source_closure','input_acknowledgments','restoration'])assert.equal(failure[key],'unconfirmed')
+    const cleanup=JSON.parse(readFileSync(resolve(output,'controller-cleanup.json')));assert.equal(cleanup.worker_exited,true);assert.deepEqual(cleanup.remaining_live,[])
+    assert.ok(cleanup.recorded_owned.every(row=>row.pid!==sentinel.pid))
+  }finally{sentinel.kill();await new Promise(done=>sentinel.once('exit',done))}
+})
+
+for(const corrupt of ['duplicate','attempt','owner','late','missing','malformed'])test('invalid owned phase '+corrupt+' cannot extend a run',{timeout:10000},async()=>{
+  const output=mkdtempSync(resolve(tmpdir(),'auto-plan-functional-invalid-'))
+  await assert.rejects(guardFunctionalWorker({script,output,cwd:directory,limits,args:[JSON.stringify({limits,setup:50,action:50,corrupt})]}))
+  const cleanup=JSON.parse(readFileSync(resolve(output,'controller-cleanup.json')));assert.equal(cleanup.worker_exited,true);assert.deepEqual(cleanup.remaining_live,[])
+})
+
+test('late guardian polling uses actual owned readiness time',{timeout:10000},async()=>{
+  const output=mkdtempSync(resolve(tmpdir(),'auto-plan-functional-poll-'))
+  const bound={setup_ms:3000,action_ms:1000,cleanup_ms:1000,absolute_ms:5000}
+  let rejected
+  await assert.rejects(guardFunctionalWorker({script,output,cwd:directory,limits:bound,poll_ms:800,
+    args:[JSON.stringify({limits:bound,workerLimits:{...bound,action_ms:5000},setup:50,action:1800})]}),error=>{
+    rejected=error.message
+    return ['Functional action guardian deadline exceeded.','Invalid workflow settlement time or exhausted action.'].includes(rejected)
+  })
+  const cleanup=JSON.parse(readFileSync(resolve(output,'controller-cleanup.json')))
+  const interruption=JSON.parse(readFileSync(resolve(output,'controller-interruption.json')))
+  const owned=JSON.parse(readFileSync(resolve(output,'functional-phase.json')))
+  assert.equal(interruption.reason,rejected);assert.equal(interruption.status,'fail');assert.equal(interruption.phase,cleanup.phase)
+  for(const key of ['source_closure','input_acknowledgments','restoration'])assert.equal(interruption[key],'unconfirmed')
+  assert.equal(owned.attempt,cleanup.attempt);assert.equal(owned.pid,cleanup.worker_pid);assert.equal(owned.start,cleanup.worker_start)
+  assert.equal(cleanup.worker_exited,true);assert.deepEqual(cleanup.remaining_live,[])
+  if(rejected==='Functional action guardian deadline exceeded.'){
+    assert.equal(cleanup.timed_out,true);assert.equal(cleanup.phase,'action');assert.equal(cleanup.ready_epoch_ms,owned.ready_epoch_ms)
+  }else{
+    // A delayed poll may first observe settlement. The same action gate must
+    // reject its actual owned elapsed time before admitting the cleanup phase.
+    assert.equal(cleanup.timed_out,false);assert.equal(owned.sequence,2);assert.equal(owned.phase,'cleanup')
+    assert.ok(Number.isFinite(owned.ready_epoch_ms)&&Number.isFinite(owned.settled_epoch_ms))
+    assert.ok(owned.settled_epoch_ms-owned.ready_epoch_ms>bound.action_ms)
+    assert.ok(['setup','action'].includes(cleanup.phase));assert.equal(cleanup.settled_epoch_ms,undefined)
+    assert.equal(cleanup.ready_epoch_ms,cleanup.phase==='action'?owned.ready_epoch_ms:undefined)
+  }
+})
+
+for(const action of [1000,100])test('late readiness cannot renew an exhausted setup budget '+action+'ms',{timeout:10000},async()=>{
+  const output=mkdtempSync(resolve(tmpdir(),'auto-plan-functional-late-ready-'))
+  const bound={setup_ms:1000,action_ms:3000,cleanup_ms:1000,absolute_ms:6000}
+  await assert.rejects(guardFunctionalWorker({script,output,cwd:directory,limits:bound,poll_ms:1500,
+    args:[JSON.stringify({limits:bound,workerLimits:{...bound,setup_ms:5000},setup:1200,action})]}),/readiness|setup/i)
+})
+
+test('malformed ownership still cleans known real children',{timeout:10000},async()=>{
+  const output=mkdtempSync(resolve(tmpdir(),'auto-plan-functional-bad-owned-'))
+  const bound={setup_ms:3000,action_ms:3000,cleanup_ms:1000,absolute_ms:7000}
+  const alive=row=>{const cur=identity(row.pid);return Boolean(cur&&cur.start===row.start&&!cur.stat.startsWith('Z'))}
+  try{
+    await assert.rejects(guardFunctionalWorker({script,output,cwd:directory,limits:bound,args:[JSON.stringify({limits:bound,setup:50,action:4000,malformedOwned:true})]}))
+    const rows=JSON.parse(readFileSync(resolve(output,'rescue.json')))
+    assert.ok(rows.every(row=>!alive(row)),'Malformed ownership bypassed known-child cleanup.')
+    assert.deepEqual(JSON.parse(readFileSync(resolve(output,'controller-cleanup.json'))).remaining_live,[])
+  }finally{
+    if(existsSync(resolve(output,'rescue.json'))){const rows=JSON.parse(readFileSync(resolve(output,'rescue.json')));for(const row of rows)if(alive(row))process.kill(row.pid,'SIGKILL');for(let i=0;i<100&&rows.some(alive);i++)await delay(10)}
+  }
+})
+
+
+test('fast successful exit cleans a registered detached child and preserves unrelated sentinel',{timeout:10000},async()=>{
+  const output=mkdtempSync(resolve(tmpdir(),'auto-plan-functional-fast-exit-')),sentinel=spawn(process.execPath,['-e','setInterval(()=>{},1000)'],{stdio:'ignore'})
+  const alive=row=>{const cur=identity(row.pid);return Boolean(cur&&cur.start===row.start&&!cur.stat.startsWith('Z'))}
+  try{
+    const sentinelStart=identity(sentinel.pid)?.start
+    const result=await guardFunctionalWorker({script,output,cwd:directory,limits,poll_ms:800,args:[JSON.stringify({limits,fastExit:true,unrelated:{browser_pid:sentinel.pid,browser_start:sentinelStart}})]})
+    assert.equal(result.code,0)
+    const rows=JSON.parse(readFileSync(resolve(output,'rescue.json')))
+    assert.ok(rows.every(row=>!alive(row)),'Fast child exit orphaned its registered detached resource.')
+    process.kill(sentinel.pid,0)
+    const cleanup=JSON.parse(readFileSync(resolve(output,'controller-cleanup.json')))
+    assert.deepEqual(cleanup.remaining_live,[]);assert.ok(cleanup.recorded_owned.every(row=>row.pid!==sentinel.pid))
+  }finally{
+    if(existsSync(resolve(output,'rescue.json'))){const rows=JSON.parse(readFileSync(resolve(output,'rescue.json')));for(const row of rows)if(alive(row))process.kill(row.pid,'SIGKILL');for(let i=0;i<100&&rows.some(alive);i++)await delay(10)}
+    sentinel.kill();await new Promise(done=>sentinel.once('exit',done))
+  }
+})
+
+
+for(const mode of ['omitReady','overAction'])test('fast success cannot bypass '+mode+' phase validation',{timeout:10000},async()=>{
+  const output=mkdtempSync(resolve(tmpdir(),'auto-plan-functional-fast-phase-'))
+  const bound={setup_ms:4000,action_ms:500,cleanup_ms:1000,absolute_ms:6000}
+  await assert.rejects(guardFunctionalWorker({script,output,cwd:directory,limits:bound,poll_ms:1500,args:[JSON.stringify({limits:bound,workerLimits:{...bound,action_ms:5000},fastExit:true,omitReady:mode==='omitReady',action:mode==='overAction'?750:0})]}),/readiness|action guardian deadline|settlement/)
+  const cleanup=JSON.parse(readFileSync(resolve(output,'controller-cleanup.json')))
+  assert.equal(cleanup.worker_exited,true);assert.deepEqual(cleanup.remaining_live,[])
+})
+
+
+test('successful workflow settlement preserves the separate cleanup budget',{timeout:10000},async()=>{
+  const output=mkdtempSync(resolve(tmpdir(),'auto-plan-functional-cleanup-'))
+  const bound={setup_ms:1500,action_ms:500,cleanup_ms:1500,absolute_ms:3500}
+  const result=await guardFunctionalWorker({script,output,cwd:directory,limits:bound,poll_ms:1200,args:[JSON.stringify({limits:bound,setup:50,action:50,cleanup:800})]})
+  assert.equal(result.code,0)
+  const cleanup=JSON.parse(readFileSync(resolve(output,'controller-cleanup.json')))
+  assert.equal(cleanup.phase,'cleanup');assert.ok(cleanup.settled_epoch_ms>=cleanup.ready_epoch_ms);assert.deepEqual(cleanup.remaining_live,[])
+})
+
+test('blocked cleanup cannot extend the separate teardown budget',{timeout:10000},async()=>{
+  const output=mkdtempSync(resolve(tmpdir(),'auto-plan-functional-cleanup-blocked-'))
+  const bound={setup_ms:2000,action_ms:1000,cleanup_ms:1000,absolute_ms:4000}
+  await assert.rejects(guardFunctionalWorker({script,output,cwd:directory,limits:bound,args:[JSON.stringify({limits:bound,setup:50,action:50,blockCleanup:true})]}),/cleanup guardian deadline/)
+  const cleanup=JSON.parse(readFileSync(resolve(output,'controller-cleanup.json')))
+  assert.equal(cleanup.phase,'cleanup');assert.deepEqual(cleanup.remaining_live,[])
+})

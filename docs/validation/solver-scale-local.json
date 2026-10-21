@@ -1,0 +1,205 @@
+{
+  "diagnostic": "CPU only, synthetic future start; no container/browser/Oracle SLA acceptance",
+  "dimensions": {
+    "lines": 18,
+    "models": 40,
+    "recipes": 20,
+    "days": 105
+  },
+  "empty": false,
+  "mode": "local",
+  "status": "time_limit",
+  "seconds": 20.095442477613688,
+  "objectives": [
+    [
+      "0",
+      "0",
+      "0",
+      "0",
+      "0",
+      "0",
+      "0",
+      "0",
+      "0",
+      "0",
+      "0",
+      "0",
+      "0",
+      "0",
+      "0",
+      "0",
+      "0",
+      "0",
+      "0",
+      "0",
+      "0",
+      "0",
+      "0",
+      "0",
+      "0",
+      "0",
+      "0",
+      "0",
+      "0",
+      "0",
+      "4164",
+      "0",
+      "0"
+    ]
+  ],
+  "executable": [
+    true
+  ],
+  "events": [
+    {
+      "kind": "stage",
+      "seconds": 1.2079690992832184,
+      "stage": "eligible_start",
+      "status": "heuristic"
+    },
+    {
+      "kind": "candidate",
+      "seconds": 4.411837309598923,
+      "objective": [
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "4182",
+        "0",
+        "0"
+      ]
+    },
+    {
+      "kind": "stage",
+      "seconds": 4.641253504902124,
+      "stage": "order_before_quantity",
+      "status": "heuristic"
+    },
+    {
+      "kind": "candidate",
+      "seconds": 9.5417645201087,
+      "objective": [
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "0",
+        "4164",
+        "0",
+        "0"
+      ]
+    },
+    {
+      "kind": "stage",
+      "seconds": 11.30931968986988,
+      "stage": "cumulative_constructor",
+      "status": "heuristic"
+    },
+    {
+      "kind": "stage",
+      "seconds": 11.485612455755472,
+      "stage": "order_after_quantity",
+      "status": "heuristic"
+    },
+    {
+      "kind": "stage",
+      "seconds": 11.49535397440195,
+      "stage": "local_hybrid",
+      "status": "bounded_search_skipped"
+    },
+    {
+      "kind": "stage",
+      "seconds": 11.501466158777475,
+      "stage": "recipe_block:R00",
+      "status": "bounded_search_skipped"
+    },
+    {
+      "kind": "stage",
+      "seconds": 14.064385641366243,
+      "stage": "native_recipe:R00",
+      "status": "restricted_model"
+    },
+    {
+      "kind": "stage",
+      "seconds": 14.06986927241087,
+      "stage": "recipe_block:R01",
+      "status": "bounded_search_skipped"
+    },
+    {
+      "kind": "stage",
+      "seconds": 16.737243250012398,
+      "stage": "native_recipe:R01",
+      "status": "restricted_model"
+    },
+    {
+      "kind": "stage",
+      "seconds": 16.74243276938796,
+      "stage": "recipe_block:R02",
+      "status": "bounded_search_skipped"
+    },
+    {
+      "kind": "stage",
+      "seconds": 19.453163228929043,
+      "stage": "native_recipe:R02",
+      "status": "restricted_model"
+    },
+    {
+      "kind": "stage",
+      "seconds": 19.45855486765504,
+      "stage": "recipe_block:R03",
+      "status": "bounded_search_skipped"
+    }
+  ]
+}

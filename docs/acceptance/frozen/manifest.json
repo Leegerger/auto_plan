@@ -1,0 +1,4764 @@
+{
+  "schema_version": 1,
+  "prepared_at": "2026-10-15",
+  "reference_confirmation": {
+    "status": "not_run",
+    "reason": "User has not confirmed these serialized distributions, actions or reference vectors."
+  },
+  "gates_seconds": {
+    "selection": 3,
+    "single_cell": 15,
+    "week": 3,
+    "day": 3,
+    "batch_preview": 15,
+    "import_validation": 30,
+    "shared_save": 30,
+    "local": 60,
+    "new_week": 180,
+    "all_replan": 180
+  },
+  "repeats_per_mode": 5,
+  "include_first_repeat": true,
+  "load_modes": [
+    "solo",
+    "five_automated_editors_one_computation"
+  ],
+  "scenarios": [
+    {
+      "id": "r10-loose",
+      "kind": "loose",
+      "source": {
+        "path": "0be3295c67bc3897fea7a085369c46f91fa4a4393d13f2d5b14a0b4f9963eb05.json.gz",
+        "sha256": "0be3295c67bc3897fea7a085369c46f91fa4a4393d13f2d5b14a0b4f9963eb05",
+        "canonical_bytes": 1276556
+      },
+      "reference": {
+        "path": "0be3295c67bc3897fea7a085369c46f91fa4a4393d13f2d5b14a0b4f9963eb05.json.gz",
+        "sha256": "0be3295c67bc3897fea7a085369c46f91fa4a4393d13f2d5b14a0b4f9963eb05",
+        "canonical_bytes": 1276556
+      },
+      "action": {
+        "path": "7f524927f3aa5d0df789c60c938557530b26322addb90ad5b4c14bf8a7ae2f4c.json.gz",
+        "sha256": "7f524927f3aa5d0df789c60c938557530b26322addb90ad5b4c14bf8a7ae2f4c",
+        "canonical_bytes": 610
+      },
+      "import": {
+        "path": "43df9a2ad7dac87352bb95fdd9db1ec85dc416e7c0da956c40757603c8e940b7.json.gz",
+        "sha256": "43df9a2ad7dac87352bb95fdd9db1ec85dc416e7c0da956c40757603c8e940b7",
+        "canonical_bytes": 586840
+      },
+      "scope": {
+        "start_date": "2026-10-12",
+        "end_date": "2027-01-24",
+        "line_codes": [
+          "L00",
+          "L01",
+          "L02",
+          "L03",
+          "L04",
+          "L05",
+          "L06",
+          "L07",
+          "L08",
+          "L09",
+          "L10",
+          "L11",
+          "L12",
+          "L13",
+          "L14",
+          "L15",
+          "L16",
+          "L17"
+        ],
+        "model_codes": [
+          "M00",
+          "M01",
+          "M02",
+          "M03",
+          "M04",
+          "M05",
+          "M06",
+          "M07",
+          "M08",
+          "M09",
+          "M10",
+          "M11",
+          "M12",
+          "M13",
+          "M14",
+          "M15",
+          "M16",
+          "M17",
+          "M18",
+          "M19",
+          "M20",
+          "M21",
+          "M22",
+          "M23",
+          "M24",
+          "M25",
+          "M26",
+          "M27",
+          "M28",
+          "M29",
+          "M30",
+          "M31",
+          "M32",
+          "M33",
+          "M34",
+          "M35",
+          "M36",
+          "M37",
+          "M38",
+          "M39"
+        ]
+      },
+      "tokens": {
+        "source_revision": 1,
+        "input_version": 1,
+        "latest_adoption": 1,
+        "binding": "Logical frozen tokens. Live bindings must be recorded after public preparation; do not silently rewrite a measured run."
+      },
+      "expected": {
+        "totals": {
+          "expected": 420000,
+          "on_time": 420000,
+          "late": 0,
+          "gap": 0,
+          "pending": 0,
+          "unallocated": 0,
+          "outside_window": 0
+        },
+        "objective": [
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "418",
+          "0",
+          "0"
+        ],
+        "capacity_valid": true,
+        "computation_complete": true,
+        "executable": true
+      },
+      "reference_kind": "independent feasible witness; upper bound, not global optimality proof",
+      "quality_acceptance": "not_run",
+      "notes": []
+    },
+    {
+      "id": "r10-all-replan",
+      "kind": "all_replan",
+      "source": {
+        "path": "0be3295c67bc3897fea7a085369c46f91fa4a4393d13f2d5b14a0b4f9963eb05.json.gz",
+        "sha256": "0be3295c67bc3897fea7a085369c46f91fa4a4393d13f2d5b14a0b4f9963eb05",
+        "canonical_bytes": 1276556
+      },
+      "reference": {
+        "path": "0be3295c67bc3897fea7a085369c46f91fa4a4393d13f2d5b14a0b4f9963eb05.json.gz",
+        "sha256": "0be3295c67bc3897fea7a085369c46f91fa4a4393d13f2d5b14a0b4f9963eb05",
+        "canonical_bytes": 1276556
+      },
+      "action": {
+        "path": "7f524927f3aa5d0df789c60c938557530b26322addb90ad5b4c14bf8a7ae2f4c.json.gz",
+        "sha256": "7f524927f3aa5d0df789c60c938557530b26322addb90ad5b4c14bf8a7ae2f4c",
+        "canonical_bytes": 610
+      },
+      "import": {
+        "path": "43df9a2ad7dac87352bb95fdd9db1ec85dc416e7c0da956c40757603c8e940b7.json.gz",
+        "sha256": "43df9a2ad7dac87352bb95fdd9db1ec85dc416e7c0da956c40757603c8e940b7",
+        "canonical_bytes": 586840
+      },
+      "scope": {
+        "start_date": "2026-10-12",
+        "end_date": "2027-01-24",
+        "line_codes": [
+          "L00",
+          "L01",
+          "L02",
+          "L03",
+          "L04",
+          "L05",
+          "L06",
+          "L07",
+          "L08",
+          "L09",
+          "L10",
+          "L11",
+          "L12",
+          "L13",
+          "L14",
+          "L15",
+          "L16",
+          "L17"
+        ],
+        "model_codes": [
+          "M00",
+          "M01",
+          "M02",
+          "M03",
+          "M04",
+          "M05",
+          "M06",
+          "M07",
+          "M08",
+          "M09",
+          "M10",
+          "M11",
+          "M12",
+          "M13",
+          "M14",
+          "M15",
+          "M16",
+          "M17",
+          "M18",
+          "M19",
+          "M20",
+          "M21",
+          "M22",
+          "M23",
+          "M24",
+          "M25",
+          "M26",
+          "M27",
+          "M28",
+          "M29",
+          "M30",
+          "M31",
+          "M32",
+          "M33",
+          "M34",
+          "M35",
+          "M36",
+          "M37",
+          "M38",
+          "M39"
+        ]
+      },
+      "tokens": {
+        "source_revision": 1,
+        "input_version": 1,
+        "latest_adoption": 1,
+        "binding": "Logical frozen tokens. Live bindings must be recorded after public preparation; do not silently rewrite a measured run."
+      },
+      "expected": {
+        "totals": {
+          "expected": 420000,
+          "on_time": 420000,
+          "late": 0,
+          "gap": 0,
+          "pending": 0,
+          "unallocated": 0,
+          "outside_window": 0
+        },
+        "objective": [
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "418",
+          "0",
+          "0"
+        ],
+        "capacity_valid": true,
+        "computation_complete": true,
+        "executable": true
+      },
+      "reference_kind": "independent feasible witness; upper bound, not global optimality proof",
+      "quality_acceptance": "not_run",
+      "notes": []
+    },
+    {
+      "id": "r10-key1",
+      "kind": "key1",
+      "source": {
+        "path": "99da6d6d4905eabb4f616e4c0730ea9f21d1a8d14ebde0914ba71c80db40647c.json.gz",
+        "sha256": "99da6d6d4905eabb4f616e4c0730ea9f21d1a8d14ebde0914ba71c80db40647c",
+        "canonical_bytes": 1208424
+      },
+      "reference": {
+        "path": "99da6d6d4905eabb4f616e4c0730ea9f21d1a8d14ebde0914ba71c80db40647c.json.gz",
+        "sha256": "99da6d6d4905eabb4f616e4c0730ea9f21d1a8d14ebde0914ba71c80db40647c",
+        "canonical_bytes": 1208424
+      },
+      "action": {
+        "path": "7f524927f3aa5d0df789c60c938557530b26322addb90ad5b4c14bf8a7ae2f4c.json.gz",
+        "sha256": "7f524927f3aa5d0df789c60c938557530b26322addb90ad5b4c14bf8a7ae2f4c",
+        "canonical_bytes": 610
+      },
+      "import": {
+        "path": "5c0e872021d03e7de1c508a4e328752d460ad35475e198a2d2602a3b827888ae.json.gz",
+        "sha256": "5c0e872021d03e7de1c508a4e328752d460ad35475e198a2d2602a3b827888ae",
+        "canonical_bytes": 586842
+      },
+      "scope": {
+        "start_date": "2026-10-12",
+        "end_date": "2027-01-24",
+        "line_codes": [
+          "L00",
+          "L01",
+          "L02",
+          "L03",
+          "L04",
+          "L05",
+          "L06",
+          "L07",
+          "L08",
+          "L09",
+          "L10",
+          "L11",
+          "L12",
+          "L13",
+          "L14",
+          "L15",
+          "L16",
+          "L17"
+        ],
+        "model_codes": [
+          "M00",
+          "M01",
+          "M02",
+          "M03",
+          "M04",
+          "M05",
+          "M06",
+          "M07",
+          "M08",
+          "M09",
+          "M10",
+          "M11",
+          "M12",
+          "M13",
+          "M14",
+          "M15",
+          "M16",
+          "M17",
+          "M18",
+          "M19",
+          "M20",
+          "M21",
+          "M22",
+          "M23",
+          "M24",
+          "M25",
+          "M26",
+          "M27",
+          "M28",
+          "M29",
+          "M30",
+          "M31",
+          "M32",
+          "M33",
+          "M34",
+          "M35",
+          "M36",
+          "M37",
+          "M38",
+          "M39"
+        ]
+      },
+      "tokens": {
+        "source_revision": 1,
+        "input_version": 1,
+        "latest_adoption": 1,
+        "binding": "Logical frozen tokens. Live bindings must be recorded after public preparation; do not silently rewrite a measured run."
+      },
+      "expected": {
+        "totals": {
+          "expected": 420000,
+          "on_time": 420000,
+          "late": 0,
+          "gap": 0,
+          "pending": 0,
+          "unallocated": 0,
+          "outside_window": 0
+        },
+        "objective": [
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "209",
+          "0",
+          "0"
+        ],
+        "capacity_valid": true,
+        "computation_complete": true,
+        "executable": true
+      },
+      "reference_kind": "independent feasible witness; upper bound, not global optimality proof",
+      "quality_acceptance": "not_run",
+      "notes": []
+    },
+    {
+      "id": "r10-key2",
+      "kind": "key2",
+      "source": {
+        "path": "6c956592b4c6af0dfb4fa890d77769be4dd2898c0222976463efc5abf73c8afb.json.gz",
+        "sha256": "6c956592b4c6af0dfb4fa890d77769be4dd2898c0222976463efc5abf73c8afb",
+        "canonical_bytes": 1276557
+      },
+      "reference": {
+        "path": "6c956592b4c6af0dfb4fa890d77769be4dd2898c0222976463efc5abf73c8afb.json.gz",
+        "sha256": "6c956592b4c6af0dfb4fa890d77769be4dd2898c0222976463efc5abf73c8afb",
+        "canonical_bytes": 1276557
+      },
+      "action": {
+        "path": "7f524927f3aa5d0df789c60c938557530b26322addb90ad5b4c14bf8a7ae2f4c.json.gz",
+        "sha256": "7f524927f3aa5d0df789c60c938557530b26322addb90ad5b4c14bf8a7ae2f4c",
+        "canonical_bytes": 610
+      },
+      "import": {
+        "path": "620bad3aed640786f42ef036e20ed97ecb8130c0c70afc80d51324c5307e8343.json.gz",
+        "sha256": "620bad3aed640786f42ef036e20ed97ecb8130c0c70afc80d51324c5307e8343",
+        "canonical_bytes": 586841
+      },
+      "scope": {
+        "start_date": "2026-10-12",
+        "end_date": "2027-01-24",
+        "line_codes": [
+          "L00",
+          "L01",
+          "L02",
+          "L03",
+          "L04",
+          "L05",
+          "L06",
+          "L07",
+          "L08",
+          "L09",
+          "L10",
+          "L11",
+          "L12",
+          "L13",
+          "L14",
+          "L15",
+          "L16",
+          "L17"
+        ],
+        "model_codes": [
+          "M00",
+          "M01",
+          "M02",
+          "M03",
+          "M04",
+          "M05",
+          "M06",
+          "M07",
+          "M08",
+          "M09",
+          "M10",
+          "M11",
+          "M12",
+          "M13",
+          "M14",
+          "M15",
+          "M16",
+          "M17",
+          "M18",
+          "M19",
+          "M20",
+          "M21",
+          "M22",
+          "M23",
+          "M24",
+          "M25",
+          "M26",
+          "M27",
+          "M28",
+          "M29",
+          "M30",
+          "M31",
+          "M32",
+          "M33",
+          "M34",
+          "M35",
+          "M36",
+          "M37",
+          "M38",
+          "M39"
+        ]
+      },
+      "tokens": {
+        "source_revision": 1,
+        "input_version": 1,
+        "latest_adoption": 1,
+        "binding": "Logical frozen tokens. Live bindings must be recorded after public preparation; do not silently rewrite a measured run."
+      },
+      "expected": {
+        "totals": {
+          "expected": 420000,
+          "on_time": 420000,
+          "late": 0,
+          "gap": 0,
+          "pending": 0,
+          "unallocated": 0,
+          "outside_window": 0
+        },
+        "objective": [
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "418",
+          "0",
+          "0"
+        ],
+        "capacity_valid": true,
+        "computation_complete": true,
+        "executable": true
+      },
+      "reference_kind": "independent feasible witness; upper bound, not global optimality proof",
+      "quality_acceptance": "not_run",
+      "notes": []
+    },
+    {
+      "id": "r10-boundary",
+      "kind": "boundary",
+      "source": {
+        "path": "a99c77349d3a7103f28aa00c0aaf92e10e6ed2150c80965caae7b94075a093d3.json.gz",
+        "sha256": "a99c77349d3a7103f28aa00c0aaf92e10e6ed2150c80965caae7b94075a093d3",
+        "canonical_bytes": 1377985
+      },
+      "reference": {
+        "path": "a99c77349d3a7103f28aa00c0aaf92e10e6ed2150c80965caae7b94075a093d3.json.gz",
+        "sha256": "a99c77349d3a7103f28aa00c0aaf92e10e6ed2150c80965caae7b94075a093d3",
+        "canonical_bytes": 1377985
+      },
+      "action": {
+        "path": "7f524927f3aa5d0df789c60c938557530b26322addb90ad5b4c14bf8a7ae2f4c.json.gz",
+        "sha256": "7f524927f3aa5d0df789c60c938557530b26322addb90ad5b4c14bf8a7ae2f4c",
+        "canonical_bytes": 610
+      },
+      "import": {
+        "path": "56e75892cab7eb3719b5015b15d47ffd2caad141f33d77f363e804c66726faec.json.gz",
+        "sha256": "56e75892cab7eb3719b5015b15d47ffd2caad141f33d77f363e804c66726faec",
+        "canonical_bytes": 683229
+      },
+      "scope": {
+        "start_date": "2026-10-12",
+        "end_date": "2027-01-24",
+        "line_codes": [
+          "L00",
+          "L01",
+          "L02",
+          "L03",
+          "L04",
+          "L05",
+          "L06",
+          "L07",
+          "L08",
+          "L09",
+          "L10",
+          "L11",
+          "L12",
+          "L13",
+          "L14",
+          "L15",
+          "L16",
+          "L17"
+        ],
+        "model_codes": [
+          "M00",
+          "M01",
+          "M02",
+          "M03",
+          "M04",
+          "M05",
+          "M06",
+          "M07",
+          "M08",
+          "M09",
+          "M10",
+          "M11",
+          "M12",
+          "M13",
+          "M14",
+          "M15",
+          "M16",
+          "M17",
+          "M18",
+          "M19",
+          "M20",
+          "M21",
+          "M22",
+          "M23",
+          "M24",
+          "M25",
+          "M26",
+          "M27",
+          "M28",
+          "M29",
+          "M30",
+          "M31",
+          "M32",
+          "M33",
+          "M34",
+          "M35",
+          "M36",
+          "M37",
+          "M38",
+          "M39"
+        ]
+      },
+      "tokens": {
+        "source_revision": 1,
+        "input_version": 1,
+        "latest_adoption": 1,
+        "binding": "Logical frozen tokens. Live bindings must be recorded after public preparation; do not silently rewrite a measured run."
+      },
+      "expected": {
+        "totals": {
+          "expected": 420210,
+          "on_time": 420210,
+          "late": 0,
+          "gap": 0,
+          "pending": 0,
+          "unallocated": 0,
+          "outside_window": 0
+        },
+        "objective": [
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "418",
+          "0",
+          "0"
+        ],
+        "capacity_valid": true,
+        "computation_complete": true,
+        "executable": true
+      },
+      "reference_kind": "independent feasible witness; upper bound, not global optimality proof",
+      "quality_acceptance": "not_run",
+      "notes": [
+        "Maximum pieces only for fixed Recipe membership, switches and production budget. Severe maintenance is synthetic."
+      ]
+    },
+    {
+      "id": "r10-cross-day",
+      "kind": "cross_day",
+      "source": {
+        "path": "09e64e6ef49eb998fedc7947de86e443b6dc6db06d42e8d74f9e0596f01641e8.json.gz",
+        "sha256": "09e64e6ef49eb998fedc7947de86e443b6dc6db06d42e8d74f9e0596f01641e8",
+        "canonical_bytes": 1276678
+      },
+      "reference": {
+        "path": "09e64e6ef49eb998fedc7947de86e443b6dc6db06d42e8d74f9e0596f01641e8.json.gz",
+        "sha256": "09e64e6ef49eb998fedc7947de86e443b6dc6db06d42e8d74f9e0596f01641e8",
+        "canonical_bytes": 1276678
+      },
+      "action": {
+        "path": "7f524927f3aa5d0df789c60c938557530b26322addb90ad5b4c14bf8a7ae2f4c.json.gz",
+        "sha256": "7f524927f3aa5d0df789c60c938557530b26322addb90ad5b4c14bf8a7ae2f4c",
+        "canonical_bytes": 610
+      },
+      "import": {
+        "path": "43df9a2ad7dac87352bb95fdd9db1ec85dc416e7c0da956c40757603c8e940b7.json.gz",
+        "sha256": "43df9a2ad7dac87352bb95fdd9db1ec85dc416e7c0da956c40757603c8e940b7",
+        "canonical_bytes": 586840
+      },
+      "scope": {
+        "start_date": "2026-10-12",
+        "end_date": "2027-01-24",
+        "line_codes": [
+          "L00",
+          "L01",
+          "L02",
+          "L03",
+          "L04",
+          "L05",
+          "L06",
+          "L07",
+          "L08",
+          "L09",
+          "L10",
+          "L11",
+          "L12",
+          "L13",
+          "L14",
+          "L15",
+          "L16",
+          "L17"
+        ],
+        "model_codes": [
+          "M00",
+          "M01",
+          "M02",
+          "M03",
+          "M04",
+          "M05",
+          "M06",
+          "M07",
+          "M08",
+          "M09",
+          "M10",
+          "M11",
+          "M12",
+          "M13",
+          "M14",
+          "M15",
+          "M16",
+          "M17",
+          "M18",
+          "M19",
+          "M20",
+          "M21",
+          "M22",
+          "M23",
+          "M24",
+          "M25",
+          "M26",
+          "M27",
+          "M28",
+          "M29",
+          "M30",
+          "M31",
+          "M32",
+          "M33",
+          "M34",
+          "M35",
+          "M36",
+          "M37",
+          "M38",
+          "M39"
+        ]
+      },
+      "tokens": {
+        "source_revision": 1,
+        "input_version": 1,
+        "latest_adoption": 1,
+        "binding": "Logical frozen tokens. Live bindings must be recorded after public preparation; do not silently rewrite a measured run."
+      },
+      "expected": {
+        "totals": {
+          "expected": 420000,
+          "on_time": 420000,
+          "late": 0,
+          "gap": 0,
+          "pending": 0,
+          "unallocated": 0,
+          "outside_window": 0
+        },
+        "objective": [
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "418",
+          "0",
+          "0"
+        ],
+        "capacity_valid": true,
+        "computation_complete": true,
+        "executable": true
+      },
+      "reference_kind": "independent feasible witness; upper bound, not global optimality proof",
+      "quality_acceptance": "not_run",
+      "notes": []
+    },
+    {
+      "id": "r10-near-increase",
+      "kind": "local_increase",
+      "source": {
+        "path": "e816beb81fee3453adb910e16a3f110b24c5d5ca98085f9faa0122d8765154b8.json.gz",
+        "sha256": "e816beb81fee3453adb910e16a3f110b24c5d5ca98085f9faa0122d8765154b8",
+        "canonical_bytes": 1276556
+      },
+      "reference": {
+        "path": "f2e746a5a6e070fcb8788aec2790021f5e06fc9c4b3918eab72695d7c4738350.json.gz",
+        "sha256": "f2e746a5a6e070fcb8788aec2790021f5e06fc9c4b3918eab72695d7c4738350",
+        "canonical_bytes": 1276558
+      },
+      "action": {
+        "path": "ee0a884e0412d1b02099ba34e93cddbd7ae010e1b4c26c4701c8b3752177a7d9.json.gz",
+        "sha256": "ee0a884e0412d1b02099ba34e93cddbd7ae010e1b4c26c4701c8b3752177a7d9",
+        "canonical_bytes": 269
+      },
+      "import": {
+        "path": "c85618e91d3c509c4c8c20480be10b59204859e62205ef0f5d830c913d77673b.json.gz",
+        "sha256": "c85618e91d3c509c4c8c20480be10b59204859e62205ef0f5d830c913d77673b",
+        "canonical_bytes": 586840
+      },
+      "scope": {
+        "start_date": "2026-10-25",
+        "end_date": "2026-10-25",
+        "line_codes": [
+          "L00"
+        ],
+        "model_codes": [
+          "M00"
+        ]
+      },
+      "tokens": {
+        "source_revision": 1,
+        "input_version": 1,
+        "latest_adoption": 1,
+        "binding": "Logical frozen tokens. Live bindings must be recorded after public preparation; do not silently rewrite a measured run."
+      },
+      "expected": {
+        "totals": {
+          "expected": 420040,
+          "on_time": 420040,
+          "late": 0,
+          "gap": 0,
+          "pending": 0,
+          "unallocated": 0,
+          "outside_window": 0
+        },
+        "objective": [
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "418",
+          "120",
+          "0"
+        ],
+        "capacity_valid": true,
+        "computation_complete": true,
+        "executable": true
+      },
+      "reference_kind": "independent feasible witness; upper bound, not global optimality proof",
+      "quality_acceptance": "not_run",
+      "notes": [
+        "Only this demand week changes. Entire-plan weekly absolute change rate is exactly 1/700."
+      ]
+    },
+    {
+      "id": "r10-near-decrease",
+      "kind": "local_decrease",
+      "source": {
+        "path": "7d66e63f9119752530d9af5be5cc2d7692fc1a7c51fb2654d51996d1405c6d0b.json.gz",
+        "sha256": "7d66e63f9119752530d9af5be5cc2d7692fc1a7c51fb2654d51996d1405c6d0b",
+        "canonical_bytes": 1276556
+      },
+      "reference": {
+        "path": "a08fd260be7ec487cdabeeb25ee738bc7eb314649c7a288ece348d04c15269a1.json.gz",
+        "sha256": "a08fd260be7ec487cdabeeb25ee738bc7eb314649c7a288ece348d04c15269a1",
+        "canonical_bytes": 1276557
+      },
+      "action": {
+        "path": "ee0a884e0412d1b02099ba34e93cddbd7ae010e1b4c26c4701c8b3752177a7d9.json.gz",
+        "sha256": "ee0a884e0412d1b02099ba34e93cddbd7ae010e1b4c26c4701c8b3752177a7d9",
+        "canonical_bytes": 269
+      },
+      "import": {
+        "path": "53e7e6397f341fb11686e50f6e50cb08a6a81f992e5d347e9c6ead0579ba4e73.json.gz",
+        "sha256": "53e7e6397f341fb11686e50f6e50cb08a6a81f992e5d347e9c6ead0579ba4e73",
+        "canonical_bytes": 586840
+      },
+      "scope": {
+        "start_date": "2026-10-25",
+        "end_date": "2026-10-25",
+        "line_codes": [
+          "L00"
+        ],
+        "model_codes": [
+          "M00"
+        ]
+      },
+      "tokens": {
+        "source_revision": 1,
+        "input_version": 1,
+        "latest_adoption": 1,
+        "binding": "Logical frozen tokens. Live bindings must be recorded after public preparation; do not silently rewrite a measured run."
+      },
+      "expected": {
+        "totals": {
+          "expected": 419960,
+          "on_time": 419960,
+          "late": 0,
+          "gap": 0,
+          "pending": 0,
+          "unallocated": 0,
+          "outside_window": 0
+        },
+        "objective": [
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "418",
+          "120",
+          "0"
+        ],
+        "capacity_valid": true,
+        "computation_complete": true,
+        "executable": true
+      },
+      "reference_kind": "independent feasible witness; upper bound, not global optimality proof",
+      "quality_acceptance": "not_run",
+      "notes": [
+        "Only this demand week changes. Entire-plan weekly absolute change rate is exactly 1/700."
+      ]
+    },
+    {
+      "id": "r10-far-increase",
+      "kind": "local_increase",
+      "source": {
+        "path": "b1d4b0764d8d0090953d71c042befcda75b1142fcd270317eb3957104b95329a.json.gz",
+        "sha256": "b1d4b0764d8d0090953d71c042befcda75b1142fcd270317eb3957104b95329a",
+        "canonical_bytes": 1276556
+      },
+      "reference": {
+        "path": "30e7dc2d088b12686ae01a9256d11739c00ec0821c7e8f113b1ff77d30324410.json.gz",
+        "sha256": "30e7dc2d088b12686ae01a9256d11739c00ec0821c7e8f113b1ff77d30324410",
+        "canonical_bytes": 1276558
+      },
+      "action": {
+        "path": "7f09efa1c840dfd91a5b5600ba5eb719904eba796517490cc0471487f981dcef.json.gz",
+        "sha256": "7f09efa1c840dfd91a5b5600ba5eb719904eba796517490cc0471487f981dcef",
+        "canonical_bytes": 269
+      },
+      "import": {
+        "path": "d772d3110ec543d018c99fbfc18661b395b25a3d32dcafd6bc7d829e65d8a38f.json.gz",
+        "sha256": "d772d3110ec543d018c99fbfc18661b395b25a3d32dcafd6bc7d829e65d8a38f",
+        "canonical_bytes": 586840
+      },
+      "scope": {
+        "start_date": "2026-12-06",
+        "end_date": "2026-12-06",
+        "line_codes": [
+          "L00"
+        ],
+        "model_codes": [
+          "M00"
+        ]
+      },
+      "tokens": {
+        "source_revision": 1,
+        "input_version": 1,
+        "latest_adoption": 1,
+        "binding": "Logical frozen tokens. Live bindings must be recorded after public preparation; do not silently rewrite a measured run."
+      },
+      "expected": {
+        "totals": {
+          "expected": 420040,
+          "on_time": 420040,
+          "late": 0,
+          "gap": 0,
+          "pending": 0,
+          "unallocated": 0,
+          "outside_window": 0
+        },
+        "objective": [
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "418",
+          "40",
+          "0"
+        ],
+        "capacity_valid": true,
+        "computation_complete": true,
+        "executable": true
+      },
+      "reference_kind": "independent feasible witness; upper bound, not global optimality proof",
+      "quality_acceptance": "not_run",
+      "notes": [
+        "Only this demand week changes. Entire-plan weekly absolute change rate is exactly 1/700."
+      ]
+    },
+    {
+      "id": "r10-far-decrease",
+      "kind": "local_decrease",
+      "source": {
+        "path": "571cc7559952cc1acb37cdcd2fbbf8289df37cb07b646f37dea58248ac139310.json.gz",
+        "sha256": "571cc7559952cc1acb37cdcd2fbbf8289df37cb07b646f37dea58248ac139310",
+        "canonical_bytes": 1276556
+      },
+      "reference": {
+        "path": "dac6e018428441ef2475f52fc0006b441bdb0cd0389f545e52d47fe6f8c93270.json.gz",
+        "sha256": "dac6e018428441ef2475f52fc0006b441bdb0cd0389f545e52d47fe6f8c93270",
+        "canonical_bytes": 1276557
+      },
+      "action": {
+        "path": "7f09efa1c840dfd91a5b5600ba5eb719904eba796517490cc0471487f981dcef.json.gz",
+        "sha256": "7f09efa1c840dfd91a5b5600ba5eb719904eba796517490cc0471487f981dcef",
+        "canonical_bytes": 269
+      },
+      "import": {
+        "path": "e388502a738ddfeca95fadd5120611bba56b9de587bec42b3c59e80dd09c1ac7.json.gz",
+        "sha256": "e388502a738ddfeca95fadd5120611bba56b9de587bec42b3c59e80dd09c1ac7",
+        "canonical_bytes": 586840
+      },
+      "scope": {
+        "start_date": "2026-12-06",
+        "end_date": "2026-12-06",
+        "line_codes": [
+          "L00"
+        ],
+        "model_codes": [
+          "M00"
+        ]
+      },
+      "tokens": {
+        "source_revision": 1,
+        "input_version": 1,
+        "latest_adoption": 1,
+        "binding": "Logical frozen tokens. Live bindings must be recorded after public preparation; do not silently rewrite a measured run."
+      },
+      "expected": {
+        "totals": {
+          "expected": 419960,
+          "on_time": 419960,
+          "late": 0,
+          "gap": 0,
+          "pending": 0,
+          "unallocated": 0,
+          "outside_window": 0
+        },
+        "objective": [
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "418",
+          "40",
+          "0"
+        ],
+        "capacity_valid": true,
+        "computation_complete": true,
+        "executable": true
+      },
+      "reference_kind": "independent feasible witness; upper bound, not global optimality proof",
+      "quality_acceptance": "not_run",
+      "notes": [
+        "Only this demand week changes. Entire-plan weekly absolute change rate is exactly 1/700."
+      ]
+    },
+    {
+      "id": "r10-rolling",
+      "kind": "rolling",
+      "source": {
+        "path": "4f82e39acc0d6d75591963f1311665f35dce639fbde5a680775846716024c1f2.json.gz",
+        "sha256": "4f82e39acc0d6d75591963f1311665f35dce639fbde5a680775846716024c1f2",
+        "canonical_bytes": 1240958
+      },
+      "reference": {
+        "path": "ff4b50fc67825cdfa29e063b51d5be97704adbab88083279d0f1abcd7137e56d.json.gz",
+        "sha256": "ff4b50fc67825cdfa29e063b51d5be97704adbab88083279d0f1abcd7137e56d",
+        "canonical_bytes": 1279122
+      },
+      "action": {
+        "path": "2f02638a5867369471ba6402e1ea23733ab4889146e43ad6a981ba5ec6cb8aa8.json.gz",
+        "sha256": "2f02638a5867369471ba6402e1ea23733ab4889146e43ad6a981ba5ec6cb8aa8",
+        "canonical_bytes": 608
+      },
+      "import": {
+        "path": "3f928d0e2ba8208ac3554318de8e0ef0a3f0f96aa167b6dfd9072a052a95830e.json.gz",
+        "sha256": "3f928d0e2ba8208ac3554318de8e0ef0a3f0f96aa167b6dfd9072a052a95830e",
+        "canonical_bytes": 558840
+      },
+      "scope": {
+        "start_date": "2027-01-25",
+        "end_date": "2027-01-31",
+        "line_codes": [
+          "L00",
+          "L01",
+          "L02",
+          "L03",
+          "L04",
+          "L05",
+          "L06",
+          "L07",
+          "L08",
+          "L09",
+          "L10",
+          "L11",
+          "L12",
+          "L13",
+          "L14",
+          "L15",
+          "L16",
+          "L17"
+        ],
+        "model_codes": [
+          "M00",
+          "M01",
+          "M02",
+          "M03",
+          "M04",
+          "M05",
+          "M06",
+          "M07",
+          "M08",
+          "M09",
+          "M10",
+          "M11",
+          "M12",
+          "M13",
+          "M14",
+          "M15",
+          "M16",
+          "M17",
+          "M18",
+          "M19",
+          "M20",
+          "M21",
+          "M22",
+          "M23",
+          "M24",
+          "M25",
+          "M26",
+          "M27",
+          "M28",
+          "M29",
+          "M30",
+          "M31",
+          "M32",
+          "M33",
+          "M34",
+          "M35",
+          "M36",
+          "M37",
+          "M38",
+          "M39"
+        ]
+      },
+      "tokens": {
+        "source_revision": 1,
+        "input_version": 1,
+        "latest_adoption": 1,
+        "binding": "Logical frozen tokens. Live bindings must be recorded after public preparation; do not silently rewrite a measured run."
+      },
+      "expected": {
+        "totals": {
+          "expected": 420000,
+          "on_time": 420000,
+          "late": 0,
+          "gap": 0,
+          "pending": 0,
+          "unallocated": 0,
+          "outside_window": 0
+        },
+        "objective": [
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "420",
+          "0",
+          "0"
+        ],
+        "capacity_valid": true,
+        "computation_complete": true,
+        "executable": true
+      },
+      "reference_kind": "independent feasible witness; upper bound, not global optimality proof",
+      "quality_acceptance": "not_run",
+      "notes": [
+        "Actual rolling window starts 2026-10-19. Prior demand history is retained and excluded explicitly.",
+        "Old baseline coverage stops 2027-01-24. New week cost is zero; it is not an old zero baseline.",
+        "External shared run requires an authorized environment at the frozen production week; no runtime clock bypass is supplied."
+      ]
+    },
+    {
+      "id": "r20-loose",
+      "kind": "loose",
+      "source": {
+        "path": "d019627a21ca1507f9145aac1575c55fa03c8be52838d0f47c85088a8703d909.json.gz",
+        "sha256": "d019627a21ca1507f9145aac1575c55fa03c8be52838d0f47c85088a8703d909",
+        "canonical_bytes": 1366889
+      },
+      "reference": {
+        "path": "d019627a21ca1507f9145aac1575c55fa03c8be52838d0f47c85088a8703d909.json.gz",
+        "sha256": "d019627a21ca1507f9145aac1575c55fa03c8be52838d0f47c85088a8703d909",
+        "canonical_bytes": 1366889
+      },
+      "action": {
+        "path": "7f524927f3aa5d0df789c60c938557530b26322addb90ad5b4c14bf8a7ae2f4c.json.gz",
+        "sha256": "7f524927f3aa5d0df789c60c938557530b26322addb90ad5b4c14bf8a7ae2f4c",
+        "canonical_bytes": 610
+      },
+      "import": {
+        "path": "0cc8b193b2b36429a422675cb473231801e26355e1e18ab02e2ad070a77a53c2.json.gz",
+        "sha256": "0cc8b193b2b36429a422675cb473231801e26355e1e18ab02e2ad070a77a53c2",
+        "canonical_bytes": 677173
+      },
+      "scope": {
+        "start_date": "2026-10-12",
+        "end_date": "2027-01-24",
+        "line_codes": [
+          "L00",
+          "L01",
+          "L02",
+          "L03",
+          "L04",
+          "L05",
+          "L06",
+          "L07",
+          "L08",
+          "L09",
+          "L10",
+          "L11",
+          "L12",
+          "L13",
+          "L14",
+          "L15",
+          "L16",
+          "L17"
+        ],
+        "model_codes": [
+          "M00",
+          "M01",
+          "M02",
+          "M03",
+          "M04",
+          "M05",
+          "M06",
+          "M07",
+          "M08",
+          "M09",
+          "M10",
+          "M11",
+          "M12",
+          "M13",
+          "M14",
+          "M15",
+          "M16",
+          "M17",
+          "M18",
+          "M19",
+          "M20",
+          "M21",
+          "M22",
+          "M23",
+          "M24",
+          "M25",
+          "M26",
+          "M27",
+          "M28",
+          "M29",
+          "M30",
+          "M31",
+          "M32",
+          "M33",
+          "M34",
+          "M35",
+          "M36",
+          "M37",
+          "M38",
+          "M39"
+        ]
+      },
+      "tokens": {
+        "source_revision": 1,
+        "input_version": 1,
+        "latest_adoption": 1,
+        "binding": "Logical frozen tokens. Live bindings must be recorded after public preparation; do not silently rewrite a measured run."
+      },
+      "expected": {
+        "totals": {
+          "expected": 420000,
+          "on_time": 420000,
+          "late": 0,
+          "gap": 0,
+          "pending": 0,
+          "unallocated": 0,
+          "outside_window": 0
+        },
+        "objective": [
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "418",
+          "0",
+          "0"
+        ],
+        "capacity_valid": true,
+        "computation_complete": true,
+        "executable": true
+      },
+      "reference_kind": "independent feasible witness; upper bound, not global optimality proof",
+      "quality_acceptance": "not_run",
+      "notes": []
+    },
+    {
+      "id": "r20-all-replan",
+      "kind": "all_replan",
+      "source": {
+        "path": "d019627a21ca1507f9145aac1575c55fa03c8be52838d0f47c85088a8703d909.json.gz",
+        "sha256": "d019627a21ca1507f9145aac1575c55fa03c8be52838d0f47c85088a8703d909",
+        "canonical_bytes": 1366889
+      },
+      "reference": {
+        "path": "d019627a21ca1507f9145aac1575c55fa03c8be52838d0f47c85088a8703d909.json.gz",
+        "sha256": "d019627a21ca1507f9145aac1575c55fa03c8be52838d0f47c85088a8703d909",
+        "canonical_bytes": 1366889
+      },
+      "action": {
+        "path": "7f524927f3aa5d0df789c60c938557530b26322addb90ad5b4c14bf8a7ae2f4c.json.gz",
+        "sha256": "7f524927f3aa5d0df789c60c938557530b26322addb90ad5b4c14bf8a7ae2f4c",
+        "canonical_bytes": 610
+      },
+      "import": {
+        "path": "0cc8b193b2b36429a422675cb473231801e26355e1e18ab02e2ad070a77a53c2.json.gz",
+        "sha256": "0cc8b193b2b36429a422675cb473231801e26355e1e18ab02e2ad070a77a53c2",
+        "canonical_bytes": 677173
+      },
+      "scope": {
+        "start_date": "2026-10-12",
+        "end_date": "2027-01-24",
+        "line_codes": [
+          "L00",
+          "L01",
+          "L02",
+          "L03",
+          "L04",
+          "L05",
+          "L06",
+          "L07",
+          "L08",
+          "L09",
+          "L10",
+          "L11",
+          "L12",
+          "L13",
+          "L14",
+          "L15",
+          "L16",
+          "L17"
+        ],
+        "model_codes": [
+          "M00",
+          "M01",
+          "M02",
+          "M03",
+          "M04",
+          "M05",
+          "M06",
+          "M07",
+          "M08",
+          "M09",
+          "M10",
+          "M11",
+          "M12",
+          "M13",
+          "M14",
+          "M15",
+          "M16",
+          "M17",
+          "M18",
+          "M19",
+          "M20",
+          "M21",
+          "M22",
+          "M23",
+          "M24",
+          "M25",
+          "M26",
+          "M27",
+          "M28",
+          "M29",
+          "M30",
+          "M31",
+          "M32",
+          "M33",
+          "M34",
+          "M35",
+          "M36",
+          "M37",
+          "M38",
+          "M39"
+        ]
+      },
+      "tokens": {
+        "source_revision": 1,
+        "input_version": 1,
+        "latest_adoption": 1,
+        "binding": "Logical frozen tokens. Live bindings must be recorded after public preparation; do not silently rewrite a measured run."
+      },
+      "expected": {
+        "totals": {
+          "expected": 420000,
+          "on_time": 420000,
+          "late": 0,
+          "gap": 0,
+          "pending": 0,
+          "unallocated": 0,
+          "outside_window": 0
+        },
+        "objective": [
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "418",
+          "0",
+          "0"
+        ],
+        "capacity_valid": true,
+        "computation_complete": true,
+        "executable": true
+      },
+      "reference_kind": "independent feasible witness; upper bound, not global optimality proof",
+      "quality_acceptance": "not_run",
+      "notes": []
+    },
+    {
+      "id": "r20-key1",
+      "kind": "key1",
+      "source": {
+        "path": "5fa27c67b048559ebcf608471cbaf023079e0122bc3b2a07545a65f12bfad44f.json.gz",
+        "sha256": "5fa27c67b048559ebcf608471cbaf023079e0122bc3b2a07545a65f12bfad44f",
+        "canonical_bytes": 1366891
+      },
+      "reference": {
+        "path": "5fa27c67b048559ebcf608471cbaf023079e0122bc3b2a07545a65f12bfad44f.json.gz",
+        "sha256": "5fa27c67b048559ebcf608471cbaf023079e0122bc3b2a07545a65f12bfad44f",
+        "canonical_bytes": 1366891
+      },
+      "action": {
+        "path": "7f524927f3aa5d0df789c60c938557530b26322addb90ad5b4c14bf8a7ae2f4c.json.gz",
+        "sha256": "7f524927f3aa5d0df789c60c938557530b26322addb90ad5b4c14bf8a7ae2f4c",
+        "canonical_bytes": 610
+      },
+      "import": {
+        "path": "d91b919839ef430e0a66b9a7f853883566efe1c4049f7819160c1b1360a3fea8.json.gz",
+        "sha256": "d91b919839ef430e0a66b9a7f853883566efe1c4049f7819160c1b1360a3fea8",
+        "canonical_bytes": 677175
+      },
+      "scope": {
+        "start_date": "2026-10-12",
+        "end_date": "2027-01-24",
+        "line_codes": [
+          "L00",
+          "L01",
+          "L02",
+          "L03",
+          "L04",
+          "L05",
+          "L06",
+          "L07",
+          "L08",
+          "L09",
+          "L10",
+          "L11",
+          "L12",
+          "L13",
+          "L14",
+          "L15",
+          "L16",
+          "L17"
+        ],
+        "model_codes": [
+          "M00",
+          "M01",
+          "M02",
+          "M03",
+          "M04",
+          "M05",
+          "M06",
+          "M07",
+          "M08",
+          "M09",
+          "M10",
+          "M11",
+          "M12",
+          "M13",
+          "M14",
+          "M15",
+          "M16",
+          "M17",
+          "M18",
+          "M19",
+          "M20",
+          "M21",
+          "M22",
+          "M23",
+          "M24",
+          "M25",
+          "M26",
+          "M27",
+          "M28",
+          "M29",
+          "M30",
+          "M31",
+          "M32",
+          "M33",
+          "M34",
+          "M35",
+          "M36",
+          "M37",
+          "M38",
+          "M39"
+        ]
+      },
+      "tokens": {
+        "source_revision": 1,
+        "input_version": 1,
+        "latest_adoption": 1,
+        "binding": "Logical frozen tokens. Live bindings must be recorded after public preparation; do not silently rewrite a measured run."
+      },
+      "expected": {
+        "totals": {
+          "expected": 420000,
+          "on_time": 420000,
+          "late": 0,
+          "gap": 0,
+          "pending": 0,
+          "unallocated": 0,
+          "outside_window": 0
+        },
+        "objective": [
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "418",
+          "0",
+          "0"
+        ],
+        "capacity_valid": true,
+        "computation_complete": true,
+        "executable": true
+      },
+      "reference_kind": "independent feasible witness; upper bound, not global optimality proof",
+      "quality_acceptance": "not_run",
+      "notes": []
+    },
+    {
+      "id": "r20-key2",
+      "kind": "key2",
+      "source": {
+        "path": "d9bd0878c0377865a24181ee8f2ff40945e256aec23d53fe7b3b4ee0f28936aa.json.gz",
+        "sha256": "d9bd0878c0377865a24181ee8f2ff40945e256aec23d53fe7b3b4ee0f28936aa",
+        "canonical_bytes": 1366890
+      },
+      "reference": {
+        "path": "d9bd0878c0377865a24181ee8f2ff40945e256aec23d53fe7b3b4ee0f28936aa.json.gz",
+        "sha256": "d9bd0878c0377865a24181ee8f2ff40945e256aec23d53fe7b3b4ee0f28936aa",
+        "canonical_bytes": 1366890
+      },
+      "action": {
+        "path": "7f524927f3aa5d0df789c60c938557530b26322addb90ad5b4c14bf8a7ae2f4c.json.gz",
+        "sha256": "7f524927f3aa5d0df789c60c938557530b26322addb90ad5b4c14bf8a7ae2f4c",
+        "canonical_bytes": 610
+      },
+      "import": {
+        "path": "50cda66b6bef6ebaa0d85c98dc92714fa535dc5f62e9ca4352c91b26f20df199.json.gz",
+        "sha256": "50cda66b6bef6ebaa0d85c98dc92714fa535dc5f62e9ca4352c91b26f20df199",
+        "canonical_bytes": 677174
+      },
+      "scope": {
+        "start_date": "2026-10-12",
+        "end_date": "2027-01-24",
+        "line_codes": [
+          "L00",
+          "L01",
+          "L02",
+          "L03",
+          "L04",
+          "L05",
+          "L06",
+          "L07",
+          "L08",
+          "L09",
+          "L10",
+          "L11",
+          "L12",
+          "L13",
+          "L14",
+          "L15",
+          "L16",
+          "L17"
+        ],
+        "model_codes": [
+          "M00",
+          "M01",
+          "M02",
+          "M03",
+          "M04",
+          "M05",
+          "M06",
+          "M07",
+          "M08",
+          "M09",
+          "M10",
+          "M11",
+          "M12",
+          "M13",
+          "M14",
+          "M15",
+          "M16",
+          "M17",
+          "M18",
+          "M19",
+          "M20",
+          "M21",
+          "M22",
+          "M23",
+          "M24",
+          "M25",
+          "M26",
+          "M27",
+          "M28",
+          "M29",
+          "M30",
+          "M31",
+          "M32",
+          "M33",
+          "M34",
+          "M35",
+          "M36",
+          "M37",
+          "M38",
+          "M39"
+        ]
+      },
+      "tokens": {
+        "source_revision": 1,
+        "input_version": 1,
+        "latest_adoption": 1,
+        "binding": "Logical frozen tokens. Live bindings must be recorded after public preparation; do not silently rewrite a measured run."
+      },
+      "expected": {
+        "totals": {
+          "expected": 420000,
+          "on_time": 420000,
+          "late": 0,
+          "gap": 0,
+          "pending": 0,
+          "unallocated": 0,
+          "outside_window": 0
+        },
+        "objective": [
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "418",
+          "0",
+          "0"
+        ],
+        "capacity_valid": true,
+        "computation_complete": true,
+        "executable": true
+      },
+      "reference_kind": "independent feasible witness; upper bound, not global optimality proof",
+      "quality_acceptance": "not_run",
+      "notes": []
+    },
+    {
+      "id": "r20-boundary",
+      "kind": "boundary",
+      "source": {
+        "path": "cec2b0cf2dbaf53ba090abdaa9ab2418b9b226614283c5393f92bb049634a905.json.gz",
+        "sha256": "cec2b0cf2dbaf53ba090abdaa9ab2418b9b226614283c5393f92bb049634a905",
+        "canonical_bytes": 1468318
+      },
+      "reference": {
+        "path": "cec2b0cf2dbaf53ba090abdaa9ab2418b9b226614283c5393f92bb049634a905.json.gz",
+        "sha256": "cec2b0cf2dbaf53ba090abdaa9ab2418b9b226614283c5393f92bb049634a905",
+        "canonical_bytes": 1468318
+      },
+      "action": {
+        "path": "7f524927f3aa5d0df789c60c938557530b26322addb90ad5b4c14bf8a7ae2f4c.json.gz",
+        "sha256": "7f524927f3aa5d0df789c60c938557530b26322addb90ad5b4c14bf8a7ae2f4c",
+        "canonical_bytes": 610
+      },
+      "import": {
+        "path": "685d4db17dcab45108090c49ba1d96a411cd1533e0a7046e13c5b32f0a3a0b48.json.gz",
+        "sha256": "685d4db17dcab45108090c49ba1d96a411cd1533e0a7046e13c5b32f0a3a0b48",
+        "canonical_bytes": 773562
+      },
+      "scope": {
+        "start_date": "2026-10-12",
+        "end_date": "2027-01-24",
+        "line_codes": [
+          "L00",
+          "L01",
+          "L02",
+          "L03",
+          "L04",
+          "L05",
+          "L06",
+          "L07",
+          "L08",
+          "L09",
+          "L10",
+          "L11",
+          "L12",
+          "L13",
+          "L14",
+          "L15",
+          "L16",
+          "L17"
+        ],
+        "model_codes": [
+          "M00",
+          "M01",
+          "M02",
+          "M03",
+          "M04",
+          "M05",
+          "M06",
+          "M07",
+          "M08",
+          "M09",
+          "M10",
+          "M11",
+          "M12",
+          "M13",
+          "M14",
+          "M15",
+          "M16",
+          "M17",
+          "M18",
+          "M19",
+          "M20",
+          "M21",
+          "M22",
+          "M23",
+          "M24",
+          "M25",
+          "M26",
+          "M27",
+          "M28",
+          "M29",
+          "M30",
+          "M31",
+          "M32",
+          "M33",
+          "M34",
+          "M35",
+          "M36",
+          "M37",
+          "M38",
+          "M39"
+        ]
+      },
+      "tokens": {
+        "source_revision": 1,
+        "input_version": 1,
+        "latest_adoption": 1,
+        "binding": "Logical frozen tokens. Live bindings must be recorded after public preparation; do not silently rewrite a measured run."
+      },
+      "expected": {
+        "totals": {
+          "expected": 420210,
+          "on_time": 420210,
+          "late": 0,
+          "gap": 0,
+          "pending": 0,
+          "unallocated": 0,
+          "outside_window": 0
+        },
+        "objective": [
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "418",
+          "0",
+          "0"
+        ],
+        "capacity_valid": true,
+        "computation_complete": true,
+        "executable": true
+      },
+      "reference_kind": "independent feasible witness; upper bound, not global optimality proof",
+      "quality_acceptance": "not_run",
+      "notes": [
+        "Maximum pieces only for fixed Recipe membership, switches and production budget. Severe maintenance is synthetic."
+      ]
+    },
+    {
+      "id": "r20-cross-day",
+      "kind": "cross_day",
+      "source": {
+        "path": "5ad0cf7ef76895879f9f60b7af30859ab3e0f3fc41eb1a271b3a4dafec20971d.json.gz",
+        "sha256": "5ad0cf7ef76895879f9f60b7af30859ab3e0f3fc41eb1a271b3a4dafec20971d",
+        "canonical_bytes": 1367011
+      },
+      "reference": {
+        "path": "5ad0cf7ef76895879f9f60b7af30859ab3e0f3fc41eb1a271b3a4dafec20971d.json.gz",
+        "sha256": "5ad0cf7ef76895879f9f60b7af30859ab3e0f3fc41eb1a271b3a4dafec20971d",
+        "canonical_bytes": 1367011
+      },
+      "action": {
+        "path": "7f524927f3aa5d0df789c60c938557530b26322addb90ad5b4c14bf8a7ae2f4c.json.gz",
+        "sha256": "7f524927f3aa5d0df789c60c938557530b26322addb90ad5b4c14bf8a7ae2f4c",
+        "canonical_bytes": 610
+      },
+      "import": {
+        "path": "0cc8b193b2b36429a422675cb473231801e26355e1e18ab02e2ad070a77a53c2.json.gz",
+        "sha256": "0cc8b193b2b36429a422675cb473231801e26355e1e18ab02e2ad070a77a53c2",
+        "canonical_bytes": 677173
+      },
+      "scope": {
+        "start_date": "2026-10-12",
+        "end_date": "2027-01-24",
+        "line_codes": [
+          "L00",
+          "L01",
+          "L02",
+          "L03",
+          "L04",
+          "L05",
+          "L06",
+          "L07",
+          "L08",
+          "L09",
+          "L10",
+          "L11",
+          "L12",
+          "L13",
+          "L14",
+          "L15",
+          "L16",
+          "L17"
+        ],
+        "model_codes": [
+          "M00",
+          "M01",
+          "M02",
+          "M03",
+          "M04",
+          "M05",
+          "M06",
+          "M07",
+          "M08",
+          "M09",
+          "M10",
+          "M11",
+          "M12",
+          "M13",
+          "M14",
+          "M15",
+          "M16",
+          "M17",
+          "M18",
+          "M19",
+          "M20",
+          "M21",
+          "M22",
+          "M23",
+          "M24",
+          "M25",
+          "M26",
+          "M27",
+          "M28",
+          "M29",
+          "M30",
+          "M31",
+          "M32",
+          "M33",
+          "M34",
+          "M35",
+          "M36",
+          "M37",
+          "M38",
+          "M39"
+        ]
+      },
+      "tokens": {
+        "source_revision": 1,
+        "input_version": 1,
+        "latest_adoption": 1,
+        "binding": "Logical frozen tokens. Live bindings must be recorded after public preparation; do not silently rewrite a measured run."
+      },
+      "expected": {
+        "totals": {
+          "expected": 420000,
+          "on_time": 420000,
+          "late": 0,
+          "gap": 0,
+          "pending": 0,
+          "unallocated": 0,
+          "outside_window": 0
+        },
+        "objective": [
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "418",
+          "0",
+          "0"
+        ],
+        "capacity_valid": true,
+        "computation_complete": true,
+        "executable": true
+      },
+      "reference_kind": "independent feasible witness; upper bound, not global optimality proof",
+      "quality_acceptance": "not_run",
+      "notes": []
+    },
+    {
+      "id": "r20-near-increase",
+      "kind": "local_increase",
+      "source": {
+        "path": "20d28c3fcb45dc40b6664c7178a50b9388762508182088f329562663c19cfc7c.json.gz",
+        "sha256": "20d28c3fcb45dc40b6664c7178a50b9388762508182088f329562663c19cfc7c",
+        "canonical_bytes": 1366889
+      },
+      "reference": {
+        "path": "cc2fca1a6c75349a47d096e49b56d29f1e05932c7843fde3a59f0aeffd4af22d.json.gz",
+        "sha256": "cc2fca1a6c75349a47d096e49b56d29f1e05932c7843fde3a59f0aeffd4af22d",
+        "canonical_bytes": 1366891
+      },
+      "action": {
+        "path": "ee0a884e0412d1b02099ba34e93cddbd7ae010e1b4c26c4701c8b3752177a7d9.json.gz",
+        "sha256": "ee0a884e0412d1b02099ba34e93cddbd7ae010e1b4c26c4701c8b3752177a7d9",
+        "canonical_bytes": 269
+      },
+      "import": {
+        "path": "d8b934a68891c9658e847b655f7f7579c80eb029591cee669b08839a68a4b432.json.gz",
+        "sha256": "d8b934a68891c9658e847b655f7f7579c80eb029591cee669b08839a68a4b432",
+        "canonical_bytes": 677173
+      },
+      "scope": {
+        "start_date": "2026-10-25",
+        "end_date": "2026-10-25",
+        "line_codes": [
+          "L00"
+        ],
+        "model_codes": [
+          "M00"
+        ]
+      },
+      "tokens": {
+        "source_revision": 1,
+        "input_version": 1,
+        "latest_adoption": 1,
+        "binding": "Logical frozen tokens. Live bindings must be recorded after public preparation; do not silently rewrite a measured run."
+      },
+      "expected": {
+        "totals": {
+          "expected": 420040,
+          "on_time": 420040,
+          "late": 0,
+          "gap": 0,
+          "pending": 0,
+          "unallocated": 0,
+          "outside_window": 0
+        },
+        "objective": [
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "418",
+          "120",
+          "0"
+        ],
+        "capacity_valid": true,
+        "computation_complete": true,
+        "executable": true
+      },
+      "reference_kind": "independent feasible witness; upper bound, not global optimality proof",
+      "quality_acceptance": "not_run",
+      "notes": [
+        "Only this demand week changes. Entire-plan weekly absolute change rate is exactly 1/700."
+      ]
+    },
+    {
+      "id": "r20-near-decrease",
+      "kind": "local_decrease",
+      "source": {
+        "path": "a41928ee3b50a073a527b591e5b7ad4262e5593a51f5cd9357cb26254f5cad99.json.gz",
+        "sha256": "a41928ee3b50a073a527b591e5b7ad4262e5593a51f5cd9357cb26254f5cad99",
+        "canonical_bytes": 1366889
+      },
+      "reference": {
+        "path": "7b0c006151ffec2731b01d5e6c2412c73715d06f65d9f031dbf775bfff61d56c.json.gz",
+        "sha256": "7b0c006151ffec2731b01d5e6c2412c73715d06f65d9f031dbf775bfff61d56c",
+        "canonical_bytes": 1366890
+      },
+      "action": {
+        "path": "ee0a884e0412d1b02099ba34e93cddbd7ae010e1b4c26c4701c8b3752177a7d9.json.gz",
+        "sha256": "ee0a884e0412d1b02099ba34e93cddbd7ae010e1b4c26c4701c8b3752177a7d9",
+        "canonical_bytes": 269
+      },
+      "import": {
+        "path": "43e29997fb1b4464314a7e37b09585bb81d2f6f91217adff7fa2121e519b6584.json.gz",
+        "sha256": "43e29997fb1b4464314a7e37b09585bb81d2f6f91217adff7fa2121e519b6584",
+        "canonical_bytes": 677173
+      },
+      "scope": {
+        "start_date": "2026-10-25",
+        "end_date": "2026-10-25",
+        "line_codes": [
+          "L00"
+        ],
+        "model_codes": [
+          "M00"
+        ]
+      },
+      "tokens": {
+        "source_revision": 1,
+        "input_version": 1,
+        "latest_adoption": 1,
+        "binding": "Logical frozen tokens. Live bindings must be recorded after public preparation; do not silently rewrite a measured run."
+      },
+      "expected": {
+        "totals": {
+          "expected": 419960,
+          "on_time": 419960,
+          "late": 0,
+          "gap": 0,
+          "pending": 0,
+          "unallocated": 0,
+          "outside_window": 0
+        },
+        "objective": [
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "418",
+          "120",
+          "0"
+        ],
+        "capacity_valid": true,
+        "computation_complete": true,
+        "executable": true
+      },
+      "reference_kind": "independent feasible witness; upper bound, not global optimality proof",
+      "quality_acceptance": "not_run",
+      "notes": [
+        "Only this demand week changes. Entire-plan weekly absolute change rate is exactly 1/700."
+      ]
+    },
+    {
+      "id": "r20-far-increase",
+      "kind": "local_increase",
+      "source": {
+        "path": "102359d24422b1249f7e29776716f0250a56b70238431b32ead46e0290d1d56b.json.gz",
+        "sha256": "102359d24422b1249f7e29776716f0250a56b70238431b32ead46e0290d1d56b",
+        "canonical_bytes": 1366889
+      },
+      "reference": {
+        "path": "bab9b1260d85bf94b099b3ad15a2a42a6495e89db88efc617f0665595ae5afb9.json.gz",
+        "sha256": "bab9b1260d85bf94b099b3ad15a2a42a6495e89db88efc617f0665595ae5afb9",
+        "canonical_bytes": 1366891
+      },
+      "action": {
+        "path": "7f09efa1c840dfd91a5b5600ba5eb719904eba796517490cc0471487f981dcef.json.gz",
+        "sha256": "7f09efa1c840dfd91a5b5600ba5eb719904eba796517490cc0471487f981dcef",
+        "canonical_bytes": 269
+      },
+      "import": {
+        "path": "51ca53b62f641156f81147ce7503c93c486d24cce9c525de70aaf3cab9a54c20.json.gz",
+        "sha256": "51ca53b62f641156f81147ce7503c93c486d24cce9c525de70aaf3cab9a54c20",
+        "canonical_bytes": 677173
+      },
+      "scope": {
+        "start_date": "2026-12-06",
+        "end_date": "2026-12-06",
+        "line_codes": [
+          "L00"
+        ],
+        "model_codes": [
+          "M00"
+        ]
+      },
+      "tokens": {
+        "source_revision": 1,
+        "input_version": 1,
+        "latest_adoption": 1,
+        "binding": "Logical frozen tokens. Live bindings must be recorded after public preparation; do not silently rewrite a measured run."
+      },
+      "expected": {
+        "totals": {
+          "expected": 420040,
+          "on_time": 420040,
+          "late": 0,
+          "gap": 0,
+          "pending": 0,
+          "unallocated": 0,
+          "outside_window": 0
+        },
+        "objective": [
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "418",
+          "40",
+          "0"
+        ],
+        "capacity_valid": true,
+        "computation_complete": true,
+        "executable": true
+      },
+      "reference_kind": "independent feasible witness; upper bound, not global optimality proof",
+      "quality_acceptance": "not_run",
+      "notes": [
+        "Only this demand week changes. Entire-plan weekly absolute change rate is exactly 1/700."
+      ]
+    },
+    {
+      "id": "r20-far-decrease",
+      "kind": "local_decrease",
+      "source": {
+        "path": "b5dfc494f9e65451bd68024983b2ab878807a19a3b3c00d73849095901338354.json.gz",
+        "sha256": "b5dfc494f9e65451bd68024983b2ab878807a19a3b3c00d73849095901338354",
+        "canonical_bytes": 1366889
+      },
+      "reference": {
+        "path": "19cf4af9738fea4e16e25258b045a0bd221f607c0875b17ce5c176c386ac7808.json.gz",
+        "sha256": "19cf4af9738fea4e16e25258b045a0bd221f607c0875b17ce5c176c386ac7808",
+        "canonical_bytes": 1366890
+      },
+      "action": {
+        "path": "7f09efa1c840dfd91a5b5600ba5eb719904eba796517490cc0471487f981dcef.json.gz",
+        "sha256": "7f09efa1c840dfd91a5b5600ba5eb719904eba796517490cc0471487f981dcef",
+        "canonical_bytes": 269
+      },
+      "import": {
+        "path": "a15d871aa9a88095c12a5f0a56525568e2fb9132da4005bda4414ee6acc50266.json.gz",
+        "sha256": "a15d871aa9a88095c12a5f0a56525568e2fb9132da4005bda4414ee6acc50266",
+        "canonical_bytes": 677173
+      },
+      "scope": {
+        "start_date": "2026-12-06",
+        "end_date": "2026-12-06",
+        "line_codes": [
+          "L00"
+        ],
+        "model_codes": [
+          "M00"
+        ]
+      },
+      "tokens": {
+        "source_revision": 1,
+        "input_version": 1,
+        "latest_adoption": 1,
+        "binding": "Logical frozen tokens. Live bindings must be recorded after public preparation; do not silently rewrite a measured run."
+      },
+      "expected": {
+        "totals": {
+          "expected": 419960,
+          "on_time": 419960,
+          "late": 0,
+          "gap": 0,
+          "pending": 0,
+          "unallocated": 0,
+          "outside_window": 0
+        },
+        "objective": [
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "418",
+          "40",
+          "0"
+        ],
+        "capacity_valid": true,
+        "computation_complete": true,
+        "executable": true
+      },
+      "reference_kind": "independent feasible witness; upper bound, not global optimality proof",
+      "quality_acceptance": "not_run",
+      "notes": [
+        "Only this demand week changes. Entire-plan weekly absolute change rate is exactly 1/700."
+      ]
+    },
+    {
+      "id": "r20-rolling",
+      "kind": "rolling",
+      "source": {
+        "path": "61373e89080a8344987c68ee4f71b77ce16374962965828ff528524179523661.json.gz",
+        "sha256": "61373e89080a8344987c68ee4f71b77ce16374962965828ff528524179523661",
+        "canonical_bytes": 1331291
+      },
+      "reference": {
+        "path": "f886bc2d088095010df69d0d6c45ef932327b7fcc15a54244ffc43a1f5d21761.json.gz",
+        "sha256": "f886bc2d088095010df69d0d6c45ef932327b7fcc15a54244ffc43a1f5d21761",
+        "canonical_bytes": 1369455
+      },
+      "action": {
+        "path": "2f02638a5867369471ba6402e1ea23733ab4889146e43ad6a981ba5ec6cb8aa8.json.gz",
+        "sha256": "2f02638a5867369471ba6402e1ea23733ab4889146e43ad6a981ba5ec6cb8aa8",
+        "canonical_bytes": 608
+      },
+      "import": {
+        "path": "e4cc581f3b01ec67dc03a6a482cd409c25f19f945ea527574ebcef1a99369de8.json.gz",
+        "sha256": "e4cc581f3b01ec67dc03a6a482cd409c25f19f945ea527574ebcef1a99369de8",
+        "canonical_bytes": 649173
+      },
+      "scope": {
+        "start_date": "2027-01-25",
+        "end_date": "2027-01-31",
+        "line_codes": [
+          "L00",
+          "L01",
+          "L02",
+          "L03",
+          "L04",
+          "L05",
+          "L06",
+          "L07",
+          "L08",
+          "L09",
+          "L10",
+          "L11",
+          "L12",
+          "L13",
+          "L14",
+          "L15",
+          "L16",
+          "L17"
+        ],
+        "model_codes": [
+          "M00",
+          "M01",
+          "M02",
+          "M03",
+          "M04",
+          "M05",
+          "M06",
+          "M07",
+          "M08",
+          "M09",
+          "M10",
+          "M11",
+          "M12",
+          "M13",
+          "M14",
+          "M15",
+          "M16",
+          "M17",
+          "M18",
+          "M19",
+          "M20",
+          "M21",
+          "M22",
+          "M23",
+          "M24",
+          "M25",
+          "M26",
+          "M27",
+          "M28",
+          "M29",
+          "M30",
+          "M31",
+          "M32",
+          "M33",
+          "M34",
+          "M35",
+          "M36",
+          "M37",
+          "M38",
+          "M39"
+        ]
+      },
+      "tokens": {
+        "source_revision": 1,
+        "input_version": 1,
+        "latest_adoption": 1,
+        "binding": "Logical frozen tokens. Live bindings must be recorded after public preparation; do not silently rewrite a measured run."
+      },
+      "expected": {
+        "totals": {
+          "expected": 420000,
+          "on_time": 420000,
+          "late": 0,
+          "gap": 0,
+          "pending": 0,
+          "unallocated": 0,
+          "outside_window": 0
+        },
+        "objective": [
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "420",
+          "0",
+          "0"
+        ],
+        "capacity_valid": true,
+        "computation_complete": true,
+        "executable": true
+      },
+      "reference_kind": "independent feasible witness; upper bound, not global optimality proof",
+      "quality_acceptance": "not_run",
+      "notes": [
+        "Actual rolling window starts 2026-10-19. Prior demand history is retained and excluded explicitly.",
+        "Old baseline coverage stops 2027-01-24. New week cost is zero; it is not an old zero baseline.",
+        "External shared run requires an authorized environment at the frozen production week; no runtime clock bypass is supplied."
+      ]
+    },
+    {
+      "id": "r40-loose",
+      "kind": "loose",
+      "source": {
+        "path": "1b498f165ece8a6a84838049593db6d0ea2e113816bdb15f532c7f95b719617c.json.gz",
+        "sha256": "1b498f165ece8a6a84838049593db6d0ea2e113816bdb15f532c7f95b719617c",
+        "canonical_bytes": 2805823
+      },
+      "reference": {
+        "path": "1b498f165ece8a6a84838049593db6d0ea2e113816bdb15f532c7f95b719617c.json.gz",
+        "sha256": "1b498f165ece8a6a84838049593db6d0ea2e113816bdb15f532c7f95b719617c",
+        "canonical_bytes": 2805823
+      },
+      "action": {
+        "path": "7f524927f3aa5d0df789c60c938557530b26322addb90ad5b4c14bf8a7ae2f4c.json.gz",
+        "sha256": "7f524927f3aa5d0df789c60c938557530b26322addb90ad5b4c14bf8a7ae2f4c",
+        "canonical_bytes": 610
+      },
+      "import": {
+        "path": "9000dad587f346632f80540842647107d7c7e895627d50aaa21d30f177766444.json.gz",
+        "sha256": "9000dad587f346632f80540842647107d7c7e895627d50aaa21d30f177766444",
+        "canonical_bytes": 889043
+      },
+      "scope": {
+        "start_date": "2026-10-12",
+        "end_date": "2027-01-24",
+        "line_codes": [
+          "L00",
+          "L01",
+          "L02",
+          "L03",
+          "L04",
+          "L05",
+          "L06",
+          "L07",
+          "L08",
+          "L09",
+          "L10",
+          "L11",
+          "L12",
+          "L13",
+          "L14",
+          "L15",
+          "L16",
+          "L17"
+        ],
+        "model_codes": [
+          "M00",
+          "M01",
+          "M02",
+          "M03",
+          "M04",
+          "M05",
+          "M06",
+          "M07",
+          "M08",
+          "M09",
+          "M10",
+          "M11",
+          "M12",
+          "M13",
+          "M14",
+          "M15",
+          "M16",
+          "M17",
+          "M18",
+          "M19",
+          "M20",
+          "M21",
+          "M22",
+          "M23",
+          "M24",
+          "M25",
+          "M26",
+          "M27",
+          "M28",
+          "M29",
+          "M30",
+          "M31",
+          "M32",
+          "M33",
+          "M34",
+          "M35",
+          "M36",
+          "M37",
+          "M38",
+          "M39"
+        ]
+      },
+      "tokens": {
+        "source_revision": 1,
+        "input_version": 1,
+        "latest_adoption": 1,
+        "binding": "Logical frozen tokens. Live bindings must be recorded after public preparation; do not silently rewrite a measured run."
+      },
+      "expected": {
+        "totals": {
+          "expected": 420000,
+          "on_time": 420000,
+          "late": 0,
+          "gap": 0,
+          "pending": 0,
+          "unallocated": 0,
+          "outside_window": 0
+        },
+        "objective": [
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "4182",
+          "0",
+          "0"
+        ],
+        "capacity_valid": true,
+        "computation_complete": true,
+        "executable": true
+      },
+      "reference_kind": "independent feasible witness; upper bound, not global optimality proof",
+      "quality_acceptance": "not_run",
+      "notes": []
+    },
+    {
+      "id": "r40-all-replan",
+      "kind": "all_replan",
+      "source": {
+        "path": "1b498f165ece8a6a84838049593db6d0ea2e113816bdb15f532c7f95b719617c.json.gz",
+        "sha256": "1b498f165ece8a6a84838049593db6d0ea2e113816bdb15f532c7f95b719617c",
+        "canonical_bytes": 2805823
+      },
+      "reference": {
+        "path": "1b498f165ece8a6a84838049593db6d0ea2e113816bdb15f532c7f95b719617c.json.gz",
+        "sha256": "1b498f165ece8a6a84838049593db6d0ea2e113816bdb15f532c7f95b719617c",
+        "canonical_bytes": 2805823
+      },
+      "action": {
+        "path": "7f524927f3aa5d0df789c60c938557530b26322addb90ad5b4c14bf8a7ae2f4c.json.gz",
+        "sha256": "7f524927f3aa5d0df789c60c938557530b26322addb90ad5b4c14bf8a7ae2f4c",
+        "canonical_bytes": 610
+      },
+      "import": {
+        "path": "9000dad587f346632f80540842647107d7c7e895627d50aaa21d30f177766444.json.gz",
+        "sha256": "9000dad587f346632f80540842647107d7c7e895627d50aaa21d30f177766444",
+        "canonical_bytes": 889043
+      },
+      "scope": {
+        "start_date": "2026-10-12",
+        "end_date": "2027-01-24",
+        "line_codes": [
+          "L00",
+          "L01",
+          "L02",
+          "L03",
+          "L04",
+          "L05",
+          "L06",
+          "L07",
+          "L08",
+          "L09",
+          "L10",
+          "L11",
+          "L12",
+          "L13",
+          "L14",
+          "L15",
+          "L16",
+          "L17"
+        ],
+        "model_codes": [
+          "M00",
+          "M01",
+          "M02",
+          "M03",
+          "M04",
+          "M05",
+          "M06",
+          "M07",
+          "M08",
+          "M09",
+          "M10",
+          "M11",
+          "M12",
+          "M13",
+          "M14",
+          "M15",
+          "M16",
+          "M17",
+          "M18",
+          "M19",
+          "M20",
+          "M21",
+          "M22",
+          "M23",
+          "M24",
+          "M25",
+          "M26",
+          "M27",
+          "M28",
+          "M29",
+          "M30",
+          "M31",
+          "M32",
+          "M33",
+          "M34",
+          "M35",
+          "M36",
+          "M37",
+          "M38",
+          "M39"
+        ]
+      },
+      "tokens": {
+        "source_revision": 1,
+        "input_version": 1,
+        "latest_adoption": 1,
+        "binding": "Logical frozen tokens. Live bindings must be recorded after public preparation; do not silently rewrite a measured run."
+      },
+      "expected": {
+        "totals": {
+          "expected": 420000,
+          "on_time": 420000,
+          "late": 0,
+          "gap": 0,
+          "pending": 0,
+          "unallocated": 0,
+          "outside_window": 0
+        },
+        "objective": [
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "4182",
+          "0",
+          "0"
+        ],
+        "capacity_valid": true,
+        "computation_complete": true,
+        "executable": true
+      },
+      "reference_kind": "independent feasible witness; upper bound, not global optimality proof",
+      "quality_acceptance": "not_run",
+      "notes": []
+    },
+    {
+      "id": "r40-key1",
+      "kind": "key1",
+      "source": {
+        "path": "e05c0fc79c804a74e325f2b4cd91fd3df1c06fc55fc78024ae0e3ad3f34187bb.json.gz",
+        "sha256": "e05c0fc79c804a74e325f2b4cd91fd3df1c06fc55fc78024ae0e3ad3f34187bb",
+        "canonical_bytes": 2805825
+      },
+      "reference": {
+        "path": "e05c0fc79c804a74e325f2b4cd91fd3df1c06fc55fc78024ae0e3ad3f34187bb.json.gz",
+        "sha256": "e05c0fc79c804a74e325f2b4cd91fd3df1c06fc55fc78024ae0e3ad3f34187bb",
+        "canonical_bytes": 2805825
+      },
+      "action": {
+        "path": "7f524927f3aa5d0df789c60c938557530b26322addb90ad5b4c14bf8a7ae2f4c.json.gz",
+        "sha256": "7f524927f3aa5d0df789c60c938557530b26322addb90ad5b4c14bf8a7ae2f4c",
+        "canonical_bytes": 610
+      },
+      "import": {
+        "path": "eba2d0214992d9642b17b28184c6e20c9bc5f0fe17b4a632e41af53a02c09655.json.gz",
+        "sha256": "eba2d0214992d9642b17b28184c6e20c9bc5f0fe17b4a632e41af53a02c09655",
+        "canonical_bytes": 889045
+      },
+      "scope": {
+        "start_date": "2026-10-12",
+        "end_date": "2027-01-24",
+        "line_codes": [
+          "L00",
+          "L01",
+          "L02",
+          "L03",
+          "L04",
+          "L05",
+          "L06",
+          "L07",
+          "L08",
+          "L09",
+          "L10",
+          "L11",
+          "L12",
+          "L13",
+          "L14",
+          "L15",
+          "L16",
+          "L17"
+        ],
+        "model_codes": [
+          "M00",
+          "M01",
+          "M02",
+          "M03",
+          "M04",
+          "M05",
+          "M06",
+          "M07",
+          "M08",
+          "M09",
+          "M10",
+          "M11",
+          "M12",
+          "M13",
+          "M14",
+          "M15",
+          "M16",
+          "M17",
+          "M18",
+          "M19",
+          "M20",
+          "M21",
+          "M22",
+          "M23",
+          "M24",
+          "M25",
+          "M26",
+          "M27",
+          "M28",
+          "M29",
+          "M30",
+          "M31",
+          "M32",
+          "M33",
+          "M34",
+          "M35",
+          "M36",
+          "M37",
+          "M38",
+          "M39"
+        ]
+      },
+      "tokens": {
+        "source_revision": 1,
+        "input_version": 1,
+        "latest_adoption": 1,
+        "binding": "Logical frozen tokens. Live bindings must be recorded after public preparation; do not silently rewrite a measured run."
+      },
+      "expected": {
+        "totals": {
+          "expected": 420000,
+          "on_time": 420000,
+          "late": 0,
+          "gap": 0,
+          "pending": 0,
+          "unallocated": 0,
+          "outside_window": 0
+        },
+        "objective": [
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "4182",
+          "0",
+          "0"
+        ],
+        "capacity_valid": true,
+        "computation_complete": true,
+        "executable": true
+      },
+      "reference_kind": "independent feasible witness; upper bound, not global optimality proof",
+      "quality_acceptance": "not_run",
+      "notes": []
+    },
+    {
+      "id": "r40-key2",
+      "kind": "key2",
+      "source": {
+        "path": "d12bad60e638d7b3fac64f8917c64b09d97fc9d2bab7a9198372cc6723c2aa08.json.gz",
+        "sha256": "d12bad60e638d7b3fac64f8917c64b09d97fc9d2bab7a9198372cc6723c2aa08",
+        "canonical_bytes": 2805824
+      },
+      "reference": {
+        "path": "d12bad60e638d7b3fac64f8917c64b09d97fc9d2bab7a9198372cc6723c2aa08.json.gz",
+        "sha256": "d12bad60e638d7b3fac64f8917c64b09d97fc9d2bab7a9198372cc6723c2aa08",
+        "canonical_bytes": 2805824
+      },
+      "action": {
+        "path": "7f524927f3aa5d0df789c60c938557530b26322addb90ad5b4c14bf8a7ae2f4c.json.gz",
+        "sha256": "7f524927f3aa5d0df789c60c938557530b26322addb90ad5b4c14bf8a7ae2f4c",
+        "canonical_bytes": 610
+      },
+      "import": {
+        "path": "32a733556db4a77f5847b25fb6bb378d09c7f3d8c2a9f0aa050951aa4dd554a0.json.gz",
+        "sha256": "32a733556db4a77f5847b25fb6bb378d09c7f3d8c2a9f0aa050951aa4dd554a0",
+        "canonical_bytes": 889044
+      },
+      "scope": {
+        "start_date": "2026-10-12",
+        "end_date": "2027-01-24",
+        "line_codes": [
+          "L00",
+          "L01",
+          "L02",
+          "L03",
+          "L04",
+          "L05",
+          "L06",
+          "L07",
+          "L08",
+          "L09",
+          "L10",
+          "L11",
+          "L12",
+          "L13",
+          "L14",
+          "L15",
+          "L16",
+          "L17"
+        ],
+        "model_codes": [
+          "M00",
+          "M01",
+          "M02",
+          "M03",
+          "M04",
+          "M05",
+          "M06",
+          "M07",
+          "M08",
+          "M09",
+          "M10",
+          "M11",
+          "M12",
+          "M13",
+          "M14",
+          "M15",
+          "M16",
+          "M17",
+          "M18",
+          "M19",
+          "M20",
+          "M21",
+          "M22",
+          "M23",
+          "M24",
+          "M25",
+          "M26",
+          "M27",
+          "M28",
+          "M29",
+          "M30",
+          "M31",
+          "M32",
+          "M33",
+          "M34",
+          "M35",
+          "M36",
+          "M37",
+          "M38",
+          "M39"
+        ]
+      },
+      "tokens": {
+        "source_revision": 1,
+        "input_version": 1,
+        "latest_adoption": 1,
+        "binding": "Logical frozen tokens. Live bindings must be recorded after public preparation; do not silently rewrite a measured run."
+      },
+      "expected": {
+        "totals": {
+          "expected": 420000,
+          "on_time": 420000,
+          "late": 0,
+          "gap": 0,
+          "pending": 0,
+          "unallocated": 0,
+          "outside_window": 0
+        },
+        "objective": [
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "4182",
+          "0",
+          "0"
+        ],
+        "capacity_valid": true,
+        "computation_complete": true,
+        "executable": true
+      },
+      "reference_kind": "independent feasible witness; upper bound, not global optimality proof",
+      "quality_acceptance": "not_run",
+      "notes": []
+    },
+    {
+      "id": "r40-boundary",
+      "kind": "boundary",
+      "source": {
+        "path": "62c0c1ab90904a2fef1f3e225381e9a058906f959870aa767ca263da80d28192.json.gz",
+        "sha256": "62c0c1ab90904a2fef1f3e225381e9a058906f959870aa767ca263da80d28192",
+        "canonical_bytes": 2950932
+      },
+      "reference": {
+        "path": "62c0c1ab90904a2fef1f3e225381e9a058906f959870aa767ca263da80d28192.json.gz",
+        "sha256": "62c0c1ab90904a2fef1f3e225381e9a058906f959870aa767ca263da80d28192",
+        "canonical_bytes": 2950932
+      },
+      "action": {
+        "path": "7f524927f3aa5d0df789c60c938557530b26322addb90ad5b4c14bf8a7ae2f4c.json.gz",
+        "sha256": "7f524927f3aa5d0df789c60c938557530b26322addb90ad5b4c14bf8a7ae2f4c",
+        "canonical_bytes": 610
+      },
+      "import": {
+        "path": "17a53a5faeefe18a7e208ef2435d3dc3dc301b4b86bd1e723ac1af3b3670d9ee.json.gz",
+        "sha256": "17a53a5faeefe18a7e208ef2435d3dc3dc301b4b86bd1e723ac1af3b3670d9ee",
+        "canonical_bytes": 985432
+      },
+      "scope": {
+        "start_date": "2026-10-12",
+        "end_date": "2027-01-24",
+        "line_codes": [
+          "L00",
+          "L01",
+          "L02",
+          "L03",
+          "L04",
+          "L05",
+          "L06",
+          "L07",
+          "L08",
+          "L09",
+          "L10",
+          "L11",
+          "L12",
+          "L13",
+          "L14",
+          "L15",
+          "L16",
+          "L17"
+        ],
+        "model_codes": [
+          "M00",
+          "M01",
+          "M02",
+          "M03",
+          "M04",
+          "M05",
+          "M06",
+          "M07",
+          "M08",
+          "M09",
+          "M10",
+          "M11",
+          "M12",
+          "M13",
+          "M14",
+          "M15",
+          "M16",
+          "M17",
+          "M18",
+          "M19",
+          "M20",
+          "M21",
+          "M22",
+          "M23",
+          "M24",
+          "M25",
+          "M26",
+          "M27",
+          "M28",
+          "M29",
+          "M30",
+          "M31",
+          "M32",
+          "M33",
+          "M34",
+          "M35",
+          "M36",
+          "M37",
+          "M38",
+          "M39"
+        ]
+      },
+      "tokens": {
+        "source_revision": 1,
+        "input_version": 1,
+        "latest_adoption": 1,
+        "binding": "Logical frozen tokens. Live bindings must be recorded after public preparation; do not silently rewrite a measured run."
+      },
+      "expected": {
+        "totals": {
+          "expected": 422310,
+          "on_time": 422310,
+          "late": 0,
+          "gap": 0,
+          "pending": 0,
+          "unallocated": 0,
+          "outside_window": 0
+        },
+        "objective": [
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "4182",
+          "0",
+          "0"
+        ],
+        "capacity_valid": true,
+        "computation_complete": true,
+        "executable": true
+      },
+      "reference_kind": "independent feasible witness; upper bound, not global optimality proof",
+      "quality_acceptance": "not_run",
+      "notes": [
+        "Maximum pieces only for fixed Recipe membership, switches and production budget. Severe maintenance is synthetic."
+      ]
+    },
+    {
+      "id": "r40-cross-day",
+      "kind": "cross_day",
+      "source": {
+        "path": "6dc5831759390bac50a66a03d4f1878dbfc104f8cd635ac7f08cb5c624dccfaa.json.gz",
+        "sha256": "6dc5831759390bac50a66a03d4f1878dbfc104f8cd635ac7f08cb5c624dccfaa",
+        "canonical_bytes": 2805945
+      },
+      "reference": {
+        "path": "6dc5831759390bac50a66a03d4f1878dbfc104f8cd635ac7f08cb5c624dccfaa.json.gz",
+        "sha256": "6dc5831759390bac50a66a03d4f1878dbfc104f8cd635ac7f08cb5c624dccfaa",
+        "canonical_bytes": 2805945
+      },
+      "action": {
+        "path": "7f524927f3aa5d0df789c60c938557530b26322addb90ad5b4c14bf8a7ae2f4c.json.gz",
+        "sha256": "7f524927f3aa5d0df789c60c938557530b26322addb90ad5b4c14bf8a7ae2f4c",
+        "canonical_bytes": 610
+      },
+      "import": {
+        "path": "9000dad587f346632f80540842647107d7c7e895627d50aaa21d30f177766444.json.gz",
+        "sha256": "9000dad587f346632f80540842647107d7c7e895627d50aaa21d30f177766444",
+        "canonical_bytes": 889043
+      },
+      "scope": {
+        "start_date": "2026-10-12",
+        "end_date": "2027-01-24",
+        "line_codes": [
+          "L00",
+          "L01",
+          "L02",
+          "L03",
+          "L04",
+          "L05",
+          "L06",
+          "L07",
+          "L08",
+          "L09",
+          "L10",
+          "L11",
+          "L12",
+          "L13",
+          "L14",
+          "L15",
+          "L16",
+          "L17"
+        ],
+        "model_codes": [
+          "M00",
+          "M01",
+          "M02",
+          "M03",
+          "M04",
+          "M05",
+          "M06",
+          "M07",
+          "M08",
+          "M09",
+          "M10",
+          "M11",
+          "M12",
+          "M13",
+          "M14",
+          "M15",
+          "M16",
+          "M17",
+          "M18",
+          "M19",
+          "M20",
+          "M21",
+          "M22",
+          "M23",
+          "M24",
+          "M25",
+          "M26",
+          "M27",
+          "M28",
+          "M29",
+          "M30",
+          "M31",
+          "M32",
+          "M33",
+          "M34",
+          "M35",
+          "M36",
+          "M37",
+          "M38",
+          "M39"
+        ]
+      },
+      "tokens": {
+        "source_revision": 1,
+        "input_version": 1,
+        "latest_adoption": 1,
+        "binding": "Logical frozen tokens. Live bindings must be recorded after public preparation; do not silently rewrite a measured run."
+      },
+      "expected": {
+        "totals": {
+          "expected": 420000,
+          "on_time": 420000,
+          "late": 0,
+          "gap": 0,
+          "pending": 0,
+          "unallocated": 0,
+          "outside_window": 0
+        },
+        "objective": [
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "4182",
+          "0",
+          "0"
+        ],
+        "capacity_valid": true,
+        "computation_complete": true,
+        "executable": true
+      },
+      "reference_kind": "independent feasible witness; upper bound, not global optimality proof",
+      "quality_acceptance": "not_run",
+      "notes": []
+    },
+    {
+      "id": "r40-near-increase",
+      "kind": "local_increase",
+      "source": {
+        "path": "659b46c1bb3e0f965d627921c86e43df508a1925e496c8050b56ea1fdd63a144.json.gz",
+        "sha256": "659b46c1bb3e0f965d627921c86e43df508a1925e496c8050b56ea1fdd63a144",
+        "canonical_bytes": 2805823
+      },
+      "reference": {
+        "path": "858f6de20ce29c507525543bca6eae0132c8883822c71f4d05a1670f52cea641.json.gz",
+        "sha256": "858f6de20ce29c507525543bca6eae0132c8883822c71f4d05a1670f52cea641",
+        "canonical_bytes": 2805825
+      },
+      "action": {
+        "path": "ee0a884e0412d1b02099ba34e93cddbd7ae010e1b4c26c4701c8b3752177a7d9.json.gz",
+        "sha256": "ee0a884e0412d1b02099ba34e93cddbd7ae010e1b4c26c4701c8b3752177a7d9",
+        "canonical_bytes": 269
+      },
+      "import": {
+        "path": "0e1e84d0c55a2c14f1014baa26ef68aca454942be060c71af4cb17e637568243.json.gz",
+        "sha256": "0e1e84d0c55a2c14f1014baa26ef68aca454942be060c71af4cb17e637568243",
+        "canonical_bytes": 889043
+      },
+      "scope": {
+        "start_date": "2026-10-25",
+        "end_date": "2026-10-25",
+        "line_codes": [
+          "L00"
+        ],
+        "model_codes": [
+          "M00"
+        ]
+      },
+      "tokens": {
+        "source_revision": 1,
+        "input_version": 1,
+        "latest_adoption": 1,
+        "binding": "Logical frozen tokens. Live bindings must be recorded after public preparation; do not silently rewrite a measured run."
+      },
+      "expected": {
+        "totals": {
+          "expected": 420040,
+          "on_time": 420040,
+          "late": 0,
+          "gap": 0,
+          "pending": 0,
+          "unallocated": 0,
+          "outside_window": 0
+        },
+        "objective": [
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "4182",
+          "120",
+          "0"
+        ],
+        "capacity_valid": true,
+        "computation_complete": true,
+        "executable": true
+      },
+      "reference_kind": "independent feasible witness; upper bound, not global optimality proof",
+      "quality_acceptance": "not_run",
+      "notes": [
+        "Only this demand week changes. Entire-plan weekly absolute change rate is exactly 1/700."
+      ]
+    },
+    {
+      "id": "r40-near-decrease",
+      "kind": "local_decrease",
+      "source": {
+        "path": "9ba487ae988fcd7e9b9cf3ab1e6cfe8589ac5cb442d0300f90121835c1633e26.json.gz",
+        "sha256": "9ba487ae988fcd7e9b9cf3ab1e6cfe8589ac5cb442d0300f90121835c1633e26",
+        "canonical_bytes": 2805823
+      },
+      "reference": {
+        "path": "43117a95089cfe3c2096992873e08dc0a9c58ea35e959fad1342f87460684be6.json.gz",
+        "sha256": "43117a95089cfe3c2096992873e08dc0a9c58ea35e959fad1342f87460684be6",
+        "canonical_bytes": 2805824
+      },
+      "action": {
+        "path": "ee0a884e0412d1b02099ba34e93cddbd7ae010e1b4c26c4701c8b3752177a7d9.json.gz",
+        "sha256": "ee0a884e0412d1b02099ba34e93cddbd7ae010e1b4c26c4701c8b3752177a7d9",
+        "canonical_bytes": 269
+      },
+      "import": {
+        "path": "063ad889dced96b051369b6d84e729647f0f0ac93cbfc443d5b371a11de2f628.json.gz",
+        "sha256": "063ad889dced96b051369b6d84e729647f0f0ac93cbfc443d5b371a11de2f628",
+        "canonical_bytes": 889043
+      },
+      "scope": {
+        "start_date": "2026-10-25",
+        "end_date": "2026-10-25",
+        "line_codes": [
+          "L00"
+        ],
+        "model_codes": [
+          "M00"
+        ]
+      },
+      "tokens": {
+        "source_revision": 1,
+        "input_version": 1,
+        "latest_adoption": 1,
+        "binding": "Logical frozen tokens. Live bindings must be recorded after public preparation; do not silently rewrite a measured run."
+      },
+      "expected": {
+        "totals": {
+          "expected": 419960,
+          "on_time": 419960,
+          "late": 0,
+          "gap": 0,
+          "pending": 0,
+          "unallocated": 0,
+          "outside_window": 0
+        },
+        "objective": [
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "4182",
+          "120",
+          "0"
+        ],
+        "capacity_valid": true,
+        "computation_complete": true,
+        "executable": true
+      },
+      "reference_kind": "independent feasible witness; upper bound, not global optimality proof",
+      "quality_acceptance": "not_run",
+      "notes": [
+        "Only this demand week changes. Entire-plan weekly absolute change rate is exactly 1/700."
+      ]
+    },
+    {
+      "id": "r40-far-increase",
+      "kind": "local_increase",
+      "source": {
+        "path": "e5f3ba20d0ec02cfd91cf947854215ef4a690388d620c3158a192ab12a23b18c.json.gz",
+        "sha256": "e5f3ba20d0ec02cfd91cf947854215ef4a690388d620c3158a192ab12a23b18c",
+        "canonical_bytes": 2805823
+      },
+      "reference": {
+        "path": "54d25300733e0c8c72ac02ce63927edfb760750dcfe38b04500c14ec5d1450b0.json.gz",
+        "sha256": "54d25300733e0c8c72ac02ce63927edfb760750dcfe38b04500c14ec5d1450b0",
+        "canonical_bytes": 2805825
+      },
+      "action": {
+        "path": "7f09efa1c840dfd91a5b5600ba5eb719904eba796517490cc0471487f981dcef.json.gz",
+        "sha256": "7f09efa1c840dfd91a5b5600ba5eb719904eba796517490cc0471487f981dcef",
+        "canonical_bytes": 269
+      },
+      "import": {
+        "path": "2203394fc698b3c88ac8a27d895efba47279e0b7f1a8f55ec35469b9e9647d86.json.gz",
+        "sha256": "2203394fc698b3c88ac8a27d895efba47279e0b7f1a8f55ec35469b9e9647d86",
+        "canonical_bytes": 889043
+      },
+      "scope": {
+        "start_date": "2026-12-06",
+        "end_date": "2026-12-06",
+        "line_codes": [
+          "L00"
+        ],
+        "model_codes": [
+          "M00"
+        ]
+      },
+      "tokens": {
+        "source_revision": 1,
+        "input_version": 1,
+        "latest_adoption": 1,
+        "binding": "Logical frozen tokens. Live bindings must be recorded after public preparation; do not silently rewrite a measured run."
+      },
+      "expected": {
+        "totals": {
+          "expected": 420040,
+          "on_time": 420040,
+          "late": 0,
+          "gap": 0,
+          "pending": 0,
+          "unallocated": 0,
+          "outside_window": 0
+        },
+        "objective": [
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "4182",
+          "40",
+          "0"
+        ],
+        "capacity_valid": true,
+        "computation_complete": true,
+        "executable": true
+      },
+      "reference_kind": "independent feasible witness; upper bound, not global optimality proof",
+      "quality_acceptance": "not_run",
+      "notes": [
+        "Only this demand week changes. Entire-plan weekly absolute change rate is exactly 1/700."
+      ]
+    },
+    {
+      "id": "r40-far-decrease",
+      "kind": "local_decrease",
+      "source": {
+        "path": "c8331fd7660a425b3be74b9ce7cf9b5811920ab6b51045642d3a1421a01f7903.json.gz",
+        "sha256": "c8331fd7660a425b3be74b9ce7cf9b5811920ab6b51045642d3a1421a01f7903",
+        "canonical_bytes": 2805823
+      },
+      "reference": {
+        "path": "a1599c9d4d431eae3c7dbe329f8536e810549b2ac26bfdc5963d3157db27582e.json.gz",
+        "sha256": "a1599c9d4d431eae3c7dbe329f8536e810549b2ac26bfdc5963d3157db27582e",
+        "canonical_bytes": 2805824
+      },
+      "action": {
+        "path": "7f09efa1c840dfd91a5b5600ba5eb719904eba796517490cc0471487f981dcef.json.gz",
+        "sha256": "7f09efa1c840dfd91a5b5600ba5eb719904eba796517490cc0471487f981dcef",
+        "canonical_bytes": 269
+      },
+      "import": {
+        "path": "8adb4cb3e083e5649eeae1e2ef20b7b09459b268e11a18668b8b41e7b6387623.json.gz",
+        "sha256": "8adb4cb3e083e5649eeae1e2ef20b7b09459b268e11a18668b8b41e7b6387623",
+        "canonical_bytes": 889043
+      },
+      "scope": {
+        "start_date": "2026-12-06",
+        "end_date": "2026-12-06",
+        "line_codes": [
+          "L00"
+        ],
+        "model_codes": [
+          "M00"
+        ]
+      },
+      "tokens": {
+        "source_revision": 1,
+        "input_version": 1,
+        "latest_adoption": 1,
+        "binding": "Logical frozen tokens. Live bindings must be recorded after public preparation; do not silently rewrite a measured run."
+      },
+      "expected": {
+        "totals": {
+          "expected": 419960,
+          "on_time": 419960,
+          "late": 0,
+          "gap": 0,
+          "pending": 0,
+          "unallocated": 0,
+          "outside_window": 0
+        },
+        "objective": [
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "4182",
+          "40",
+          "0"
+        ],
+        "capacity_valid": true,
+        "computation_complete": true,
+        "executable": true
+      },
+      "reference_kind": "independent feasible witness; upper bound, not global optimality proof",
+      "quality_acceptance": "not_run",
+      "notes": [
+        "Only this demand week changes. Entire-plan weekly absolute change rate is exactly 1/700."
+      ]
+    },
+    {
+      "id": "r40-rolling",
+      "kind": "rolling",
+      "source": {
+        "path": "d3ebe486a8744393e986268ace945ca6078421617be9af1090a3e2c95c003503.json.gz",
+        "sha256": "d3ebe486a8744393e986268ace945ca6078421617be9af1090a3e2c95c003503",
+        "canonical_bytes": 2731757
+      },
+      "reference": {
+        "path": "7e87821c0f50d1c0e334328900c142f50c4cf345756092fe152a2d1b1acc86ad.json.gz",
+        "sha256": "7e87821c0f50d1c0e334328900c142f50c4cf345756092fe152a2d1b1acc86ad",
+        "canonical_bytes": 2810997
+      },
+      "action": {
+        "path": "2f02638a5867369471ba6402e1ea23733ab4889146e43ad6a981ba5ec6cb8aa8.json.gz",
+        "sha256": "2f02638a5867369471ba6402e1ea23733ab4889146e43ad6a981ba5ec6cb8aa8",
+        "canonical_bytes": 608
+      },
+      "import": {
+        "path": "60f4b0bb944228e882c2e5c1bb322293a1aa95edcdcee81bdf500b38bad5bf68.json.gz",
+        "sha256": "60f4b0bb944228e882c2e5c1bb322293a1aa95edcdcee81bdf500b38bad5bf68",
+        "canonical_bytes": 861043
+      },
+      "scope": {
+        "start_date": "2027-01-25",
+        "end_date": "2027-01-31",
+        "line_codes": [
+          "L00",
+          "L01",
+          "L02",
+          "L03",
+          "L04",
+          "L05",
+          "L06",
+          "L07",
+          "L08",
+          "L09",
+          "L10",
+          "L11",
+          "L12",
+          "L13",
+          "L14",
+          "L15",
+          "L16",
+          "L17"
+        ],
+        "model_codes": [
+          "M00",
+          "M01",
+          "M02",
+          "M03",
+          "M04",
+          "M05",
+          "M06",
+          "M07",
+          "M08",
+          "M09",
+          "M10",
+          "M11",
+          "M12",
+          "M13",
+          "M14",
+          "M15",
+          "M16",
+          "M17",
+          "M18",
+          "M19",
+          "M20",
+          "M21",
+          "M22",
+          "M23",
+          "M24",
+          "M25",
+          "M26",
+          "M27",
+          "M28",
+          "M29",
+          "M30",
+          "M31",
+          "M32",
+          "M33",
+          "M34",
+          "M35",
+          "M36",
+          "M37",
+          "M38",
+          "M39"
+        ]
+      },
+      "tokens": {
+        "source_revision": 1,
+        "input_version": 1,
+        "latest_adoption": 1,
+        "binding": "Logical frozen tokens. Live bindings must be recorded after public preparation; do not silently rewrite a measured run."
+      },
+      "expected": {
+        "totals": {
+          "expected": 420000,
+          "on_time": 420000,
+          "late": 0,
+          "gap": 0,
+          "pending": 0,
+          "unallocated": 0,
+          "outside_window": 0
+        },
+        "objective": [
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "4200",
+          "0",
+          "0"
+        ],
+        "capacity_valid": true,
+        "computation_complete": true,
+        "executable": true
+      },
+      "reference_kind": "independent feasible witness; upper bound, not global optimality proof",
+      "quality_acceptance": "not_run",
+      "notes": [
+        "Actual rolling window starts 2026-10-19. Prior demand history is retained and excluded explicitly.",
+        "Old baseline coverage stops 2027-01-24. New week cost is zero; it is not an old zero baseline.",
+        "External shared run requires an authorized environment at the frozen production week; no runtime clock bypass is supplied."
+      ]
+    },
+    {
+      "id": "r20-partial-gap",
+      "kind": "partial_gap",
+      "source": {
+        "path": "b43f52cef9a6c8b379a80b73013d3a0663ae7848cc5a719c5feaeb16ac827f9f.json.gz",
+        "sha256": "b43f52cef9a6c8b379a80b73013d3a0663ae7848cc5a719c5feaeb16ac827f9f",
+        "canonical_bytes": 1468318
+      },
+      "reference": {
+        "path": "b43f52cef9a6c8b379a80b73013d3a0663ae7848cc5a719c5feaeb16ac827f9f.json.gz",
+        "sha256": "b43f52cef9a6c8b379a80b73013d3a0663ae7848cc5a719c5feaeb16ac827f9f",
+        "canonical_bytes": 1468318
+      },
+      "action": {
+        "path": "513c8bac83db22e5a970f6ee5ed090e75e4aeeece0524b4fe8e359c8c4a9297a.json.gz",
+        "sha256": "513c8bac83db22e5a970f6ee5ed090e75e4aeeece0524b4fe8e359c8c4a9297a",
+        "canonical_bytes": 269
+      },
+      "import": {
+        "path": "aa2f9aba416d11143a4db2df5e39716c8847a1529187aeb00d664e771311e881.json.gz",
+        "sha256": "aa2f9aba416d11143a4db2df5e39716c8847a1529187aeb00d664e771311e881",
+        "canonical_bytes": 773562
+      },
+      "scope": {
+        "start_date": "2027-01-24",
+        "end_date": "2027-01-24",
+        "line_codes": [
+          "L00"
+        ],
+        "model_codes": [
+          "M00"
+        ]
+      },
+      "tokens": {
+        "source_revision": 1,
+        "input_version": 1,
+        "latest_adoption": 1,
+        "binding": "Logical frozen tokens. Live bindings must be recorded after public preparation; do not silently rewrite a measured run."
+      },
+      "expected": {
+        "totals": {
+          "expected": 420210,
+          "on_time": 420210,
+          "late": 0,
+          "gap": 40,
+          "pending": 0,
+          "unallocated": 0,
+          "outside_window": 0
+        },
+        "objective": [
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "40",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "40",
+          "418",
+          "0",
+          "0"
+        ],
+        "capacity_valid": true,
+        "computation_complete": true,
+        "executable": true
+      },
+      "reference_kind": "independent feasible witness; upper bound, not global optimality proof",
+      "quality_acceptance": "not_run",
+      "notes": [
+        "Known 40-piece shortage under this fixed membership and frozen outside plan. This is not a typical feasible timing success."
+      ]
+    },
+    {
+      "id": "combined-a-partial",
+      "kind": "combined",
+      "source": {
+        "path": "26813fbcf73587e454483fb921bb01d906c454e831badec2da43a7dee5c933c2.json.gz",
+        "sha256": "26813fbcf73587e454483fb921bb01d906c454e831badec2da43a7dee5c933c2",
+        "canonical_bytes": 5386
+      },
+      "reference": {
+        "path": "26813fbcf73587e454483fb921bb01d906c454e831badec2da43a7dee5c933c2.json.gz",
+        "sha256": "26813fbcf73587e454483fb921bb01d906c454e831badec2da43a7dee5c933c2",
+        "canonical_bytes": 5386
+      },
+      "action": {
+        "path": "f67e5fa20a2e0909fa168d9210806af0973a3dcf8cb4f85a7860258f94faefb6.json.gz",
+        "sha256": "f67e5fa20a2e0909fa168d9210806af0973a3dcf8cb4f85a7860258f94faefb6",
+        "canonical_bytes": 281
+      },
+      "import": {
+        "path": "3430d1d27d8180e1f0fc66623383b7f334d8bdfa7cf2fdb3787192497bb539d2.json.gz",
+        "sha256": "3430d1d27d8180e1f0fc66623383b7f334d8bdfa7cf2fdb3787192497bb539d2",
+        "canonical_bytes": 4455
+      },
+      "scope": {
+        "start_date": "2026-10-30",
+        "end_date": "2026-10-30",
+        "line_codes": [
+          "L00",
+          "L01",
+          "L02"
+        ],
+        "model_codes": [
+          "M00"
+        ]
+      },
+      "tokens": {
+        "source_revision": 1,
+        "input_version": 1,
+        "latest_adoption": 1,
+        "binding": "Logical frozen tokens. Live bindings must be recorded after public preparation; do not silently rewrite a measured run."
+      },
+      "expected": {
+        "totals": {
+          "expected": 1000,
+          "on_time": 899,
+          "late": 100,
+          "gap": 1,
+          "pending": 1,
+          "unallocated": 0,
+          "outside_window": 0
+        },
+        "objective": [
+          "100",
+          "1",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "1",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0"
+        ],
+        "capacity_valid": true,
+        "computation_complete": true,
+        "executable": false
+      },
+      "reference_kind": "independent exact arithmetic companion",
+      "quality_acceptance": "not_run",
+      "notes": [
+        "Small hand-derived rule companion, not full-scale distribution or timing evidence.",
+        "Facts, associations, WIP, positive and zero locks are explicit. No automatic current-day edit acknowledgment is supplied."
+      ]
+    },
+    {
+      "id": "combined-a-confirmed",
+      "kind": "combined",
+      "source": {
+        "path": "2e6976db4c0ee75161e1e68795eb5f1299b37f6ac85cbe0db1235012f7df0e16.json.gz",
+        "sha256": "2e6976db4c0ee75161e1e68795eb5f1299b37f6ac85cbe0db1235012f7df0e16",
+        "canonical_bytes": 5386
+      },
+      "reference": {
+        "path": "2e6976db4c0ee75161e1e68795eb5f1299b37f6ac85cbe0db1235012f7df0e16.json.gz",
+        "sha256": "2e6976db4c0ee75161e1e68795eb5f1299b37f6ac85cbe0db1235012f7df0e16",
+        "canonical_bytes": 5386
+      },
+      "action": {
+        "path": "f67e5fa20a2e0909fa168d9210806af0973a3dcf8cb4f85a7860258f94faefb6.json.gz",
+        "sha256": "f67e5fa20a2e0909fa168d9210806af0973a3dcf8cb4f85a7860258f94faefb6",
+        "canonical_bytes": 281
+      },
+      "import": {
+        "path": "7df019da87f33e0c667eeec7f7d72796abc8d61a78e09c65b5a78281210c9b77.json.gz",
+        "sha256": "7df019da87f33e0c667eeec7f7d72796abc8d61a78e09c65b5a78281210c9b77",
+        "canonical_bytes": 4455
+      },
+      "scope": {
+        "start_date": "2026-10-30",
+        "end_date": "2026-10-30",
+        "line_codes": [
+          "L00",
+          "L01",
+          "L02"
+        ],
+        "model_codes": [
+          "M00"
+        ]
+      },
+      "tokens": {
+        "source_revision": 1,
+        "input_version": 1,
+        "latest_adoption": 1,
+        "binding": "Logical frozen tokens. Live bindings must be recorded after public preparation; do not silently rewrite a measured run."
+      },
+      "expected": {
+        "totals": {
+          "expected": 1000,
+          "on_time": 900,
+          "late": 100,
+          "gap": 0,
+          "pending": 0,
+          "unallocated": 0,
+          "outside_window": 0
+        },
+        "objective": [
+          "100",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0"
+        ],
+        "capacity_valid": true,
+        "computation_complete": true,
+        "executable": true
+      },
+      "reference_kind": "independent exact arithmetic companion",
+      "quality_acceptance": "not_run",
+      "notes": [
+        "Small hand-derived rule companion, not full-scale distribution or timing evidence.",
+        "Facts, associations, WIP, positive and zero locks are explicit. No automatic current-day edit acknowledgment is supplied."
+      ]
+    },
+    {
+      "id": "combined-b-ban",
+      "kind": "combined",
+      "source": {
+        "path": "874ff19462ed159e57c2d14e3c84d71014634464da73ea8d91fa50f9d1122310.json.gz",
+        "sha256": "874ff19462ed159e57c2d14e3c84d71014634464da73ea8d91fa50f9d1122310",
+        "canonical_bytes": 5093
+      },
+      "reference": {
+        "path": "874ff19462ed159e57c2d14e3c84d71014634464da73ea8d91fa50f9d1122310.json.gz",
+        "sha256": "874ff19462ed159e57c2d14e3c84d71014634464da73ea8d91fa50f9d1122310",
+        "canonical_bytes": 5093
+      },
+      "action": {
+        "path": "d4082370848934c9f25c184d7cc4637201b531e2ffb036a7880ab0e2d328581f.json.gz",
+        "sha256": "d4082370848934c9f25c184d7cc4637201b531e2ffb036a7880ab0e2d328581f",
+        "canonical_bytes": 281
+      },
+      "import": {
+        "path": "ef754cd81fccf7734952392ebc7e499395319145262b7c2112acb2216419177d.json.gz",
+        "sha256": "ef754cd81fccf7734952392ebc7e499395319145262b7c2112acb2216419177d",
+        "canonical_bytes": 4304
+      },
+      "scope": {
+        "start_date": "2026-11-01",
+        "end_date": "2026-11-01",
+        "line_codes": [
+          "L00",
+          "L01",
+          "L02"
+        ],
+        "model_codes": [
+          "M00"
+        ]
+      },
+      "tokens": {
+        "source_revision": 1,
+        "input_version": 1,
+        "latest_adoption": 1,
+        "binding": "Logical frozen tokens. Live bindings must be recorded after public preparation; do not silently rewrite a measured run."
+      },
+      "expected": {
+        "totals": {
+          "expected": 4,
+          "on_time": 2,
+          "late": 1,
+          "gap": 1,
+          "pending": 1,
+          "unallocated": 0,
+          "outside_window": 0
+        },
+        "objective": [
+          "1",
+          "1",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "1",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0"
+        ],
+        "capacity_valid": true,
+        "computation_complete": true,
+        "executable": false
+      },
+      "reference_kind": "independent exact arithmetic companion",
+      "quality_acceptance": "not_run",
+      "notes": [
+        "Small hand-derived rule companion, not full-scale distribution or timing evidence.",
+        "Facts, associations, WIP, positive and zero locks are explicit. No automatic current-day edit acknowledgment is supplied."
+      ]
+    },
+    {
+      "id": "combined-b-confirmed",
+      "kind": "combined",
+      "source": {
+        "path": "824e4f9ed896cc6127471803e2da951717fd2faa100df2784636df099fa374af.json.gz",
+        "sha256": "824e4f9ed896cc6127471803e2da951717fd2faa100df2784636df099fa374af",
+        "canonical_bytes": 4985
+      },
+      "reference": {
+        "path": "824e4f9ed896cc6127471803e2da951717fd2faa100df2784636df099fa374af.json.gz",
+        "sha256": "824e4f9ed896cc6127471803e2da951717fd2faa100df2784636df099fa374af",
+        "canonical_bytes": 4985
+      },
+      "action": {
+        "path": "d4082370848934c9f25c184d7cc4637201b531e2ffb036a7880ab0e2d328581f.json.gz",
+        "sha256": "d4082370848934c9f25c184d7cc4637201b531e2ffb036a7880ab0e2d328581f",
+        "canonical_bytes": 281
+      },
+      "import": {
+        "path": "edc0a09e44d58a83f11a65ec0f41cdc8d8565d03660cd57c87aae0809ef8a0af.json.gz",
+        "sha256": "edc0a09e44d58a83f11a65ec0f41cdc8d8565d03660cd57c87aae0809ef8a0af",
+        "canonical_bytes": 4196
+      },
+      "scope": {
+        "start_date": "2026-11-01",
+        "end_date": "2026-11-01",
+        "line_codes": [
+          "L00",
+          "L01",
+          "L02"
+        ],
+        "model_codes": [
+          "M00"
+        ]
+      },
+      "tokens": {
+        "source_revision": 1,
+        "input_version": 1,
+        "latest_adoption": 1,
+        "binding": "Logical frozen tokens. Live bindings must be recorded after public preparation; do not silently rewrite a measured run."
+      },
+      "expected": {
+        "totals": {
+          "expected": 4,
+          "on_time": 3,
+          "late": 1,
+          "gap": 0,
+          "pending": 0,
+          "unallocated": 0,
+          "outside_window": 0
+        },
+        "objective": [
+          "1",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0"
+        ],
+        "capacity_valid": true,
+        "computation_complete": true,
+        "executable": true
+      },
+      "reference_kind": "independent exact arithmetic companion",
+      "quality_acceptance": "not_run",
+      "notes": [
+        "Small hand-derived rule companion, not full-scale distribution or timing evidence.",
+        "Facts, associations, WIP, positive and zero locks are explicit. No automatic current-day edit acknowledgment is supplied."
+      ]
+    }
+  ]
+}

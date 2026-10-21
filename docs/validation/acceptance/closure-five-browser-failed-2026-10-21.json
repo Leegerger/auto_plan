@@ -1,0 +1,173 @@
+{
+  "schema_version": 1,
+  "run_id": "closure-five-browser-failed-2026-10-21",
+  "status": "FAIL",
+  "scenario": "r20-loose-private-shared-save-v1",
+  "mode": "five_automated_editors_one_computation",
+  "source_commit_recorded_before_run": "0376a72e600c74d1e18aed8542dfbd56e5ec1abb",
+  "integration_tip_at_archive": "0ed3e051ce6af60c55d34a130d95f2a9a32f9809",
+  "target": {
+    "kind": "adapter",
+    "disposable": true,
+    "production": false
+  },
+  "environment": {
+    "source_commit": "0376a72e600c74d1e18aed8542dfbd56e5ec1abb",
+    "host": "Linux-6.8.0-90-generic-x86_64-with-glibc2.39",
+    "python": "Python 3.14.2",
+    "node": "v24.13.0",
+    "logical_cpus": 4,
+    "affinity_cpus": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "memory_total_kb": "32727084 kB",
+    "target": "disposable in-memory adapter; no Oracle or company authentication",
+    "limits": "Shared host; no claim of constrained-container or production-site acceptance",
+    "command": "AUTO_PLAN_PRIVATE_DRAFT_EDITORS_BROWSER=1 AUTO_PLAN_PRIVATE_DRAFT_FULL_R20=1 AUTO_PLAN_PRIVATE_DRAFT_SHARED_SAVE_PROBE=1 AUTO_PLAN_PRIVATE_DRAFT_EDITORS_PYTHON=/root/codes/vibe_coding/auto_plan_2/.venv/bin/python AUTO_PLAN_PRIVATE_DRAFT_EDITORS_PORT=18879 PLAYWRIGHT_BROWSERS_PATH=/tmp/auto-plan-playwright node --test frontend/tests/acceptance/private-local-drafts.browser.test.mjs"
+  },
+  "client": {
+    "chromium": "156.0.8078.4",
+    "node": "v24.13.0",
+    "platform": "linux"
+  },
+  "archive": {
+    "path": "closure-five-browser-failed-2026-10-21.tar.gz",
+    "sha256": "3a2a0490a85128d0b1b5a0f4f9b85a2adf49aeaa48d8bfc6f03d8d352ddfe0c6",
+    "bytes": 4075004,
+    "members": 42,
+    "manifest_member": "manifest.json",
+    "manifest_sha256": "eeb8d0714ba96b17d28d7443e91868f29c2f80677919fc26fcf21cfe1ebca5af",
+    "format": "USTAR sorted paths; uid/gid/mtime zero; mode 0644; gzip filename empty and mtime zero"
+  },
+  "original_report": {
+    "member": "raw/run/report.json",
+    "sha256": "63b3f7dc580268b046640d62355a2ab32aeeb050d5bf97b390bc13dc91677647",
+    "bytes": 33509241
+  },
+  "provenance": {
+    "runner_sha256": "f7560ecafb4ae1482801c5bbf4409057b7ec2e46495885056134c62f80656045",
+    "helper_sha256": {
+      "frontend/tests/acceptance/private-shared-workload.mjs": "226dd8f228d8b4240bd3f4d7e4611973d47778368fdfa15e8be8d90b1ede9502",
+      "frontend/tests/acceptance/private-shared-fixture.mjs": "21c06ef5306c6baff8977a990c59ac0204a43dae8c3de68cf8ca5db9a9c89bed",
+      "frontend/tests/acceptance/private-observation.mjs": "a3987b181f74367f7716d8f91de89656a95387d9ebfcfca86ebac5d889bb2d3c",
+      "scripts/acceptance/job_lifecycle_observer.py": "927cdace9cc728af0d28f8733d348a0bcd985c3cafbc63ccfcfa67d23aa46a34",
+      "frontend/tests/acceptance/private-shared-epoch.mjs": "dd8bb437d43a743ff6bea25d1a5df4bf4bae3a97d8ec8f96f67eaffea2909b7f",
+      "frontend/tests/acceptance/expected-source.mjs": "ec012f92130c0c9a679289908e4156b9513fb397ec168c9fb155c8a8a29d0000",
+      "scripts/acceptance/materialize_source.py": "0825417dd8ea9002d66d0c2a05ce2d07ca75c6de1d33216dc712c5d37c4cb189",
+      "frontend/tests/acceptance/navigation.mjs": "2639a3a03751fed0c401d895d0609a6c8e65d180133d64fc2877ac34ccffbe80",
+      "frontend/tests/acceptance/contracts.mjs": "7208e3e443ef0875bea9c7fafd4e95ef25c6cf94610af5ee496be9a9a9617c04",
+      "frontend/tests/acceptance/input-load.mjs": "8d3329a212a345b0e9f0b7a9401b6868a11342028047e03e9d3172e17bcf6d15",
+      "frontend/tests/acceptance/input-editors.mjs": "138a2ef4ad0f0f963400433080c23b169cb2555d46ad1c725d0e4da1187a1eed",
+      "scripts/acceptance/check_result.py": "4f5d4f4ba8eadc949178ab7f3beaae68fab1cf3844dad2edb7877f4b003ad290",
+      "scripts/acceptance/input_companion.py": "b43c36db6034d0e71ce023a6e66df339587ec8659b723fa8d0b7551ba937fc2a",
+      "scripts/acceptance/assertions.py": "d5e1b814ceb12ec94851f04e7004779c44bcb89b3d85c2bafb497b3f57dd63d2",
+      "scripts/acceptance/compare.py": "5b82f6e997bd5b00fb91f64ec3eb6803fe8d8b76effaf2aaa08be1a36de76593",
+      "scripts/acceptance/workbook.py": "7f49dbfa955fe9b1ac444638f814e916e4e1c842c65164b1c7214e0769cac59f"
+    },
+    "run_config_sha256": "2ff43cbb614778bd9312545b7ed3aa2b2e7b0b024a7eb259a47756839589036d",
+    "manifest_sha256": "502cade8c4e1fb8e585223b1d135b33e6befc51b8224a04a0b9491f1db30bc0f",
+    "fixture_sha256": "d019627a21ca1507f9145aac1575c55fa03c8be52838d0f47c85088a8703d909",
+    "reference_sha256": "d019627a21ca1507f9145aac1575c55fa03c8be52838d0f47c85088a8703d909",
+    "action_sha256": "7f524927f3aa5d0df789c60c938557530b26322addb90ad5b4c14bf8a7ae2f4c"
+  },
+  "observed": {
+    "report_acceptance": "not_run",
+    "report_repeats": [],
+    "private_workflow_status": "fail",
+    "shared_save_seconds": 111.85669995117188,
+    "shared_save_gate_seconds": 60,
+    "shared_save_gate_status": "FAIL",
+    "primary_error": {
+      "phase": "running_after_confirmed_paint_assertions",
+      "error_class": "AssertionError",
+      "message": "Expected values to be strictly equal:"
+    },
+    "job_state_after_confirmed_paint": "interrupted",
+    "job_result_after_confirmed_paint": {
+      "reason": "stop_deadline"
+    },
+    "workflow_deadline_seconds": 360,
+    "workflow_status": "timeout",
+    "outer_test_duration_seconds": 370.174787582,
+    "outer_test_passed": 0,
+    "outer_test_failed": 1,
+    "cleanup_errors": [
+      {
+        "phase": "cleanup_revision_R1_headers",
+        "error_class": "Error",
+        "message": "apiRequestContext.get: Request context disposed."
+      }
+    ],
+    "editor_actions": {
+      "total": 33,
+      "statuses": {
+        "pass": 28,
+        "fail": 5
+      }
+    },
+    "original_save_resolution": {
+      "status": "COMMITTED",
+      "revision": 2,
+      "latest_adoption": 1,
+      "input_version": 1,
+      "pending": false
+    },
+    "restoration_acknowledgment": {
+      "status": "COMMITTED",
+      "revision": 3,
+      "latest_adoption": 1,
+      "input_version": 1,
+      "pending": false
+    },
+    "restored_full_source_confirmed": true,
+    "original_history_and_adoption_closure": "not_completed",
+    "candidate_full_content_and_quality": "not_inspected"
+  },
+  "independent_checks": {
+    "public_body_files": 15,
+    "public_body_filename_hashes_valid": 15,
+    "report_referenced_public_body_files": 14,
+    "report_referenced_public_body_bytes": 80248383,
+    "report_referenced_public_body_hashes_valid": 14,
+    "non_public_report_artifact_hashes_valid": 4,
+    "runner_and_16_helpers_match_run_source": true,
+    "runner_and_16_helpers_equal_1b6d5b4": true,
+    "run_config_hash_valid": true,
+    "job_observation_records": 606,
+    "native_cp_sat_restricted_model_events": 5,
+    "frozen_input_sha256": "908b394b5a3a25b3d6a6beec54a70e9404f437ec4e7ae0e4e54d943a9899e2f5",
+    "owned_frozen_identity_records": 587,
+    "pre_spawn_reads_without_process_identity": 3,
+    "restored_source_member": "raw/run/public-bodies/6062ea091595c2c7deade55e67cce8985181caab26cb71bacaa03449640abbcb.json",
+    "restored_source_equals_R1_except_revision": true,
+    "scope": "Read-only artifact/hash/source comparisons; no test was rerun during this audit."
+  },
+  "process_closure": {
+    "member": "support/failed-probe-process-closure.json",
+    "status": "closed",
+    "recorded_pids": [
+      3897091,
+      3897117,
+      3897185,
+      3899002
+    ],
+    "recorded_process_groups": [
+      3897117,
+      3897185,
+      3899002
+    ],
+    "observed_matching_pids_or_group_members": [],
+    "port_18879_listeners": [],
+    "scope": "Host /proc observation only; no process was signaled. This establishes current process/group/listener absence, not the interrupted business-history checks."
+  },
+  "limitations": [
+    "The run uses an in-memory adapter with synthetic accounts, not Oracle or company authentication.",
+    "The shared host was not a constrained deployment container; this is not production-site acceptance.",
+    "The original assertion is the missing running-job witness after confirmed paint. The elapsed-time comparison independently fails the 60-second shared-save gate.",
+    "Confirmed R3 source restoration does not complete the interrupted original-history/adoption checks.",
+    "The historical 1f36559a report remains unavailable; this failed run does not reconstruct or replace it."
+  ]
+}
