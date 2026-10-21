@@ -50,9 +50,30 @@ for(const corrupt of ['duplicate','attempt','owner','late','missing','malformed'
 test('late guardian polling uses actual owned readiness time',{timeout:10000},async()=>{
   const output=mkdtempSync(resolve(tmpdir(),'auto-plan-functional-poll-'))
   const bound={setup_ms:3000,action_ms:1000,cleanup_ms:1000,absolute_ms:5000}
+  let rejected
   await assert.rejects(guardFunctionalWorker({script,output,cwd:directory,limits:bound,poll_ms:800,
-    args:[JSON.stringify({limits:bound,workerLimits:{...bound,action_ms:5000},setup:50,action:1800})]}),/action guardian deadline/)
-  const cleanup=JSON.parse(readFileSync(resolve(output,'controller-cleanup.json')));assert.equal(cleanup.timed_out,true);assert.deepEqual(cleanup.remaining_live,[])
+    args:[JSON.stringify({limits:bound,workerLimits:{...bound,action_ms:5000},setup:50,action:1800})]}),error=>{
+    rejected=error.message
+    return ['Functional action guardian deadline exceeded.','Invalid workflow settlement time or exhausted action.'].includes(rejected)
+  })
+  const cleanup=JSON.parse(readFileSync(resolve(output,'controller-cleanup.json')))
+  const interruption=JSON.parse(readFileSync(resolve(output,'controller-interruption.json')))
+  const owned=JSON.parse(readFileSync(resolve(output,'functional-phase.json')))
+  assert.equal(interruption.reason,rejected);assert.equal(interruption.status,'fail');assert.equal(interruption.phase,cleanup.phase)
+  for(const key of ['source_closure','input_acknowledgments','restoration'])assert.equal(interruption[key],'unconfirmed')
+  assert.equal(owned.attempt,cleanup.attempt);assert.equal(owned.pid,cleanup.worker_pid);assert.equal(owned.start,cleanup.worker_start)
+  assert.equal(cleanup.worker_exited,true);assert.deepEqual(cleanup.remaining_live,[])
+  if(rejected==='Functional action guardian deadline exceeded.'){
+    assert.equal(cleanup.timed_out,true);assert.equal(cleanup.phase,'action');assert.equal(cleanup.ready_epoch_ms,owned.ready_epoch_ms)
+  }else{
+    // A delayed poll may first observe settlement. The same action gate must
+    // reject its actual owned elapsed time before admitting the cleanup phase.
+    assert.equal(cleanup.timed_out,false);assert.equal(owned.sequence,2);assert.equal(owned.phase,'cleanup')
+    assert.ok(Number.isFinite(owned.ready_epoch_ms)&&Number.isFinite(owned.settled_epoch_ms))
+    assert.ok(owned.settled_epoch_ms-owned.ready_epoch_ms>bound.action_ms)
+    assert.ok(['setup','action'].includes(cleanup.phase));assert.equal(cleanup.settled_epoch_ms,undefined)
+    assert.equal(cleanup.ready_epoch_ms,cleanup.phase==='action'?owned.ready_epoch_ms:undefined)
+  }
 })
 
 for(const action of [1000,100])test('late readiness cannot renew an exhausted setup budget '+action+'ms',{timeout:10000},async()=>{
