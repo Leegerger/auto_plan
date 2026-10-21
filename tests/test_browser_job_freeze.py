@@ -47,7 +47,9 @@ def submit(source):
         'input_version': source['input_version'], 'latest_adoption': source['latest_adoption'],
         'reviewed_as_of': source['snapshot']['time']['as_of'],
         'request': {'scope': {'start_date': '2026-10-15', 'end_date': '2026-10-15', 'line_codes': ['L']},
-                    'time_limit_seconds': 1}}
+                    # Source-freezing checks include fresh native process startup.
+                    # Deadline behavior has separate tests.
+                    'time_limit_seconds': 10}}
 
 
 def candidate(client, identity):
