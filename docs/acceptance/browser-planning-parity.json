@@ -5,7 +5,11 @@
     "artifact": "/tmp/auto-plan-private-draft-editors-ImQExi/run/report.json",
     "shared_save_seconds": 111.8567,
     "shared_save_gate_seconds": 60,
-    "failure": "running_after_confirmed_paint_assertions"
+    "failure": "running_after_confirmed_paint_assertions",
+    "archived_index": {
+      "path": "docs/validation/acceptance/closure-five-browser-failed-2026-10-21.json",
+      "sha256": "021279ab60961df5646370e1540cd399f066ea9334824bed991b9e4967164101"
+    }
   },
   "fixture": {
     "path": "d019627a21ca1507f9145aac1575c55fa03c8be52838d0f47c85088a8703d909.json.gz",
@@ -111,10 +115,21 @@
     "Only the acceptance BrowserPlanStore changes: Oracle-equivalent selected planning fields, at most eight request-local records, existing production OutputReuse.",
     "Original RLock, input pinning, complete historical records, native job duration, actor cadence, workload and gates remain unchanged.",
     "Cold current is slower while OutputReuse indexes dependencies; warm preview, save and following reads improve. No Plan borrowing is added.",
-    "The complete five-browser workload must be rerun after integration."
+    "After integration, the complete five-browser workload passed. The separate failed and successful indices link the retained raw evidence; neither result is production or Oracle-load acceptance."
   ],
   "public_regressions": [
     "tests/test_browser_planning_reads.py",
     "tests/test_browser_job_freeze.py"
-  ]
+  ],
+  "five_browser_revalidation": {
+    "status": "PASS",
+    "source_commit": "99e92cd7455a61693a2a1c07149c282e87b403e9",
+    "archived_index": {
+      "path": "docs/validation/acceptance/closure-five-browser-passed-2026-10-21.json",
+      "sha256": "750f9df3d2b90b245e3c89ae65a9990b5bbdb340387957c59793ec6a7b5009db"
+    },
+    "shared_save_seconds": 52.8,
+    "primary_job_seconds": 172.16910009765624,
+    "scope": "Separate real-browser representative adapter workflow; diagnostic measurements above retain their original scope."
+  }
 }

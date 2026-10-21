@@ -7525,6 +7525,37 @@
       "owned_processes_and_groups": "absent_at_later_host_check",
       "acceptance": "not_run",
       "scope": "Separate failed closure revalidation; historical pass summary is retained without reclassification."
+    },
+    {
+      "run_id": "closure-five-browser-passed-2026-10-21",
+      "status": "PASS",
+      "index": {
+        "path": "docs/validation/acceptance/closure-five-browser-passed-2026-10-21.json",
+        "sha256": "750f9df3d2b90b245e3c89ae65a9990b5bbdb340387957c59793ec6a7b5009db"
+      },
+      "raw_archive": {
+        "path": "docs/validation/acceptance/closure-five-browser-passed-2026-10-21.tar.gz",
+        "sha256": "c506140fa22d1975678f557810e5c68e28e180d582d6159b53b48574e50aa0bb"
+      },
+      "original_report_sha256": "222894187abd66052920c7a90063fa49cbb83a7ba083c306be4220644748df3c",
+      "source_commit": "99e92cd7455a61693a2a1c07149c282e87b403e9",
+      "scenario": "r20-loose-private-shared-save-v1",
+      "target_kind": "adapter",
+      "shared_save_seconds": 52.8,
+      "shared_save_gate_seconds": 60,
+      "primary_job_seconds": 172.16910009765624,
+      "primary_job_gate_seconds": 180,
+      "workflow_deadline_seconds": 360,
+      "workflow_deadline_met": true,
+      "workflow_seconds": null,
+      "outer_test_duration_seconds": 286.381495514,
+      "editor_actions_passed": 33,
+      "restored_full_source_confirmed": true,
+      "history_and_adoption_closure": "passed",
+      "candidate_full_quality": "passed",
+      "owned_processes_and_groups": "absent_at_later_host_check",
+      "acceptance": "not_run",
+      "scope": "Passed corrected-adapter representative closure revalidation; failed and historical runs remain separate. No production or Oracle-load acceptance."
     }
   ]
 }
