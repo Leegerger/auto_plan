@@ -2,6 +2,22 @@
 
 Vue 3、TypeScript、Element Plus 前端与 FastAPI 应用共用一个服务。Oracle 19c 是会话、授权、输入资料、共享计划、采用版与幂等结果的唯一真源。
 
+已完成数据库迁移的 `PLAN_TEST` 可用交互脚本快速配置：
+
+```bash
+./scripts/setup-test-env.sh
+```
+
+脚本隐藏密码输入，将配置保存到仓库外的 `~/.config/auto-plan/plan-test.env`，权限为 `600`。支持 `XDG_CONFIG_HOME`、`AUTO_PLAN_TEST_ENV_FILE` 或 `--env-file PATH` 指定位置。它会安装依赖、构建前端、检查 schema 与数据一致性，并询问是否启动服务。公司登录和独立测试登录可在设置时选择。需要 Python 3、uv、Node.js 22 或更新版本及 npm，Oracle Instant Client 和 HTTPS 反代须已准备好。
+
+```bash
+./scripts/setup-test-env.sh --check       # 检查已保存的配置与数据库
+./scripts/setup-test-env.sh --start       # 使用已保存配置启动，不重复安装和构建
+./scripts/setup-test-env.sh --grant-admin # 确认后维护授权，并记录审计
+```
+
+`INITIAL_ADMIN_ID` 仅在授权表为空时建立初始管理员。已有测试授权时，脚本会提示并单独确认补授管理员权限，保留原有其他角色。管理员权限不包含业务编辑权限。脚本只允许 `PLAN_TEST`，不自动迁移、推定 baseline 或修补历史数据；数据库尚未就绪时按[部署运行手册](docs/deployment.md)处理。
+
 安装与构建：
 
 ```bash
