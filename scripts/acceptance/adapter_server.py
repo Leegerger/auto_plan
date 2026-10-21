@@ -3,6 +3,8 @@
 Never use this module as a deployed entrypoint. It cannot connect to Oracle.
 """
 import argparse
+from collections import OrderedDict
+from contextlib import contextmanager
 from copy import deepcopy
 from datetime import datetime
 import json
@@ -18,9 +20,11 @@ from tests.plan_support import MemoryPlanStore
 
 
 class BrowserPlanStore(MemoryPlanStore):
-    """Pin read inputs once while leaving input writers on their own lock."""
+    """Keep Oracle's planning-read boundary within the original adapter lock."""
     def __init__(self, inputs):
+        from auto_plan.output_reuse import OutputReuse
         self._read_inputs = local()
+        self.output_cache = OutputReuse()
         super().__init__(inputs)
 
     @property
@@ -29,7 +33,7 @@ class BrowserPlanStore(MemoryPlanStore):
         return pinned if pinned is not None else super().inputs
 
     def read(self, actor, action):
-        with self.lock:
+        with self.lock, self._planning_reads():
             if getattr(self._read_inputs, 'value', None) is not None:
                 return action(self)
             self._read_inputs.value = self.input_store.read()
@@ -37,6 +41,51 @@ class BrowserPlanStore(MemoryPlanStore):
                 return action(self)
             finally:
                 self._read_inputs.value = None
+
+    def submit(self, command, actor, now, kind, action):
+        with self.lock, self._planning_reads():
+            return super().submit(command, actor, now, kind, action)
+
+    @contextmanager
+    def _planning_reads(self):
+        if getattr(self._read_inputs, 'records', None) is not None:
+            yield
+            return
+        self._read_inputs.records = OrderedDict()
+        try:
+            yield
+        finally:
+            self._read_inputs.records = None
+
+    def _planning_record(self, kind, identity):
+        from auto_plan.planning_records import PlanningRecord, PlanningSnapshot
+        records = getattr(self._read_inputs, 'records', None)
+        key = kind, identity
+        if records is not None and key in records:
+            records.move_to_end(key)
+            return records[key]
+        record = (self.revisions if kind == 'revision' else self.adoptions)[identity]
+        # Oracle's selected decoder omits historical evaluation/inputs. Select
+        # the same fields before copying this adapter's in-memory record, with
+        # no validation/coercion of legacy raw values. Full history stays full.
+        selected = {field: value for field, value in record.items()
+                    if field in PlanningRecord.__annotations__}
+        snapshot = selected.get('snapshot')
+        if isinstance(snapshot, dict):
+            selected['snapshot'] = {field: value for field, value in snapshot.items()
+                                    if field in PlanningSnapshot.__annotations__}
+        selected = deepcopy(selected)
+        if records is not None:
+            records[key] = selected
+            if len(records) > 8:
+                records.popitem(last=False)
+        return selected
+
+    def get_planning_revision(self, identity):
+        return super().get_planning_revision(identity) if identity == 0 else self._planning_record('revision', identity)
+
+    def get_planning_adoption(self, identity):
+        return self._planning_record('adoption', identity)
 
 
 def application(fixtures, scenario_id, port, *, input_transitions=None, job_observations=None):
