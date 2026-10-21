@@ -139,7 +139,11 @@ def test_malformed_worker_frame_preserves_only_prior_complete_candidate(shared_c
     processes=[]
     controller=install_controller(client,plans,process_factory=fixture_factory(mode,tmp_path/'owned.json',processes))
     try:
-        identity=client.post('/auto_plan/api/jobs',json=submission()).json()['job_id']
+        request=submission()
+        # The fixture computes a real candidate before emitting its bad frame.
+        # Give that setup time to finish before the job watchdog intervenes.
+        request['request']['time_limit_seconds']=10
+        identity=client.post('/auto_plan/api/jobs',json=request).json()['job_id']
         job=wait_job(client,identity)
         assert job['state']=='failed'
         assert len(job['candidates'])==1
