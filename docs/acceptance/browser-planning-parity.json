@@ -1,0 +1,120 @@
+{
+  "kind": "diagnostic_public_api_parity_not_acceptance_result",
+  "base_commit": "0ed3e051ce6af60c55d34a130d95f2a9a32f9809",
+  "red_feedback": {
+    "artifact": "/tmp/auto-plan-private-draft-editors-ImQExi/run/report.json",
+    "shared_save_seconds": 111.8567,
+    "shared_save_gate_seconds": 60,
+    "failure": "running_after_confirmed_paint_assertions"
+  },
+  "fixture": {
+    "path": "d019627a21ca1507f9145aac1575c55fa03c8be52838d0f47c85088a8703d909.json.gz",
+    "sha256": "d019627a21ca1507f9145aac1575c55fa03c8be52838d0f47c85088a8703d909",
+    "canonical_bytes": 1366889
+  },
+  "fixture_shape": {
+    "lines": 18,
+    "models": 40,
+    "days": 105,
+    "segments": 4200,
+    "switches": 418
+  },
+  "command": {
+    "base_revision": 1,
+    "input_version": 1,
+    "latest_adoption": 1,
+    "operations": [
+      {
+        "kind": "change_quantity",
+        "segment_id": "S-2027-01-24-M00",
+        "quantity": 99,
+        "end_date": "2027-01-24",
+        "scope": {
+          "start_date": "2027-01-24",
+          "end_date": "2027-01-24",
+          "line_codes": [
+            "L00"
+          ],
+          "model_codes": [
+            "M00"
+          ]
+        },
+        "action_id": "8ee5691e-f5bc-4bc2-8cae-c90bd28acbdd"
+      }
+    ]
+  },
+  "save_operation_id": "910e3c29-9468-4b05-97d1-dc6e7f878d9a",
+  "response_checks": {
+    "complete_json_equal_before_after": true,
+    "preview_equal_to_captured_browser_response": true,
+    "independent_frozen_source_equal": true,
+    "initial_expected_and_on_time": 420000,
+    "changed_expected_and_on_time": 419999,
+    "changed_gap": 1,
+    "objective_changed_positions": [
+      14,
+      29,
+      31
+    ],
+    "objective_changed_values": [
+      "1",
+      "1",
+      "1"
+    ]
+  },
+  "measurements": [
+    {
+      "request": "current",
+      "before_cpu_seconds": 2.283722,
+      "after_cpu_seconds": 3.07309,
+      "complete_canonical_json_sha256": "c674da55471a60c0c4193c520055110587a2a6ff55b5a595eae11f5727efcc69",
+      "response_bytes": 7246916
+    },
+    {
+      "request": "source",
+      "before_cpu_seconds": 0.610951,
+      "after_cpu_seconds": 0.183371,
+      "complete_canonical_json_sha256": "2c16d3873e814af4dcb64c5ca4a4f19eeb3a5403e84628e0562449b828ffed8a",
+      "response_bytes": 1367221
+    },
+    {
+      "request": "preview",
+      "before_cpu_seconds": 3.277905,
+      "after_cpu_seconds": 1.59735,
+      "complete_canonical_json_sha256": "ea241b3f8e09374844142f8bd091ed2d019342e8ed0a5348ad264013b94368f3",
+      "response_bytes": 8613128
+    },
+    {
+      "request": "save",
+      "before_cpu_seconds": 4.168011,
+      "after_cpu_seconds": 2.244942,
+      "complete_canonical_json_sha256": "6c4390e897c530b7ee640796082591120135604bd9ebf16cbd296cd971918644",
+      "response_bytes": 88
+    },
+    {
+      "request": "current_after_save",
+      "before_cpu_seconds": 2.336835,
+      "after_cpu_seconds": 1.222967,
+      "complete_canonical_json_sha256": "a7246dbfacfa2045dee397cccfc453b5e76e5ec0eb8fd72374bf73b7aacf5ad5",
+      "response_bytes": 7246954
+    },
+    {
+      "request": "source_after_save",
+      "before_cpu_seconds": 0.384806,
+      "after_cpu_seconds": 0.174405,
+      "complete_canonical_json_sha256": "4b51abf743b86a62caf796bb8e41bcc7187b9dc8b00505cb0cccd38e23dd530a",
+      "response_bytes": 1367226
+    }
+  ],
+  "interpretation": [
+    "Single local diagnostic loop using public HTTP; process CPU is not a latency gate or a five-browser acceptance result.",
+    "Only the acceptance BrowserPlanStore changes: Oracle-equivalent selected planning fields, at most eight request-local records, existing production OutputReuse.",
+    "Original RLock, input pinning, complete historical records, native job duration, actor cadence, workload and gates remain unchanged.",
+    "Cold current is slower while OutputReuse indexes dependencies; warm preview, save and following reads improve. No Plan borrowing is added.",
+    "The complete five-browser workload must be rerun after integration."
+  ],
+  "public_regressions": [
+    "tests/test_browser_planning_reads.py",
+    "tests/test_browser_job_freeze.py"
+  ]
+}
