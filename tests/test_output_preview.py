@@ -1,4 +1,4 @@
-from tests.test_inputs import inputs_client
+from tests.test_inputs import batch, inputs_client
 from tests.test_plan_preview import snapshot, segment, preview
 
 
@@ -54,6 +54,56 @@ def test_same_recipe_models_keep_independent_model_month_line_yields(inputs_clie
     result = preview(inputs_client, data)
     assert {source['model_code']: source['portions'][0]['quantity']
             for source in result['output_sources']} == {'M': 864, 'N': 720}
+
+
+def test_saved_model_month_yields_reach_public_evaluation_and_update_only_one_model(inputs_client):
+    client = inputs_client
+    seeded = batch(client, {
+        'recipes': [{'code': 'R', 'name': '工艺', 'active': True}],
+        'lines': [{'code': 'L', 'name': '一线', 'active': True}],
+        'models': [
+            {'code': 'A', 'name': '机种 A', 'recipe_code': 'R', 'active': True},
+            {'code': 'B', 'name': '机种 B', 'recipe_code': 'R', 'active': True},
+        ],
+        'capacities': [{'month': '2026-10', 'recipe_code': 'R', 'line_code': 'L', 'pieces': 10000}],
+        'line_yields': [
+            {'month': '2026-10', 'model_code': 'A', 'percent': '95'},
+            {'month': '2026-10', 'model_code': 'B', 'percent': '80'},
+        ],
+        'model_yields': [
+            {'month': '2026-10', 'model_code': 'A', 'percent': '90'},
+            {'month': '2026-10', 'model_code': 'B', 'percent': '90'},
+        ],
+        'cycle_times': [
+            {'model_code': 'A', 'days': '0'},
+            {'model_code': 'B', 'days': '0'},
+        ],
+    })
+    assert seeded.status_code == 200, seeded.text
+    saved = client.get('/auto_plan/api/inputs').json()
+
+    def plan_evaluation(inputs):
+        data = output_snapshot()
+        data['inputs']['masters'] = inputs['masters']
+        data['inputs']['parameters'] = inputs['parameters']
+        data['inputs']['calendar'] = inputs['calendar']
+        data['plan']['segments'] = [
+            segment('a', 0, 'A', 1000, '12'),
+            segment('b', 1, 'B', 1000, '12'),
+        ]
+        data['execution']['coverage'][0]['model_codes'] = ['A', 'B']
+        return preview(client, data)
+
+    first = plan_evaluation(saved)
+    assert {source['model_code']: source['portions'][0]['quantity']
+            for source in first['output_sources']} == {'A': 855, 'B': 720}
+
+    changed = batch(client, {'line_yields': [
+        {'month': '2026-10', 'model_code': 'A', 'percent': '96'}]})
+    assert changed.status_code == 200, changed.text
+    second = plan_evaluation(changed.json())
+    assert {source['model_code']: source['portions'][0]['quantity']
+            for source in second['output_sources']} == {'A': 864, 'B': 720}
 
 
 def test_exact_ct_portions_and_cross_line_aggregation(inputs_client):
