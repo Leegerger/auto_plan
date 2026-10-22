@@ -20,7 +20,7 @@ def test_prepared_loose_reference_is_complete_and_matches_public_evaluation(tmp_
         snapshot = json.load(source)
     assert len(snapshot['plan']['segments']) == 4200
     assert len({row['line_code'] for row in snapshot['plan']['segments']}) == 18
-    assert len(snapshot['inputs']['parameters']['line_yields']) == 5
+    assert len(snapshot['inputs']['parameters']['line_yields']) == 200
     with TestClient(seeded_app(snapshot), base_url='https://testserver') as client:
         client.headers.update({'Origin': 'https://testserver', 'X-Auto-Plan-Request': '1'})
         assert client.post('/auto_plan/api/auth/login', json={'username': 'SCALEEDITOR', 'password': 'company-secret'}).status_code == 200

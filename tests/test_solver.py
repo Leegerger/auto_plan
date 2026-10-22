@@ -425,7 +425,7 @@ def test_window_external_output_repairs_final_gap_without_scheduling_external_in
                           'status': 'allowed', 'date': '2027-01-26', 'quantity': 2}])
     data = inputs.read().model_dump(mode='json')
     data['parameters']['capacities'].append({'month': '2027-01', 'recipe_code': 'R', 'line_code': 'L', 'pieces': 1})
-    data['parameters']['line_yields'].append({'month': '2027-01', 'percent': '100'})
+    data['parameters']['line_yields'].append({'month': '2027-01', 'model_code': 'M', 'percent': '100'})
     data['parameters']['model_yields'].append({'month': '2027-01', 'model_code': 'M', 'percent': '100'})
     data['parameters']['cycle_times'][0]['days'] = '1.50'
     inputs.versions[1] = InputSnapshot.model_validate(data)

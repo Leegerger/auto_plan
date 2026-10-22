@@ -44,7 +44,7 @@ def _evaluate_fields(snapshot, *, output_cache=None, json_mode=False):
     for kind, fields in KEYS.items():
         seen = set()
         for row in getattr(getattr(snapshot.inputs, SECTIONS[kind]), kind):
-            key = tuple(getattr(row, field) for field in fields)
+            key = tuple(getattr(row, field, None) for field in fields)
             if key in seen:
                 problem('input_duplicate', f'输入快照{kind}存在重复识别组合')
             seen.add(key)
