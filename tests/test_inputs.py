@@ -2,6 +2,7 @@ from datetime import datetime, timezone
 import pytest
 from fastapi.testclient import TestClient
 from auto_plan.app import create_app
+from auto_plan.input_models import InputSnapshot
 from auto_plan.settings import Settings
 from tests.support import CompanyAuthentication, MemoryAccessStore
 
@@ -68,14 +69,15 @@ def test_parameter_batch_is_atomic_strict_and_preserves_unsupplied_values(inputs
     client = inputs_client
     masters(client)
     assert batch(client, {'capacities': [{'month': '2026-10', 'recipe_code': 'R', 'line_code': 'L', 'pieces': 2400}],
-                          'line_yields': [{'month': '2026-10', 'percent': '95.50'}],
+                          'line_yields': [{'month': '2026-10', 'model_code': 'M', 'percent': '95.50'}],
                           'model_yields': [{'month': '2026-10', 'model_code': 'M', 'percent': '98'}],
                           'cycle_times': [{'model_code': 'M', 'days': '0'}],
                           'switch_durations': [{'from_recipe': 'R', 'to_recipe': 'S', 'hours': '0'}]}).status_code == 200
     before = client.get('/auto_plan/api/inputs').json()
     bad = {'capacities': [{'month': '2026-10', 'recipe_code': 'R', 'line_code': 'L', 'pieces': 2600},
                           {'month': '2026-10', 'recipe_code': 'R', 'line_code': 'L', 'pieces': True}],
-           'line_yields': [{'month': '2026-10', 'percent': '0'}, {'month': '2026-11', 'percent': '100.001'}],
+           'line_yields': [{'month': '2026-10', 'model_code': 'M', 'percent': '0'},
+                           {'month': '2026-11', 'model_code': 'M', 'percent': '100.001'}],
            'cycle_times': [{'model_code': 'M', 'days': ''}]}
     payload = {'base_version': before['input_version'], 'changes': bad}
     preview = client.post('/auto_plan/api/inputs/preview', json=payload).json()
@@ -90,13 +92,240 @@ def test_parameter_batch_is_atomic_strict_and_preserves_unsupplied_values(inputs
     assert client.get('/auto_plan/api/inputs').json()['parameters']['capacities'][0]['pieces'] == 2400
 
 
+def test_current_line_yield_input_requires_and_round_trips_model_identity(inputs_client):
+    client = inputs_client
+    masters(client)
+    before = client.get('/auto_plan/api/inputs').json()
+    missing_model = batch(client, {'line_yields': [{'month': '2026-10', 'percent': '95'}]}, apply=False)
+    assert missing_model.status_code == 200
+    assert missing_model.json()['valid'] is False
+    assert missing_model.json()['errors'] == [{
+        'sheet': 'line_yields',
+        'row': 2,
+        'field': 'model_code',
+        'reason': '线体良率缺少机种 model_code，请使用包含机种的新格式或新模板',
+    }]
+    rejected = client.post('/auto_plan/api/inputs/apply', json={
+        'base_version': before['input_version'],
+        'changes': {'line_yields': [{'month': '2026-10', 'percent': '95'}]},
+    })
+    assert rejected.status_code == 422
+    assert client.get('/auto_plan/api/inputs?version=' + str(before['input_version'])).json() == before
+
+    saved = batch(client, {'line_yields': [{'month': '2026-10', 'model_code': 'M', 'percent': '95'}]})
+    assert saved.status_code == 200, saved.text
+    assert saved.json()['parameters']['line_yields'] == [
+        {'month': '2026-10', 'model_code': 'M', 'percent': '95'}]
+    reloaded = client.get('/auto_plan/api/inputs').json()
+    assert next(row for row in reloaded['parameters']['line_yields']
+                if row['month'] == '2026-10' and row['model_code'] == 'M')['percent'] == '95'
+
+
+def test_legacy_global_yields_expand_once_for_all_retained_models(inputs_client):
+    client = inputs_client
+    legacy = {
+        'schema_version': 1,
+        'input_version': 1,
+        'masters': {
+            'recipes': [{'code': 'R', 'name': '工艺', 'active': True}],
+            'lines': [{'code': 'L', 'name': '一线', 'active': True}],
+            'models': [
+                {'code': 'A', 'name': '机种 A', 'recipe_code': 'R', 'active': True},
+                {'code': 'B', 'name': '机种 B', 'recipe_code': 'R', 'active': True},
+                {'code': 'C', 'name': '保留停用机种', 'recipe_code': 'R', 'active': False},
+            ],
+            'capabilities': [],
+        },
+        'parameters': {
+            'line_yields': [{'month': '2026-10', 'percent': '95'},
+                            {'month': '2026-10', 'model_code': 'B', 'percent': '80'},
+                            {'month': '2026-11', 'percent': '90'}],
+            'model_yields': [],
+            'capacities': [],
+            'cycle_times': [],
+            'switch_durations': [],
+        },
+        'calendar': {'holidays': [], 'opening_exceptions': [], 'maintenance': [], 'experiments': []},
+        'business': {'demands': [], 'confirmations': []},
+    }
+    store = client.app.state.input_store
+    store.versions[1] = InputSnapshot.model_validate(legacy)
+    store.version = 1
+
+    current = client.get('/auto_plan/api/inputs')
+    assert current.status_code == 200, current.text
+    current = current.json()
+    assert current['schema_version'] == 1
+    assert current['input_version'] == 2
+    values = {(row['month'], row['model_code']): row['percent']
+              for row in current['parameters']['line_yields']}
+    assert {key: value for key, value in values.items() if key[0] in {'2026-10', '2026-11'}} == {
+        ('2026-10', 'A'): '95', ('2026-10', 'B'): '80', ('2026-10', 'C'): '95',
+        ('2026-11', 'A'): '90', ('2026-11', 'B'): '90', ('2026-11', 'C'): '90',
+    }
+    assert all('model_code' in row for row in current['parameters']['line_yields'])
+    assert client.get('/auto_plan/api/inputs?version=1').json() == legacy
+    assert client.get('/auto_plan/api/inputs').json() == current
+
+    edited = client.post('/auto_plan/api/inputs/apply', json={
+        'base_version': 2,
+        'changes': {
+            'models': [{'code': 'D', 'name': '新机种', 'recipe_code': 'R', 'active': True}],
+            'line_yields': [{'month': '2026-10', 'model_code': 'A', 'percent': '96'}],
+        },
+    })
+    assert edited.status_code == 200, edited.text
+    reloaded = client.get('/auto_plan/api/inputs').json()
+    reloaded_values = {(row['month'], row['model_code']): row['percent']
+                       for row in reloaded['parameters']['line_yields']}
+    assert reloaded_values['2026-10', 'A'] == '96'
+    assert reloaded_values['2026-10', 'B'] == '80'
+    assert reloaded_values['2026-10', 'C'] == '95'
+    assert ('2026-10', 'D') not in reloaded_values
+    assert client.get('/auto_plan/api/inputs?version=1').json() == legacy
+
+
+def test_line_yield_errors_identify_duplicate_and_unknown_model_rows(inputs_client):
+    client = inputs_client
+    masters(client)
+    before = client.get('/auto_plan/api/inputs').json()
+    payload = {'base_version': before['input_version'], 'changes': {'line_yields': [
+        {'month': '2026-10', 'model_code': 'M', 'percent': '95'},
+        {'month': '2026-10', 'model_code': 'M', 'percent': '96'},
+        {'month': '2026-10', 'model_code': 'UNKNOWN', 'percent': '90'},
+    ]}}
+    preview = client.post('/auto_plan/api/inputs/preview', json=payload)
+    assert preview.status_code == 200
+    assert preview.json()['valid'] is False
+    assert {(row['row'], row['field']) for row in preview.json()['errors']} == {
+        (3, 'month,model_code'), (4, 'model_code')}
+    assert client.post('/auto_plan/api/inputs/apply', json=payload).status_code == 422
+    assert client.get('/auto_plan/api/inputs?version=' + str(before['input_version'])).json() == before
+
+
+def test_direct_apply_atomically_expands_legacy_yields_before_adding_a_model(inputs_client):
+    client = inputs_client
+    legacy = InputSnapshot.model_validate({
+        'schema_version': 1,
+        'input_version': 1,
+        'masters': {
+            'recipes': [{'code': 'R', 'name': '工艺', 'active': True}],
+            'lines': [{'code': 'L', 'name': '一线', 'active': True}],
+            'models': [{'code': 'A', 'name': '机种 A', 'recipe_code': 'R', 'active': True}],
+        },
+        'parameters': {'line_yields': [{'month': '2026-10', 'percent': '95'}]},
+    })
+    store = client.app.state.input_store
+    store.versions[1] = legacy
+    store.version = 1
+
+    applied = client.post('/auto_plan/api/inputs/apply', json={
+        'base_version': 1,
+        'changes': {
+            'models': [{'code': 'D', 'name': '新机种', 'recipe_code': 'R', 'active': True}],
+            'line_yields': [{'month': '2026-10', 'model_code': 'A', 'percent': '96'}],
+        },
+    })
+    assert applied.status_code == 200, applied.text
+    assert applied.json()['masters']['models'][-1]['code'] == 'D'
+    assert {(row['month'], row['model_code']): row['percent']
+            for row in applied.json()['parameters']['line_yields'] if row['month'] == '2026-10'} == {
+        ('2026-10', 'A'): '96'}
+    assert client.get('/auto_plan/api/inputs?version=1').json() == legacy.model_dump(mode='json')
+
+
+def test_legacy_preview_and_current_export_do_not_persist_conversion(inputs_client):
+    from io import BytesIO
+    from openpyxl import load_workbook
+
+    client = inputs_client
+    legacy = InputSnapshot.model_validate({
+        'schema_version': 1,
+        'input_version': 1,
+        'masters': {
+            'recipes': [{'code': 'R', 'name': '工艺', 'active': True}],
+            'models': [{'code': 'A', 'name': '机种 A', 'recipe_code': 'R', 'active': True}],
+        },
+        'parameters': {'line_yields': [{'month': '2026-10', 'percent': '95'}]},
+    })
+    store = client.app.state.input_store
+    store.versions[1] = legacy
+    store.version = 1
+
+    previewed = client.post('/auto_plan/api/inputs/preview', json={
+        'base_version': 1,
+        'changes': {'models': [
+            {'code': 'D', 'name': '新机种', 'recipe_code': 'R', 'active': True}]},
+    })
+    assert previewed.status_code == 200, previewed.text
+    assert previewed.json()['valid'] is True
+    assert previewed.json()['snapshot']['parameters']['line_yields'] == [
+        {'month': '2026-10', 'model_code': 'A', 'percent': '95'}]
+    assert store.version == 1
+    assert store.read() == legacy
+
+    exported = load_workbook(BytesIO(
+        client.get('/auto_plan/api/inputs/export.xlsx').content))
+    assert [cell.value for cell in exported['line_yields'][1]] == ['month', 'model_code', 'percent']
+    assert [cell.value for cell in exported['line_yields'][2]] == ['2026-10', 'A', '95']
+    assert [cell.value for cell in exported['_version'][2]] == [1, 1]
+    assert store.version == 1
+    assert store.read() == legacy
+
+
+def test_line_yield_template_is_current_but_pinned_legacy_export_keeps_its_shape(inputs_client):
+    from io import BytesIO
+    from openpyxl import load_workbook
+
+    client = inputs_client
+    template = load_workbook(BytesIO(client.get('/auto_plan/api/inputs/template.xlsx').content))
+    assert [cell.value for cell in template['line_yields'][1]] == ['month', 'model_code', 'percent']
+
+    legacy = InputSnapshot.model_validate({
+        'schema_version': 1,
+        'input_version': 1,
+        'masters': {
+            'recipes': [{'code': 'R', 'name': '工艺', 'active': True}],
+            'models': [{'code': 'A', 'name': '机种 A', 'recipe_code': 'R', 'active': True}],
+        },
+        'parameters': {'line_yields': [{'month': '2026-10', 'percent': '95'}]},
+    })
+    store = client.app.state.input_store
+    store.versions[1] = legacy
+    store.version = 1
+    exported = load_workbook(BytesIO(
+        client.get('/auto_plan/api/inputs/export.xlsx?version=1').content))
+    assert [cell.value for cell in exported['line_yields'][1]] == ['month', 'percent']
+    assert [cell.value for cell in exported['line_yields'][2]] == ['2026-10', '95']
+
+
+def test_availability_uses_model_month_yield_on_every_line_without_fallback(inputs_client):
+    client = inputs_client
+    masters(client)
+    assert batch(client, {
+        'lines': [{'code': 'L2', 'name': '二线', 'active': True}],
+        'models': [{'code': 'N', 'name': '另一机种', 'recipe_code': 'R', 'active': True}],
+        'line_yields': [{'month': '2026-10', 'model_code': 'M', 'percent': '95'}],
+        'model_yields': [{'month': '2026-10', 'model_code': 'M', 'percent': '90'}],
+    }).status_code == 200
+    for line in ('L', 'L2'):
+        result = client.get(
+            f'/auto_plan/api/inputs/availability?month=2026-10&model_code=M&line_code={line}').json()
+        assert result['line_yield'] == {'state': 'known', 'percent': '95'}
+        assert result['model_yield'] == {'state': 'known', 'percent': '90'}
+    other = client.get(
+        '/auto_plan/api/inputs/availability?month=2026-10&model_code=N&line_code=L').json()
+    assert other['line_yield'] == {'state': 'missing', 'percent': None}
+    assert other['model_yield'] == {'state': 'missing', 'percent': None}
+
+
 def test_missing_months_copy_previous_values_once_without_linking_or_overwriting(inputs_client):
     client = inputs_client
     masters(client)
     result = batch(client, {'capacities': [
         {'month': '2026-09', 'recipe_code': 'R', 'line_code': 'L', 'pieces': 2400},
         {'month': '2026-12', 'recipe_code': 'R', 'line_code': 'L', 'pieces': 3000}],
-        'line_yields': [{'month': '2026-09', 'percent': '95'}]})
+        'line_yields': [{'month': '2026-09', 'model_code': 'M', 'percent': '95'}]})
     assert result.status_code == 200
     data = client.get('/auto_plan/api/inputs').json()
     assert {r['month']: r['pieces'] for r in data['parameters']['capacities']} == {
@@ -106,6 +335,48 @@ def test_missing_months_copy_previous_values_once_without_linking_or_overwriting
     data2 = client.get('/auto_plan/api/inputs').json()
     assert next(r['pieces'] for r in data2['parameters']['capacities'] if r['month'] == '2026-12') == 3000
     assert client.get(f"/auto_plan/api/inputs?version={data['input_version']}").json() == data
+
+
+def test_line_yields_continue_per_model_without_overwriting_entered_months(inputs_client):
+    client = inputs_client
+    masters(client)
+    added = batch(client, {
+        'models': [
+            {'code': 'A', 'name': '机种 A', 'recipe_code': 'R', 'active': True},
+            {'code': 'B', 'name': '机种 B', 'recipe_code': 'R', 'active': True},
+        ],
+        'line_yields': [
+            {'month': '2026-09', 'model_code': 'A', 'percent': '95'},
+            {'month': '2026-09', 'model_code': 'B', 'percent': '80'},
+            {'month': '2026-11', 'model_code': 'A', 'percent': '70'},
+        ],
+        'model_yields': [
+            {'month': '2026-09', 'model_code': 'A', 'percent': '90'},
+            {'month': '2026-09', 'model_code': 'B', 'percent': '88'},
+        ],
+    })
+    assert added.status_code == 200, added.text
+
+    continued = client.get('/auto_plan/api/inputs').json()
+    line_values = {(row['month'], row['model_code']): row['percent']
+                   for row in continued['parameters']['line_yields']}
+    assert {key: line_values[key] for key in [
+        ('2026-10', 'A'), ('2026-10', 'B'), ('2026-11', 'A'), ('2026-11', 'B')]} == {
+        ('2026-10', 'A'): '95', ('2026-10', 'B'): '80',
+        ('2026-11', 'A'): '70', ('2026-11', 'B'): '80',
+    }
+    model_values = {(row['month'], row['model_code']): row['percent']
+                    for row in continued['parameters']['model_yields']}
+    assert (model_values['2026-10', 'A'], model_values['2026-10', 'B']) == ('90', '88')
+
+    changed = batch(client, {'line_yields': [
+        {'month': '2026-09', 'model_code': 'A', 'percent': '96'}]})
+    assert changed.status_code == 200, changed.text
+    after_change = client.get('/auto_plan/api/inputs').json()
+    values = {(row['month'], row['model_code']): row['percent']
+              for row in after_change['parameters']['line_yields']}
+    assert (values['2026-10', 'A'], values['2026-11', 'A']) == ('95', '70')
+    assert (values['2026-10', 'B'], values['2026-11', 'B']) == ('80', '80')
 
 
 def test_calendar_allows_over_24_and_preserves_distinct_availability_states(inputs_client):
@@ -143,7 +414,7 @@ def test_standard_excel_roundtrip_reports_source_rows_and_requires_atomic_apply(
     workbook = load_workbook(BytesIO(response.content))
     assert workbook['capacities'].cell(1, 1).value == 'month'
     workbook['capacities'].append(['2026-10', 'R', 'L', 2400])
-    workbook['line_yields'].append(['2026-10', '95.50'])
+    workbook['line_yields'].append(['2026-10', 'M', '95.50'])
     out = BytesIO()
     workbook.save(out)
     version = client.get('/auto_plan/api/inputs').json()['input_version']
@@ -153,7 +424,7 @@ def test_standard_excel_roundtrip_reports_source_rows_and_requires_atomic_apply(
     assert client.post('/auto_plan/api/inputs/apply', json={'base_version': version, 'changes': preview['changes']}).status_code == 200
     export = client.get('/auto_plan/api/inputs/export.xlsx').content
     roundtrip = load_workbook(BytesIO(export))
-    assert roundtrip['line_yields'].cell(2, 2).value == '95.50'
+    assert roundtrip['line_yields'].cell(2, 3).value == '95.50'
     # Wrong data on row 3 is reported at row 3, and an Excel formula is never evaluated.
     workbook['capacities'].append(['2026-11', 'R', 'L', '=1+1'])
     out = BytesIO(); workbook.save(out)
@@ -161,6 +432,165 @@ def test_standard_excel_roundtrip_reports_source_rows_and_requires_atomic_apply(
     preview = client.post(f'/auto_plan/api/inputs/excel/preview?base_version={version}', content=out.getvalue()).json()
     assert {'sheet': 'capacities', 'row': 3, 'field': 'pieces', 'reason': '不接受公式，请填写明确值'} in preview['errors']
     assert preview['valid'] is False
+
+
+def test_multi_model_paste_export_and_reimport_preserve_unrelated_rows(inputs_client):
+    from io import BytesIO
+    from openpyxl import load_workbook
+
+    client = inputs_client
+    seeded = batch(client, {
+        'recipes': [{'code': 'R', 'name': '工艺', 'active': True}],
+        'lines': [{'code': 'L', 'name': '一线', 'active': True}],
+        'models': [
+            {'code': 'A', 'name': '机种 A', 'recipe_code': 'R', 'active': True},
+            {'code': 'B', 'name': '机种 B', 'recipe_code': 'R', 'active': True},
+        ],
+        'capacities': [{'month': '2026-10', 'recipe_code': 'R', 'line_code': 'L', 'pieces': 2400}],
+        'model_yields': [
+            {'month': '2026-10', 'model_code': 'A', 'percent': '90'},
+            {'month': '2026-10', 'model_code': 'B', 'percent': '90'},
+        ],
+        'holidays': [{'date': '2026-10-17', 'holiday': True}],
+    })
+    assert seeded.status_code == 200, seeded.text
+    before = client.get('/auto_plan/api/inputs').json()
+    paste_preview = client.post('/auto_plan/api/inputs/paste/preview', json={
+        'base_version': before['input_version'],
+        'kind': 'line_yields',
+        'text': 'month\tmodel_code\tpercent\n2026-10\tA\t95\n2026-10\tB\t80',
+    })
+    assert paste_preview.status_code == 200, paste_preview.text
+    assert paste_preview.json()['valid'] is True
+    assert client.get('/auto_plan/api/inputs').json() == before
+    applied = client.post('/auto_plan/api/inputs/apply', json={
+        'base_version': paste_preview.json()['base_version'],
+        'changes': paste_preview.json()['changes'],
+    })
+    assert applied.status_code == 200, applied.text
+    saved = applied.json()
+
+    exported_at_version = client.get(
+        f"/auto_plan/api/inputs/export.xlsx?version={saved['input_version']}")
+    assert exported_at_version.status_code == 200
+    assert client.get(f"/auto_plan/api/inputs?version={saved['input_version']}").json() == saved
+    workbook = load_workbook(BytesIO(exported_at_version.content))
+    yields = workbook['line_yields']
+    rows = {yields.cell(row, 2).value: row for row in range(2, yields.max_row + 1)}
+    assert [yields.cell(1, column).value for column in range(1, 4)] == [
+        'month', 'model_code', 'percent']
+    assert rows.keys() == {'A', 'B'}
+    yields.cell(rows['A'], 3).value = '96'
+    edited = BytesIO()
+    workbook.save(edited)
+
+    excel_preview = client.post(
+        f"/auto_plan/api/inputs/excel/preview?base_version={saved['input_version']}",
+        content=edited.getvalue())
+    assert excel_preview.status_code == 200, excel_preview.text
+    assert excel_preview.json()['valid'] is True
+    assert client.get(f"/auto_plan/api/inputs?version={saved['input_version']}").json() == saved
+    reimported = client.post('/auto_plan/api/inputs/apply', json={
+        'base_version': excel_preview.json()['base_version'],
+        'changes': excel_preview.json()['changes'],
+    })
+    assert reimported.status_code == 200, reimported.text
+    current = reimported.json()
+
+    assert current['parameters']['line_yields'] == [
+        {'month': '2026-10', 'model_code': 'A', 'percent': '96'},
+        {'month': '2026-10', 'model_code': 'B', 'percent': '80'},
+    ]
+    assert current['parameters']['model_yields'] == saved['parameters']['model_yields']
+    assert current['parameters']['capacities'] == saved['parameters']['capacities']
+    assert current['calendar']['holidays'] == saved['calendar']['holidays']
+    before_export = client.get('/auto_plan/api/inputs').json()
+    assert client.get('/auto_plan/api/inputs/export.xlsx').status_code == 200
+    assert client.get('/auto_plan/api/inputs').json() == before_export
+
+
+def test_multi_model_paste_errors_are_ordered_and_reject_the_whole_batch(inputs_client):
+    client = inputs_client
+    seeded = batch(client, {
+        'recipes': [{'code': 'R', 'name': '工艺', 'active': True}],
+        'models': [
+            {'code': 'A', 'name': '机种 A', 'recipe_code': 'R', 'active': True},
+            {'code': 'B', 'name': '机种 B', 'recipe_code': 'R', 'active': True},
+        ],
+    })
+    assert seeded.status_code == 200, seeded.text
+    before = client.get('/auto_plan/api/inputs').json()
+    text = '\n'.join([
+        'month\tmodel_code\tpercent',
+        '2026-10\tA\t95',
+        '2026-10\tUNKNOWN\t90',
+        '2026-10\tA\t94',
+        '2026-10\tB\t0',
+    ])
+    preview = client.post('/auto_plan/api/inputs/paste/preview', json={
+        'base_version': before['input_version'], 'kind': 'line_yields', 'text': text})
+    assert preview.status_code == 200, preview.text
+    assert preview.json()['valid'] is False
+    assert {(row['row'], row['field']) for row in preview.json()['errors']} == {
+        (3, 'model_code'),
+        (4, 'month,model_code'),
+        (5, 'percent'),
+    }
+
+    rejected = client.post('/auto_plan/api/inputs/apply', json={
+        'base_version': before['input_version'],
+        'changes': {'line_yields': [
+            {'month': '2026-10', 'model_code': 'A', 'percent': '95'},
+            {'month': '2026-10', 'model_code': 'UNKNOWN', 'percent': '90'},
+            {'month': '2026-10', 'model_code': 'A', 'percent': '94'},
+            {'month': '2026-10', 'model_code': 'B', 'percent': '0'},
+        ]},
+    })
+    assert rejected.status_code == 422
+    assert client.get('/auto_plan/api/inputs').json() == before
+
+    corrected = client.post('/auto_plan/api/inputs/apply', json={
+        'base_version': before['input_version'],
+        'changes': {'line_yields': [
+            {'month': '2026-10', 'model_code': 'A', 'percent': '95'},
+            {'month': '2026-10', 'model_code': 'B', 'percent': '80'},
+        ]},
+    })
+    assert corrected.status_code == 200, corrected.text
+    assert corrected.json()['parameters']['line_yields'] == [
+        {'month': '2026-10', 'model_code': 'A', 'percent': '95'},
+        {'month': '2026-10', 'model_code': 'B', 'percent': '80'},
+    ]
+
+
+def test_legacy_line_yield_excel_header_points_to_the_new_template(inputs_client):
+    from io import BytesIO
+    from openpyxl import Workbook
+
+    client = inputs_client
+    masters(client)
+    before = client.get('/auto_plan/api/inputs').json()
+    workbook = Workbook()
+    sheet = workbook.active
+    sheet.title = 'line_yields'
+    sheet.append(['month', 'percent'])
+    sheet.append(['2026-10', '95'])
+    content = BytesIO()
+    workbook.save(content)
+
+    preview = client.post(
+        f"/auto_plan/api/inputs/excel/preview?base_version={before['input_version']}",
+        content=content.getvalue())
+
+    assert preview.status_code == 200
+    assert preview.json()['valid'] is False
+    assert preview.json()['errors'] == [{
+        'sheet': 'line_yields',
+        'row': 1,
+        'field': 'headers',
+        'reason': '旧格式缺少机种列 model_code，请使用包含机种的新格式或新模板',
+    }]
+    assert client.get('/auto_plan/api/inputs').json() == before
 
 
 def test_tabular_paste_uses_the_same_validation_and_keeps_missing_fields(inputs_client):
@@ -172,6 +602,25 @@ def test_tabular_paste_uses_the_same_validation_and_keeps_missing_fields(inputs_
         'text': 'date\tline_code\thours\n2026-10-17\tL\t20\n2026-10-18\tL\t'}).json()
     assert preview['valid'] is False
     assert preview['errors'][0]['row'] == 3 and preview['errors'][0]['field'] == 'hours'
+    assert client.get('/auto_plan/api/inputs').json() == before
+
+
+def test_legacy_line_yield_paste_header_points_to_the_new_format(inputs_client):
+    client = inputs_client
+    masters(client)
+    before = client.get('/auto_plan/api/inputs').json()
+    preview = client.post('/auto_plan/api/inputs/paste/preview', json={
+        'base_version': before['input_version'], 'kind': 'line_yields',
+        'text': 'month\tpercent\n2026-10\t95',})
+
+    assert preview.status_code == 200
+    assert preview.json()['valid'] is False
+    assert preview.json()['errors'] == [{
+        'sheet': 'line_yields',
+        'row': 1,
+        'field': 'headers',
+        'reason': '旧格式缺少机种列 model_code，请使用包含机种的新格式或新模板',
+    }]
     assert client.get('/auto_plan/api/inputs').json() == before
 
 
@@ -194,15 +643,19 @@ def test_excel_percentage_cells_use_displayed_percent_units(inputs_client):
     from io import BytesIO
     from openpyxl import load_workbook
     client = inputs_client
+    masters(client)
     book = load_workbook(BytesIO(client.get('/auto_plan/api/inputs/template.xlsx').content))
     sheet = book['line_yields']
-    sheet.append(['2026-10', 0.95]); sheet['B2'].number_format = '0.00%'
-    sheet.append(['2026-11', 1]); sheet['B3'].number_format = '0%'
+    sheet.append(['2026-10', 'M', 0.95]); sheet['C2'].number_format = '0.00%'
+    sheet.append(['2026-11', 'M', 1]); sheet['C3'].number_format = '0%'
     out = BytesIO(); book.save(out)
     version = client.get('/auto_plan/api/inputs').json()['input_version']
     result = client.post(f'/auto_plan/api/inputs/excel/preview?base_version={version}', content=out.getvalue()).json()
     assert result['valid'] is True
-    assert result['changes']['line_yields'] == [{'month': '2026-10', 'percent': '95'}, {'month': '2026-11', 'percent': '100'}]
+    assert result['changes']['line_yields'] == [
+        {'month': '2026-10', 'model_code': 'M', 'percent': '95'},
+        {'month': '2026-11', 'model_code': 'M', 'percent': '100'},
+    ]
 
 
 def test_availability_query_validates_month_date_and_the_production_month(inputs_client):

@@ -67,6 +67,16 @@ def reuse_source():
                     'initial_states': [{'line_code': 'L', 'recipe_code': 'R'}]}
     data['inputs']['business'] = {'demands': [
         {'model_code': model, 'week': '2026-10-12', 'quantity': 100} for model in ('M', 'N')]}
+    for parameter in data['inputs']['parameters']['line_yields']:
+        if parameter['model_code'] == 'M':
+            parameter['percent'] = '95'
+        elif parameter['model_code'] == 'N':
+            parameter['percent'] = '80'
+    for parameter in data['inputs']['parameters']['model_yields']:
+        if parameter['model_code'] == 'M':
+            parameter['percent'] = '98'
+        elif parameter['model_code'] == 'N':
+            parameter['percent'] = '90'
     for parameter in data['inputs']['parameters']['cycle_times']:
         parameter['days'] = '0.5'
     return data
@@ -87,7 +97,8 @@ def test_reuse_matches_complete_default_evaluator_after_dependency_or_invalid_st
     assert evaluate(original, output_cache=cache) == evaluate(original)
     if change == 'quantity': raw['plan']['segments'][0]['quantity'] = 99
     elif change == 'yield': raw['inputs']['parameters']['model_yields'][0]['percent'] = '93.1'
-    elif change == 'line_yield': raw['inputs']['parameters']['line_yields'][0]['percent'] = '95'
+    elif change == 'line_yield':
+        next(row for row in raw['inputs']['parameters']['line_yields'] if row['model_code'] == 'N')['percent'] = '85'
     elif change == 'ct': raw['inputs']['parameters']['cycle_times'][0]['days'] = '1.25'
     elif change == 'holiday': raw['inputs']['calendar'] = {'holidays': [{'date': '2026-10-16', 'holiday': True}]}
     elif change == 'demand': raw['inputs']['business']['demands'][0]['quantity'] = 101
@@ -119,6 +130,8 @@ def test_reuse_matches_complete_default_evaluator_after_dependency_or_invalid_st
                         'models': [model] * (2 if change == 'duplicate_reset' else 1)}
     changed = EvaluationSnapshot.model_validate(raw)
     expected = evaluate(changed).model_dump(mode='json')
+    if change == 'line_yield':
+        assert cache.stats()['hits'] >= 1
     from auto_plan.rules import _evaluation_json
     owned_json = _evaluation_json(changed, output_cache=cache)
     assert owned_json == expected

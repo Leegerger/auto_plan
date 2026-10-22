@@ -11,6 +11,8 @@ from auto_plan.settings import Settings
 from auto_plan.oracle_access import OracleAccessStore
 from auto_plan.oracle_inputs import OracleInputStore
 from auto_plan.oracle_plans import OraclePlanStore
+from auto_plan.input_models import InputSnapshot
+from tests.oracle_legacy import seed_legacy_input_revision
 from tests.oracle_namespace import disposable_business_namespace
 from tests.support import CompanyAuthentication
 from tests.test_plan_preview import snapshot
@@ -18,6 +20,127 @@ from tests.test_plan_history import workbook, records
 
 pytestmark=[pytest.mark.oracle,pytest.mark.skipif(os.getenv('AUTO_PLAN_TEST_ORACLE')!='1',reason='Opt-in PLAN_TEST only')]
 NOW=datetime(2026,10,14,tzinfo=timezone.utc)
+
+
+def test_real_legacy_history_edit_export_restart_and_restore_pin_original_input():
+    settings=Settings(initial_admin_id='T24ADMIN')
+    assert settings.oracle_user.upper()=='PLAN_TEST'
+    access=OracleAccessStore.connect(settings)
+    headers={'Origin':settings.public_origin,'X-Auto-Plan-Request':'1'}
+    try:
+        with disposable_business_namespace(access.pool,'AP_TEST_'+uuid4().hex[:6].upper()) as namespace:
+            inputs=OracleInputStore(namespace);plans=OraclePlanStore(namespace)
+            legacy=InputSnapshot.model_validate({
+                'schema_version':1,'input_version':1,
+                'masters':{
+                    'recipes':[{'code':'R','name':'工艺','active':True}],
+                    'lines':[{'code':'L','name':'一线','active':True}],
+                    'models':[{'code':'M','name':'机种','recipe_code':'R','active':True}],
+                },
+                'parameters':{
+                    'line_yields':[{'month':'2026-10','percent':'95'}],
+                    'model_yields':[{'month':'2026-10','model_code':'M','percent':'90'}],
+                    'capacities':[{'month':'2026-10','recipe_code':'R','line_code':'L','pieces':1000}],
+                    'cycle_times':[{'model_code':'M','days':'0'}],
+                },
+            })
+            seed_legacy_input_revision(inputs,legacy,NOW)
+            with namespace.acquire() as connection:
+                with connection.cursor() as cursor:
+                    cursor.execute('SELECT SNAPSHOT_BLOB,SHA256 FROM AP_INPUT_REVISION WHERE INPUT_VERSION=1')
+                    original_blob,original_sha=cursor.fetchone()
+                    original_blob=original_blob.read() if hasattr(original_blob,'read') else original_blob
+                connection.rollback()
+            def app():
+                return create_app(settings,store=access,input_store=inputs,plan_store=plans,
+                                  authenticator=CompanyAuthentication(),clock=lambda:NOW)
+            def login(client,actor):
+                response=client.post('/auto_plan/api/auth/login',
+                                     json={'username':actor,'password':'company-secret'},headers=headers)
+                assert response.status_code==200,response.text
+            def legacy_input_export(client):
+                from io import BytesIO
+                from openpyxl import load_workbook
+                book=load_workbook(BytesIO(client.get(
+                    '/auto_plan/api/inputs/export.xlsx?version=1',headers=headers).content))
+                return (tuple(cell.value for cell in book['line_yields'][1]),
+                        tuple(cell.value for cell in book['line_yields'][2]),
+                        tuple(cell.value for cell in book['_version'][2]))
+            def post(client,kind,body):
+                if kind=='preview':
+                    body={key:value for key,value in body.items() if key not in {'operation_id','pending'}}
+                return client.post('/auto_plan/api/plans/'+kind,json=body)
+            def command(client,*operations):
+                head=client.get('/auto_plan/api/plans/current',headers=headers).json()
+                return {'base_revision':head['revision'],'input_version':head['input_version'],
+                        'latest_adoption':head['latest_adoption'],'operation_id':str(uuid4()),
+                        'pending':True,'operations':list(operations)}
+
+            with TestClient(app(),base_url=settings.public_origin) as client:
+                client.headers.update(headers)
+                login(client,'T24ADMIN')
+                assert client.put('/auto_plan/api/admin/authorizations/T29EDITOR',
+                                  json={'roles':['editor']},headers=headers).status_code==200
+                login(client,'T29EDITOR')
+                assert client.get('/auto_plan/api/inputs?version=1',headers=headers).json()==legacy.model_dump(mode='json')
+                assert legacy_input_export(client)==(('month','percent'),('2026-10','95'),(1,1))
+                segment={'id':'a','date':'2026-10-15','line_code':'L','model_code':'M',
+                         'quantity':1000,'order':0,'hours':'24'}
+                saved=post(client,'save',command(client,{'kind':'patch_plan','segments':[segment]}))
+                assert saved.status_code==200,saved.text
+                original=client.get('/auto_plan/api/plans/revisions/1',headers=headers).json()
+                assert original['evaluation']['output_totals']['expected']==855
+
+                converted=client.get('/auto_plan/api/inputs',headers=headers).json()
+                stale_request=command(client,{'kind':'restore_history','source':{'kind':'revision','id':1}})
+                changed=client.post('/auto_plan/api/inputs/apply',headers=headers,json={
+                    'base_version':converted['input_version'],
+                    'changes':{'line_yields':[{'month':'2026-10','model_code':'M','percent':'80'}]},
+                })
+                assert changed.status_code==200,changed.text
+                edited=changed.json()
+                assert client.get('/auto_plan/api/inputs?version=1',headers=headers).json()==legacy.model_dump(mode='json')
+                assert client.get('/auto_plan/api/plans/revisions/1',headers=headers).json()==original
+                book=workbook(client.get('/auto_plan/api/plans/revisions/1/export.xlsx',headers=headers))
+                raw=''.join(row['json_chunk'] for row in records(book,'_record_json'))
+                assert json.loads(raw)==original
+                assert post(client,'preview',stale_request).status_code==409
+
+                restored=post(client,'preview',command(client,{'kind':'restore_history','source':{'kind':'revision','id':1}}))
+                assert restored.status_code==200,restored.text
+                assert restored.json()['evaluation']['output_totals']['expected']==720
+                request=command(client,{'kind':'restore_history','source':{'kind':'revision','id':1}})
+                assert post(client,'preview',request).status_code==200
+                committed=post(client,'save',request)
+                assert committed.status_code==200,committed.text
+                restored_revision=committed.json()['revision']
+                current=client.get(f'/auto_plan/api/plans/revisions/{restored_revision}',headers=headers).json()
+                assert current['evaluation']['output_totals']['expected']==720
+                assert current['lineage']['history_restore']=={'kind':'revision','id':1}
+
+            with namespace.acquire() as connection:
+                with connection.cursor() as cursor:
+                    cursor.execute('SELECT SNAPSHOT_BLOB,SHA256 FROM AP_INPUT_REVISION WHERE INPUT_VERSION=1')
+                    retained_blob,retained_sha=cursor.fetchone()
+                    retained_blob=retained_blob.read() if hasattr(retained_blob,'read') else retained_blob
+                connection.rollback()
+            assert (retained_blob,retained_sha)==(original_blob,original_sha)
+
+            with TestClient(app(),base_url=settings.public_origin) as reopened:
+                reopened.headers.update(headers)
+                login(reopened,'T29EDITOR')
+                assert reopened.get('/auto_plan/api/inputs',headers=headers).json()==edited
+                assert reopened.get('/auto_plan/api/inputs',headers=headers).json()==edited
+                assert reopened.get('/auto_plan/api/inputs?version=1',headers=headers).json()==legacy.model_dump(mode='json')
+                assert legacy_input_export(reopened)==(('month','percent'),('2026-10','95'),(1,1))
+                assert reopened.get('/auto_plan/api/plans/revisions/1',headers=headers).json()==original
+                assert reopened.get(f'/auto_plan/api/plans/revisions/{restored_revision}',headers=headers).json()==current
+                restarted_book=workbook(reopened.get('/auto_plan/api/plans/revisions/1/export.xlsx',headers=headers))
+                restarted_raw=''.join(row['json_chunk'] for row in records(restarted_book,'_record_json'))
+                assert json.loads(restarted_raw)==original
+                assert inputs.check_consistency() and plans.check_consistency()
+    finally:
+        access.close()
 
 
 def test_real_selected_history_recovery_boundary_export_restart_and_immutable_audit():
@@ -43,6 +166,9 @@ def test_real_selected_history_recovery_boundary_export_restart_and_immutable_au
                 changes={key:value for section in snapshot()['inputs'].values() for key,value in section.items()}
                 seeded=client.post('/auto_plan/api/inputs/apply',json={'base_version':0,'changes':changes})
                 assert seeded.status_code==200,seeded.text
+                seeded_input=client.get('/auto_plan/api/inputs?version=1').json()
+                assert seeded_input['parameters']['line_yields']==[
+                    {'month':'2026-10','model_code':m,'percent':'100'} for m in ('M','N','P')]
                 def head():
                     response=client.get('/auto_plan/api/plans/current');assert response.status_code==200,response.text
                     return response.json()
@@ -76,8 +202,9 @@ def test_real_selected_history_recovery_boundary_export_restart_and_immutable_au
                 assert expired.status_code==410,expired.text
                 permanent={'kind':'restore_history','source':{'kind':'adoption','id':1}}
                 assert post('preview',command(permanent)).status_code==200
-                changed=client.post('/auto_plan/api/inputs/apply',json={'base_version':1,'changes':{'capacities':[{'month':'2026-10','recipe_code':'R','line_code':'L','pieces':2000}]}})
+                changed=client.post('/auto_plan/api/inputs/apply',json={'base_version':1,'changes':{'capacities':[{'month':'2026-10','recipe_code':'R','line_code':'L','pieces':2000}],'line_yields':[{'month':'2026-10','model_code':'M','percent':'94'}]}})
                 assert changed.status_code==200,changed.text
+                assert client.get('/auto_plan/api/inputs?version=1').json()==seeded_input
                 assert client.get('/auto_plan/api/plans/adoptions/1').json()==original
                 book=workbook(client.get('/auto_plan/api/plans/adoptions/1/export.xlsx'))
                 assert records(book,'production')[0]['hours_exact']=='60001/20000'
@@ -105,6 +232,7 @@ def test_real_selected_history_recovery_boundary_export_restart_and_immutable_au
                 login(reopened,'T34EDITOR')
                 assert reopened.get('/auto_plan/api/plans/current').json()==expected
                 assert reopened.get('/auto_plan/api/plans/adoptions/1').json()==original
+                assert reopened.get('/auto_plan/api/inputs?version=1').json()==seeded_input
                 assert plans.check_consistency() is True
     finally:
         access.close()

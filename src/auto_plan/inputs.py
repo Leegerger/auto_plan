@@ -10,7 +10,7 @@ SECTIONS = {kind: 'masters' for kind in ROW_TYPES}
 KEYS = {'recipes': ('code',), 'lines': ('code',), 'models': ('code',), 'capabilities': ('recipe_code', 'line_code')}
 ROW_TYPES.update(line_yields=LineYield, model_yields=ModelYield, capacities=Capacity, cycle_times=CycleTime, switch_durations=SwitchDuration)
 SECTIONS.update({kind: 'parameters' for kind in ['line_yields', 'model_yields', 'capacities', 'cycle_times', 'switch_durations']})
-KEYS.update(line_yields=('month',), model_yields=('month', 'model_code'), capacities=('month', 'recipe_code', 'line_code'), cycle_times=('model_code',), switch_durations=('from_recipe', 'to_recipe'))
+KEYS.update(line_yields=('month', 'model_code'), model_yields=('month', 'model_code'), capacities=('month', 'recipe_code', 'line_code'), cycle_times=('model_code',), switch_durations=('from_recipe', 'to_recipe'))
 ROW_TYPES.update(holidays=Holiday, opening_exceptions=OpeningException, maintenance=Occupancy, experiments=Occupancy)
 SECTIONS.update({kind: 'calendar' for kind in ['holidays', 'opening_exceptions', 'maintenance', 'experiments']})
 KEYS.update(holidays=('date',), opening_exceptions=('date', 'line_code'), maintenance=('date', 'line_code'), experiments=('date', 'line_code'))
@@ -63,8 +63,12 @@ def preview(current: InputSnapshot, base_version: int, changes: dict[str, list[d
                 item = ROW_TYPES[kind].model_validate(values).model_dump(mode='json')
             except ValidationError as exc:
                 for detail in exc.errors():
-                    reason = detail['ctx']['error'] if 'ctx' in detail and 'error' in detail['ctx'] else '字段必填或格式无效'
-                    errors.append(error(kind, source_row, str(detail['loc'][0]), str(reason)))
+                    field = str(detail['loc'][0])
+                    if kind == 'line_yields' and field == 'model_code' and detail.get('type') == 'missing':
+                        reason = '线体良率缺少机种 model_code，请使用包含机种的新格式或新模板'
+                    else:
+                        reason = detail['ctx']['error'] if 'ctx' in detail and 'error' in detail['ctx'] else '字段必填或格式无效'
+                    errors.append(error(kind, source_row, field, str(reason)))
                 continue
             key = tuple(item[field] for field in KEYS[kind])
             if key in seen:
@@ -101,6 +105,7 @@ def preview(current: InputSnapshot, base_version: int, changes: dict[str, list[d
 
 
 def apply_batch(current, base_version, changes):
+    current = expanded_legacy_line_yields(current)
     result = preview(current, base_version, changes)
     if result['errors']:
         raise InputErrors(result['errors'])
@@ -110,8 +115,31 @@ def apply_batch(current, base_version, changes):
     return normalize_snapshot(result['snapshot'])
 
 
-def continue_months(current: InputSnapshot, month: str) -> InputSnapshot:
+def _expand_legacy_line_yields(document):
+    rows = document['parameters']['line_yields']
+    model_codes = [row['code'] for row in document['masters']['models']]
+    present = {(row['month'], row['model_code']) for row in rows if 'model_code' in row}
+    expanded = []
+    for row in rows:
+        if 'model_code' in row:
+            expanded.append(row)
+            continue
+        for model_code in model_codes:
+            key = (row['month'], model_code)
+            if key not in present:
+                expanded.append(row | {'model_code': model_code})
+                present.add(key)
+    document['parameters']['line_yields'] = expanded
+
+
+def expanded_legacy_line_yields(current: InputSnapshot) -> InputSnapshot:
+    """Expand global rows for the models already present without advancing the version."""
     document = current.model_dump(mode='json')
+    _expand_legacy_line_yields(document)
+    return current if document == current.model_dump(mode='json') else normalize_snapshot(document)
+
+
+def _advance_current_document(document, month):
     start_year, start_month = map(int, month.split('-'))
     start = start_year * 12 + start_month - 1
     for kind in ('line_yields', 'model_yields', 'capacities'):
@@ -126,10 +154,26 @@ def continue_months(current: InputSnapshot, month: str) -> InputSnapshot:
                 if old['month'] == prior_month and key not in present:
                     rows.append(deepcopy(old) | {'month': current_month})
                     present.add(key)
+    return document
+
+
+def _advance_current(current: InputSnapshot, month: str, *, expand_legacy: bool):
+    document = current.model_dump(mode='json')
+    if expand_legacy:
+        _expand_legacy_line_yields(document)
+    document = _advance_current_document(document, month)
     if document == current.model_dump(mode='json'):
         return current
     document['input_version'] += 1
     return normalize_snapshot(document)
+
+
+def continue_months(current: InputSnapshot, month: str) -> InputSnapshot:
+    return _advance_current(current, month, expand_legacy=False)
+
+
+def prepare_current(current: InputSnapshot, month: str) -> InputSnapshot:
+    return _advance_current(current, month, expand_legacy=True)
 
 
 def selection_options(current: InputSnapshot):

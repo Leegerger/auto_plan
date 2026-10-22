@@ -1,4 +1,6 @@
-from tests.test_inputs import inputs_client
+from copy import deepcopy
+
+from tests.test_inputs import batch, inputs_client
 from tests.test_plan_preview import snapshot, segment, preview
 
 
@@ -14,8 +16,127 @@ def output_snapshot(quantity=1000, day='2026-10-14', yield_percent='93.10', ct='
     return data
 
 
+def test_raw_legacy_global_line_yield_snapshot_is_not_a_current_evaluation_input(inputs_client):
+    data = output_snapshot(1000, yield_percent='90', ct='0')
+    data['inputs']['parameters']['line_yields'] = [{'month': '2026-10', 'percent': '95'}]
+    response = inputs_client.post('/auto_plan/api/plans/evaluate', json={'snapshot': data})
+    assert response.status_code == 422, response.text
+
+
+def test_same_recipe_models_keep_independent_model_month_line_yields(inputs_client):
+    data = snapshot()
+    data['time'] = {'as_of': '2026-10-14T09:00:00+08:00', 'window_start': '2026-10-12'}
+    data['inputs']['parameters']['line_yields'] = [
+        {'month': '2026-10', 'model_code': 'M', 'percent': '95'},
+        {'month': '2026-10', 'model_code': 'N', 'percent': '80'},
+    ]
+    data['inputs']['parameters']['model_yields'] = [
+        {'month': '2026-10', 'model_code': 'M', 'percent': '90'},
+        {'month': '2026-10', 'model_code': 'N', 'percent': '90'},
+    ]
+    data['inputs']['parameters']['cycle_times'] = [
+        {'model_code': 'M', 'days': '0'}, {'model_code': 'N', 'days': '0'}]
+    data['inputs']['parameters']['capacities'] = [
+        {'month': '2026-10', 'recipe_code': 'R', 'line_code': 'L', 'pieces': 10000}]
+    data['plan']['segments'] = [
+        segment('a', 0, 'M', 1000, '12'),
+        segment('b', 1, 'N', 1000, '12'),
+    ]
+    data['execution'] = {
+        'cutoff': '2026-10-14T09:00:00+08:00',
+        'coverage': [{'start_date': '2026-10-12', 'end_date': '2026-10-14',
+                      'line_codes': ['L'], 'model_codes': ['M', 'N'], 'blanks_are_zero': True}],
+    }
+    result = preview(inputs_client, data)
+    assert {source['model_code']: source['portions'][0]['quantity']
+            for source in result['output_sources']} == {'M': 855, 'N': 720}, result['issues']
+
+    data['inputs']['parameters']['line_yields'][0]['percent'] = '96'
+    result = preview(inputs_client, data)
+    assert {source['model_code']: source['portions'][0]['quantity']
+            for source in result['output_sources']} == {'M': 864, 'N': 720}
+
+
+def test_missing_model_month_yield_is_localized_and_marks_evaluation_incomplete(inputs_client):
+    data = output_snapshot(1000, yield_percent='90', ct='0')
+    data['inputs']['parameters']['line_yields'] = [
+        row for row in data['inputs']['parameters']['line_yields'] if row['model_code'] != 'M']
+
+    result = preview(inputs_client, data)
+
+    assert result['computation_complete'] is False
+    assert result['weekly_results'][0]['computation_complete'] is False
+    assert result['weekly_results'][0]['on_time_rate_display'] == '计算未完成'
+    missing = next(row for row in result['issues'] if row['code'] == 'missing_line_yield')
+    assert (missing['model_code'], missing['yield_month'], missing['date']) == ('M', '2026-10', '2026-10-14')
+    assert result['output_sources'] == []
+
+
+def test_current_snapshot_rejects_global_fallback_alongside_model_rows(inputs_client):
+    data = output_snapshot(1000, yield_percent='90', ct='0')
+    data['inputs']['parameters']['line_yields'] = [
+        row for row in data['inputs']['parameters']['line_yields'] if row['model_code'] != 'M']
+    data['inputs']['parameters']['line_yields'].append({'month': '2026-10', 'percent': '100'})
+
+    response = inputs_client.post('/auto_plan/api/plans/evaluate', json={'snapshot': data})
+
+    assert response.status_code == 422, response.text
+
+
+def test_saved_model_month_yields_reach_public_evaluation_and_update_only_one_model(inputs_client):
+    client = inputs_client
+    seeded = batch(client, {
+        'recipes': [{'code': 'R', 'name': '工艺', 'active': True}],
+        'lines': [{'code': 'L', 'name': '一线', 'active': True}],
+        'models': [
+            {'code': 'A', 'name': '机种 A', 'recipe_code': 'R', 'active': True},
+            {'code': 'B', 'name': '机种 B', 'recipe_code': 'R', 'active': True},
+        ],
+        'capacities': [{'month': '2026-10', 'recipe_code': 'R', 'line_code': 'L', 'pieces': 10000}],
+        'line_yields': [
+            {'month': '2026-10', 'model_code': 'A', 'percent': '95'},
+            {'month': '2026-10', 'model_code': 'B', 'percent': '80'},
+        ],
+        'model_yields': [
+            {'month': '2026-10', 'model_code': 'A', 'percent': '90'},
+            {'month': '2026-10', 'model_code': 'B', 'percent': '90'},
+        ],
+        'cycle_times': [
+            {'model_code': 'A', 'days': '0'},
+            {'model_code': 'B', 'days': '0'},
+        ],
+    })
+    assert seeded.status_code == 200, seeded.text
+    saved = client.get('/auto_plan/api/inputs').json()
+
+    def plan_evaluation(inputs):
+        data = output_snapshot()
+        data['inputs']['masters'] = inputs['masters']
+        data['inputs']['parameters'] = inputs['parameters']
+        data['inputs']['calendar'] = inputs['calendar']
+        data['plan']['segments'] = [
+            segment('a', 0, 'A', 1000, '12'),
+            segment('b', 1, 'B', 1000, '12'),
+        ]
+        data['execution']['coverage'][0]['model_codes'] = ['A', 'B']
+        return preview(client, data)
+
+    first = plan_evaluation(saved)
+    assert {source['model_code']: source['portions'][0]['quantity']
+            for source in first['output_sources']} == {'A': 855, 'B': 720}
+
+    changed = batch(client, {'line_yields': [
+        {'month': '2026-10', 'model_code': 'A', 'percent': '96'}]})
+    assert changed.status_code == 200, changed.text
+    second = plan_evaluation(changed.json())
+    assert {source['model_code']: source['portions'][0]['quantity']
+            for source in second['output_sources']} == {'A': 864, 'B': 720}
+
+
 def test_exact_ct_portions_and_cross_line_aggregation(inputs_client):
     data = output_snapshot()
+    data['inputs']['parameters']['line_yields'][0]['percent'] = '95'
+    data['inputs']['parameters']['model_yields'][0]['percent'] = '98'
     result = preview(inputs_client, data)
     assert [(row['date'], row['quantity']) for row in result['output_sources'][0]['portions']] == [('2026-10-14', 466), ('2026-10-15', 466)]
     assert result['weekly_results'][0]['on_time'] == 932
@@ -30,6 +151,37 @@ def test_exact_ct_portions_and_cross_line_aggregation(inputs_client):
     result = preview(inputs_client, data)
     assert len(result['output_sources']) == 1
     assert [p['quantity'] for p in result['output_sources'][0]['portions']] == [466, 466]
+
+
+def test_same_day_different_models_keep_separate_yields_and_rounding_sources(inputs_client):
+    data = output_snapshot(600)
+    data['inputs']['masters']['lines'].append({'code': 'L2', 'name': '二线', 'active': True})
+    data['inputs']['parameters']['line_yields'] = [
+        {'month': '2026-10', 'model_code': 'M', 'percent': '95'},
+        {'month': '2026-10', 'model_code': 'N', 'percent': '80'},
+    ]
+    data['inputs']['parameters']['model_yields'] = [
+        {'month': '2026-10', 'model_code': 'M', 'percent': '98'},
+        {'month': '2026-10', 'model_code': 'N', 'percent': '90'},
+    ]
+    data['inputs']['parameters']['cycle_times'] = [
+        {'model_code': 'M', 'days': '0.50'}, {'model_code': 'N', 'days': '0.50'}]
+    data['inputs']['parameters']['capacities'].append(
+        {'month': '2026-10', 'recipe_code': 'R', 'line_code': 'L2', 'pieces': 10000})
+    second = segment('b', 0, 'N', 400, '24', '2026-10-14')
+    second['line_code'] = 'L2'
+    data['plan']['segments'].append(second)
+    data['execution']['coverage'][0]['line_codes'].append('L2')
+    data['execution']['coverage'][0]['model_codes'].append('N')
+
+    result = preview(inputs_client, data)
+
+    sources = {row['model_code']: row for row in result['output_sources']}
+    assert set(sources) == {'M', 'N'}
+    assert [row['quantity'] for row in sources['M']['portions']] == [280, 280]
+    assert [row['quantity'] for row in sources['N']['portions']] == [144, 144]
+    assert (sources['M']['line_yield'], sources['M']['model_yield']) == ('95', '98')
+    assert (sources['N']['line_yield'], sources['N']['model_yield']) == ('80', '90')
 
 
 def confirmation(kind, week, quantity, date, batch='B', status='allowed'):
@@ -73,6 +225,20 @@ def test_facts_replace_plan_expired_is_not_output_and_wip_is_separate(inputs_cli
     result = preview(inputs_client, data)
     assert result['computation_complete'] is False
     assert any(i['code'] == 'execution_unknown' for i in result['issues'])
+
+
+def test_plan_execution_facts_and_wip_apply_the_same_two_yields(inputs_client):
+    data = output_snapshot(300, '2026-10-12', '98', '0')
+    data['inputs']['parameters']['line_yields'][0]['percent'] = '95'
+    data['execution']['facts'] = [{'date': '2026-10-12', 'line_code': 'L', 'model_code': 'M', 'quantity': 300}]
+    data['reset'] = {'batch_id': 'RESET', 'production_week': '2026-10-12', 'cutoff': '2026-10-12T08:00:00+08:00', 'models': [{'model_code': 'M', 'wip': 100, 'net_balance': 0}]}
+    result = preview(inputs_client, data)
+    sources = {row['kind']: row for row in result['output_sources']}
+    assert (sources['input']['yield_month'], sources['input']['line_yield'], sources['input']['model_yield']) == ('2026-10', '95', '98')
+    assert (sources['wip']['yield_month'], sources['wip']['line_yield'], sources['wip']['model_yield']) == ('2026-10', '95', '98')
+    assert [row['quantity'] for row in sources['input']['portions']] == [280]
+    assert [row['quantity'] for row in sources['wip']['portions']] == [94]
+    assert result['output_totals']['expected'] == 374
 
 
 def test_confirmation_upserts_share_input_version_and_keep_history(inputs_client):
@@ -161,7 +327,7 @@ def test_pending_material_does_not_reserve_shipping_and_revocation_rematches_onl
 def test_cross_month_sources_keep_yield_month_and_window_tail_can_cover_original_week(inputs_client):
     data = output_snapshot(100, '2026-10-31', '90', '0.5')
     data['plan']['segments'].append(segment('b', 0, 'M', 100, '24', '2026-11-01'))
-    data['inputs']['parameters']['line_yields'].append({'month': '2026-11', 'percent': '100'})
+    data['inputs']['parameters']['line_yields'].append({'month': '2026-11', 'model_code': 'M', 'percent': '100'})
     data['inputs']['parameters']['model_yields'].append({'month': '2026-11', 'model_code': 'M', 'percent': '100'})
     data['inputs']['parameters']['capacities'].append({'month': '2026-11', 'recipe_code': 'R', 'line_code': 'L', 'pieces': 10000})
     data['inputs']['business']['demands'] = [{'model_code': 'M', 'week': '2026-10-26', 'quantity': 100}, {'model_code': 'M', 'week': '2026-11-02', 'quantity': 100}]
@@ -180,6 +346,36 @@ def test_cross_month_sources_keep_yield_month_and_window_tail_can_cover_original
     assert result['weekly_results'][0]['gap'] == 0
 
 
+def test_plan_and_execution_use_input_month_yield_when_output_crosses_month(inputs_client):
+    data = output_snapshot(1000, '2026-10-31', '90', '1')
+    data['time'] = {'as_of': '2026-10-31T09:00:00+08:00', 'window_start': '2026-10-26'}
+    data['inputs']['parameters']['line_yields'] = [
+        {'month': '2026-10', 'model_code': 'M', 'percent': '95'},
+        {'month': '2026-11', 'model_code': 'M', 'percent': '85'},
+    ]
+    data['inputs']['parameters']['model_yields'] = [
+        {'month': '2026-10', 'model_code': 'M', 'percent': '90'},
+        {'month': '2026-11', 'model_code': 'M', 'percent': '90'},
+    ]
+    data['inputs']['business'] = {'demands': [{'model_code': 'M', 'week': '2026-10-26', 'quantity': 855}]}
+    data['execution'] = {
+        'cutoff': '2026-10-31T09:00:00+08:00',
+        'coverage': [{'start_date': '2026-10-31', 'end_date': '2026-10-31',
+                      'line_codes': ['L'], 'model_codes': ['M'], 'blanks_are_zero': True}],
+    }
+
+    for source_kind in ('plan', 'execution'):
+        trial = deepcopy(data)
+        if source_kind == 'execution':
+            trial['execution']['facts'] = [
+                {'date': '2026-10-31', 'line_code': 'L', 'model_code': 'M', 'quantity': 1000}]
+        result = preview(inputs_client, trial)
+        assert result['output_sources'], result['issues']
+        source = next((row for row in result['output_sources'] if row['model_code'] == 'M'), result['issues'])
+        assert (source['yield_month'], source['line_yield'], source['model_yield']) == ('2026-10', '95', '90')
+        assert [(row['date'], row['quantity']) for row in source['portions']] == [('2026-11-01', 855)]
+
+
 def test_reset_requires_exact_monday_0800_cutoff_and_explicit_fact_scope(inputs_client):
     data = output_snapshot(100, yield_percent='100', ct='0')
     data['reset'] = {'batch_id': 'R', 'production_week': '2026-10-12', 'cutoff': '2026-10-12T20:00:00+08:00', 'models': [{'model_code': 'M', 'wip': 10, 'net_balance': 0}]}
@@ -190,6 +386,63 @@ def test_reset_requires_exact_monday_0800_cutoff_and_explicit_fact_scope(inputs_
     assert not any(i['code'] == 'reset_context' for i in preview(inputs_client, data)['issues'])
     data['execution']['facts'] = [{'date': '2026-10-15', 'line_code': 'L', 'model_code': 'M', 'quantity': 20}]
     assert any(i['code'] == 'execution_cutoff' for i in preview(inputs_client, data)['issues'])
+
+
+def test_missing_wip_yield_is_localized_to_the_reset_monday_month(inputs_client):
+    data = output_snapshot(1000, '2026-11-02', '90', '0.5')
+    data['time'] = {'as_of': '2026-11-02T09:00:00+08:00', 'window_start': '2026-11-02'}
+    data['plan']['segments'] = []
+    data['execution'] = {'cutoff': '2026-11-02T09:00:00+08:00',
+                         'coverage': [{'start_date': '2026-11-02', 'end_date': '2026-11-02',
+                                       'line_codes': ['L'], 'model_codes': ['M'], 'blanks_are_zero': True}]}
+    data['inputs']['business'] = {'demands': [{'model_code': 'M', 'week': '2026-11-02', 'quantity': 1000}]}
+    for kind in ('line_yields', 'model_yields', 'capacities'):
+        for row in data['inputs']['parameters'][kind]:
+            row['month'] = '2026-11'
+    data['inputs']['parameters']['line_yields'] = [
+        row for row in data['inputs']['parameters']['line_yields'] if row['model_code'] != 'M']
+    data['reset'] = {'batch_id': 'RESET', 'production_week': '2026-11-02',
+                     'cutoff': '2026-11-02T08:00:00+08:00',
+                     'models': [{'model_code': 'M', 'wip': 1000, 'net_balance': 0}]}
+
+    result = preview(inputs_client, data)
+
+    missing = next(row for row in result['issues'] if row['code'] == 'wip_yield_missing')
+    assert (missing['model_code'], missing['yield_month']) == ('M', '2026-11')
+    assert result['computation_complete'] is False
+    assert result['output_sources'] == []
+
+
+def test_wip_uses_reset_monday_month_without_ct_and_holiday_keeps_that_month(inputs_client):
+    data = output_snapshot(1000, '2026-11-02', '90', '0.5')
+    data['time'] = {'as_of': '2026-11-02T09:00:00+08:00', 'window_start': '2026-11-02'}
+    data['plan']['segments'] = []
+    data['execution'] = {'cutoff': '2026-11-02T09:00:00+08:00',
+                         'coverage': [{'start_date': '2026-11-02', 'end_date': '2026-11-02',
+                                       'line_codes': ['L'], 'model_codes': ['M'], 'blanks_are_zero': True}]}
+    data['inputs']['business'] = {'demands': [{'model_code': 'M', 'week': '2026-11-02', 'quantity': 1000}]}
+    data['inputs']['parameters']['line_yields'] = [
+        {'month': '2026-10', 'model_code': 'M', 'percent': '95'},
+        {'month': '2026-11', 'model_code': 'M', 'percent': '85'},
+    ]
+    data['inputs']['parameters']['model_yields'] = [
+        {'month': '2026-10', 'model_code': 'M', 'percent': '90'},
+        {'month': '2026-11', 'model_code': 'M', 'percent': '90'},
+    ]
+    data['inputs']['parameters']['capacities'] = [
+        {'month': '2026-11', 'recipe_code': 'R', 'line_code': 'L', 'pieces': 10000}]
+    data['inputs']['calendar'] = {'holidays': [{'date': '2026-11-02', 'holiday': True}]}
+    data['reset'] = {'batch_id': 'RESET', 'production_week': '2026-11-02',
+                     'cutoff': '2026-11-02T08:00:00+08:00',
+                     'models': [{'model_code': 'M', 'wip': 1000, 'net_balance': 0}]}
+
+    result = preview(inputs_client, data)
+
+    source = next(row for row in result['output_sources'] if row['kind'] == 'wip')
+    assert (source['yield_month'], source['line_yield'], source['model_yield'], source['cycle_time']) == (
+        '2026-11', '85', '90', None)
+    assert [(row['date'], row['quantity']) for row in source['portions']] == [('2026-11-03', 765)]
+    assert result['computation_complete'] is True
 
 
 def test_unplanned_facts_keep_identity_validation_and_current_day_rounds_once(inputs_client):

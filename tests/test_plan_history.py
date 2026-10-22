@@ -30,6 +30,106 @@ def test_selected_history_keeps_original_inputs_results_and_missing_old_metrics(
     assert client.get('/auto_plan/api/plans/current').json()['input_version'] == 2
 
 
+def test_legacy_global_yields_remain_raw_in_history_after_current_masters_change(shared_client):
+    import json
+    from auto_plan.input_models import InputSnapshot
+    client, _, inputs = shared_client
+    legacy_document = inputs.read().model_dump(mode='json')
+    legacy_document['parameters']['line_yields'] = [{'month': '2026-10', 'percent': '95'}]
+    legacy_document['parameters']['model_yields'] = [
+        {'month': '2026-10', 'model_code': 'M', 'percent': '98'}]
+    legacy = InputSnapshot.model_validate(legacy_document)
+    inputs.versions[1] = legacy
+    inputs.version = 1
+    saved = post(client, 'save', command(patch(row()), version=1))
+    assert saved.status_code == 200, saved.text
+    original_input = client.get('/auto_plan/api/inputs?version=1').json()
+    original = client.get('/auto_plan/api/plans/revisions/1').json()
+    assert original['snapshot']['inputs']['parameters']['line_yields'] == [{'month': '2026-10', 'percent': '95'}]
+
+    converted = client.get('/auto_plan/api/inputs').json()
+    changed = client.post('/auto_plan/api/inputs/apply', json={'base_version': converted['input_version'], 'changes': {
+        'models': [{'code': 'Q', 'name': '新机种', 'active': True, 'recipe_code': 'R'}],
+        'line_yields': [{'month': '2026-10', 'model_code': 'M', 'percent': '96'}]
+    }})
+    assert changed.status_code == 200, changed.text
+    assert changed.json()['masters']['models'][-1]['code'] == 'Q'
+    current_yields = {(row['month'], row['model_code']): row['percent']
+                      for row in changed.json()['parameters']['line_yields']}
+    assert current_yields['2026-10', 'M'] == '96'
+    assert current_yields['2026-10', 'N'] == '95'
+    assert ('2026-10', 'Q') not in current_yields
+
+    assert client.get('/auto_plan/api/inputs?version=1').json() == original_input
+    selected = client.get('/auto_plan/api/plans/revisions/1').json()
+    assert selected == original
+    rejected = client.post('/auto_plan/api/plans/evaluate', json={'snapshot': original['snapshot']})
+    assert rejected.status_code == 422, rejected.text
+    book = workbook(client.get('/auto_plan/api/plans/revisions/1/export.xlsx'))
+    exported = json.loads(''.join(row['json_chunk'] for row in records(book, '_record_json')))
+    assert exported == original
+
+
+def test_legacy_history_keeps_original_output_while_restore_uses_current_model_yields(shared_client):
+    import json
+    from auto_plan.input_models import InputSnapshot
+    client, _, inputs = shared_client
+    legacy_document = inputs.read().model_dump(mode='json')
+    legacy_document['parameters']['line_yields'] = [{'month': '2026-10', 'percent': '95'}]
+    legacy_document['parameters']['model_yields'] = [
+        {'month': '2026-10', 'model_code': 'M', 'percent': '90'}]
+    inputs.versions[1] = InputSnapshot.model_validate(legacy_document)
+    inputs.version = 1
+
+    historical_save = post(client, 'save', command(
+        patch(row(quantity=1000) | {'hours': '24'}), version=1))
+    assert historical_save.status_code == 200, historical_save.text
+    original = client.get('/auto_plan/api/plans/revisions/1').json()
+    assert original['evaluation']['output_totals']['expected'] == 855
+
+    converted = client.get('/auto_plan/api/inputs').json()
+    stale_request = command(restore(), base=1, version=converted['input_version'])
+    changed = client.post('/auto_plan/api/inputs/apply', json={
+        'base_version': converted['input_version'],
+        'changes': {'line_yields': [
+            {'month': '2026-10', 'model_code': 'M', 'percent': '80'}]},
+    })
+    assert changed.status_code == 200, changed.text
+    current_version = changed.json()['input_version']
+
+    stale = preview(client, stale_request)
+    assert stale.status_code == 409, stale.text
+    assert stale.json()['input_version'] == current_version
+
+    assert client.get('/auto_plan/api/plans/revisions/1').json() == original
+    book = workbook(client.get('/auto_plan/api/plans/revisions/1/export.xlsx'))
+    exported = json.loads(''.join(row['json_chunk'] for row in records(book, '_record_json')))
+    assert exported == original
+
+    request = command(restore(), base=1, version=current_version)
+    restored = preview(client, request)
+    assert restored.status_code == 200, restored.text
+    assert restored.json()['evaluation']['output_totals']['expected'] == 720
+    restored_yields = {(row['month'], row['model_code']): row['percent']
+                       for row in restored.json()['snapshot']['inputs']['parameters']['line_yields']}
+    assert {key: restored_yields[key] for key in (
+        ('2026-10', 'M'), ('2026-10', 'N'), ('2026-10', 'P'))} == {
+            ('2026-10', 'M'): '80', ('2026-10', 'N'): '95', ('2026-10', 'P'): '95'}
+
+    restored_save = post(client, 'save', request)
+    assert restored_save.status_code == 200, restored_save.text
+    saved_revision = restored_save.json()['revision']
+    current = client.get(f'/auto_plan/api/plans/revisions/{saved_revision}').json()
+    assert current['evaluation']['output_totals']['expected'] == 720
+    assert current['lineage']['history_restore'] == {'kind': 'revision', 'id': 1}
+    assert client.get('/auto_plan/api/plans/revisions/1').json() == original
+
+    adopted = post(client, 'adopt', command(
+        base=saved_revision, version=current_version, adoption=0))
+    assert adopted.status_code == 200, adopted.text
+    assert adopted.json()['latest_adoption'] == 1
+
+
 def test_restore_resolves_server_reference_into_new_draft_with_current_inputs_and_lineage(shared_client):
     client, plans, _ = shared_client
     assert post(client, 'save', command(patch(row()))).status_code == 200

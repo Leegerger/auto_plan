@@ -93,7 +93,7 @@ def real_app(real_namespace):
                  'models':[{'code':m,'name':m,'active':True,'recipe_code':recipe} for m in (model,other)],
                  'lines':[{'code':l,'name':l,'active':True} for l in (line,line2)],
                  'capacities':[{'month':'2026-10','recipe_code':recipe,'line_code':l,'pieces':1000} for l in (line,line2)],
-                 'line_yields':[{'month':'2026-10','percent':'100'}],
+                 'line_yields':[{'month':'2026-10','model_code':m,'percent':'100'} for m in (model,other)],
                  'model_yields':[{'month':'2026-10','model_code':m,'percent':'100'} for m in (model,other)],
                  'cycle_times':[{'model_code':m,'days':'0'} for m in (model,other)]}
         response=client.post('/auto_plan/api/inputs/apply',json={'base_version':current['input_version'],'changes':changes})

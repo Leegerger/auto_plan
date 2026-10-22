@@ -10,7 +10,9 @@ class InputIndex:
         self.lines = {row.code: row for row in inputs.masters.lines}
         self.capabilities = {(row.recipe_code, row.line_code): row for row in inputs.masters.capabilities}
         self.capacities = {(row.month, row.recipe_code, row.line_code): row for row in inputs.parameters.capacities}
-        self.line_yields = {row.month: row for row in inputs.parameters.line_yields}
+        self.line_yields = {(row.month, getattr(row, 'model_code', None)): row for row in inputs.parameters.line_yields}
+        self.uses_legacy_global_line_yields = all(
+            getattr(row, 'model_code', None) is None for row in inputs.parameters.line_yields)
         self.model_yields = {(row.month, row.model_code): row for row in inputs.parameters.model_yields}
         self.cycle_times = {row.model_code: row for row in inputs.parameters.cycle_times}
         self.switch_durations = {(row.from_recipe, row.to_recipe): row for row in inputs.parameters.switch_durations}
@@ -39,11 +41,19 @@ class InputIndex:
         available = 0 if holiday and not self.openings.get(key, False) else max(24 - self.maintenance.get(key, 0) - self.experiments.get(key, 0), 0)
         return {'available_hours': available, 'output_holiday': holiday}
 
+    def yields(self, month: str, model_code: str):
+        line_yield = self.line_yields.get((month, model_code))
+        if line_yield is None and self.uses_legacy_global_line_yields:
+            line_yield = self.line_yields.get((month, None))
+        return {'line_yield': line_yield,
+                'model_yield': self.model_yields.get((month, model_code))}
+
     def critical_parameters(self, month: str, model_code: str):
         def parameter(row, field):
             return {'state': 'known' if row else 'missing', field: getattr(row, field) if row else None}
-        return {'line_yield': parameter(self.line_yields.get(month), 'percent'),
-                'model_yield': parameter(self.model_yields.get((month, model_code)), 'percent'),
+        yields = self.yields(month, model_code)
+        return {'line_yield': parameter(yields['line_yield'], 'percent'),
+                'model_yield': parameter(yields['model_yield'], 'percent'),
                 'cycle_time': parameter(self.cycle_times.get(model_code), 'days')}
 
     def availability(self, month: str, model_code: str, line_code: str, production_date: date | None, from_recipe: str | None):

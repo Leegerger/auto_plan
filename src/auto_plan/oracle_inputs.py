@@ -5,7 +5,9 @@ import zlib
 from contextlib import contextmanager
 import oracledb
 from .access import AuthorizationDenied, StoreUnavailable
-from .input_models import InputSnapshot, normalize_snapshot
+from .input_models import InputSnapshot
+from .stored_snapshots import decode_stored_input
+from .system_actors import SYSTEM_MAINTENANCE_ACTORS
 
 
 class OracleInputStore:
@@ -49,7 +51,7 @@ class OracleInputStore:
             document = zlib.decompress(compressed)
             if hashlib.sha256(document).hexdigest() != row[1]:
                 raise StoreUnavailable
-            snapshot = normalize_snapshot(json.loads(document))
+            snapshot = decode_stored_input(json.loads(document))
             if snapshot.input_version != version:
                 raise StoreUnavailable
             return snapshot
@@ -68,7 +70,7 @@ class OracleInputStore:
     def update_in_transaction(self, cursor, actor, now, transform):
         """Persist one immutable input revision inside the caller transaction."""
         version = self._head(cursor, lock=True)
-        if actor != 'SYSTEM_MONTH_CONTINUATION':
+        if actor not in SYSTEM_MAINTENANCE_ACTORS:
             cursor.execute('SELECT EDITOR, ACTIVE FROM AP_AUTHORIZATION WHERE USER_ID=:actor', actor=actor)
             authorization = cursor.fetchone()
             if not authorization or not authorization[0] or not authorization[1]:

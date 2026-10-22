@@ -11,7 +11,7 @@ def snapshot():
                    {'code': 'N', 'name': '机种二', 'active': True, 'recipe_code': 'R'},
                    {'code': 'P', 'name': '机种三', 'active': True, 'recipe_code': 'S'}]},
         'parameters': {'capacities': [{'month': '2026-10', 'recipe_code': r, 'line_code': 'L', 'pieces': 1000} for r in ('R', 'S')],
-        'line_yields': [{'month': '2026-10', 'percent': '100'}],
+        'line_yields': [{'month': '2026-10', 'model_code': m, 'percent': '100'} for m in ('M', 'N', 'P')],
         'model_yields': [{'month': '2026-10', 'model_code': m, 'percent': '100'} for m in ('M', 'N', 'P')],
         'cycle_times': [{'model_code': m, 'days': '0'} for m in ('M', 'N', 'P')],
         'switch_durations': [{'from_recipe': 'R', 'to_recipe': 'S', 'hours': '0.95'},
@@ -27,6 +27,20 @@ def preview(client, data):
     response = client.post('/auto_plan/api/plans/evaluate', json={'snapshot': data})
     assert response.status_code == 200, response.text
     return response.json()
+
+
+@pytest.mark.parametrize('path', [
+    '/auto_plan/api/plans/evaluate',
+    '/auto_plan/api/plans/certificate/preview',
+])
+def test_current_plan_previews_reject_legacy_line_yield_rows(path, inputs_client):
+    data = snapshot()
+    data['inputs']['parameters']['line_yields'] = [
+        {'month': '2026-10', 'percent': '95'}]
+
+    response = inputs_client.post(path, json={'snapshot': data})
+
+    assert response.status_code == 422, response.text
 
 
 def test_daily_recipe_capacity_rounds_once_across_models_and_splits_without_writes(inputs_client):

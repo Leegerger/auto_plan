@@ -67,7 +67,7 @@ def loose(count, key_lines=None, rolling=False):
                         'recipes': [{'code': r, 'name': r, 'active': True} for r in recipes],
                         'lines': [{'code': line, 'name': line, 'active': True} for line in LINES],
                         'capabilities': [{'recipe_code': r, 'line_code': line, 'allowed': (i < key_lines if key_lines and r == 'R00' else (i-home[r]) % 18 < 3+ri % 4)} for ri, r in enumerate(recipes) for i, line in enumerate(LINES)]},
-            'parameters': {'line_yields': [{'month': month, 'percent': '100'} for month in MONTHS],
+            'parameters': {'line_yields': [{'month': month, 'model_code': m, 'percent': '100'} for month in MONTHS for m in MODELS],
                 'model_yields': [{'month': month, 'model_code': m, 'percent': '100'} for month in MONTHS for m in MODELS],
                 'capacities': [{'month': month, 'recipe_code': r, 'line_code': line, 'pieces': 2400} for month in MONTHS for r in recipes for line in LINES],
                 'cycle_times': [{'model_code': m, 'days': '0'} for m in MODELS],
@@ -152,7 +152,8 @@ def combined(case, allowed=False):
     masters['capabilities'] = [{'recipe_code': 'R00', 'line_code': line, 'allowed': True} for line in LINES[:3]]
     parameters = snapshot['inputs']['parameters']
     parameters['model_yields'] = [row | {'percent': '98' if row['month'] == '2026-10' else '100'} for row in parameters['model_yields'] if row['model_code'] == 'M00']
-    parameters['line_yields'] = [row | {'percent': '95' if row['month'] == '2026-10' else '100'} for row in parameters['line_yields']]
+    parameters['line_yields'] = [row | {'percent': '95' if row['month'] == '2026-10' else '100'}
+                                 for row in parameters['line_yields'] if row['model_code'] == 'M00']
     parameters['capacities'] = [row | {'pieces': 24000 if case == 'a' else 2400} for row in parameters['capacities'] if row['recipe_code'] == 'R00' and row['line_code'] in LINES[:3]]
     parameters['cycle_times'] = [{'model_code': 'M00', 'days': '0.5'}]
     parameters['switch_durations'] = []

@@ -397,7 +397,8 @@ class _Search:
                         continue
                     parameters = self.index.critical_parameters(day.strftime('%Y-%m'), model)
                     if any(p['state'] == 'missing' for p in parameters.values()):
-                        issue = RuleIssue(code='missing_solver_parameter', reason='需求机种缺少关键良率或 Cycle Time，不能把未知当作零产出', severity='incomplete', date=day, line_code=line, model_code=model)
+                        issue = RuleIssue(code='missing_solver_parameter', reason='需求机种缺少关键良率或 Cycle Time，不能把未知当作零产出', severity='incomplete',
+                            yield_month=day.strftime('%Y-%m'), date=day, line_code=line, model_code=model)
                         if issue not in self.issues:
                             self.issues.append(issue)
                         continue
@@ -505,7 +506,7 @@ class _Search:
             for month in sorted(months):
                 missing = [name for name, value in self.index.critical_parameters(month, demand.model_code).items() if value['state'] == 'missing']
                 if missing:
-                    self.issues.append(RuleIssue(code='missing_solver_parameter', severity='incomplete', model_code=demand.model_code,
+                    self.issues.append(RuleIssue(code='missing_solver_parameter', severity='incomplete', yield_month=month, model_code=demand.model_code,
                         demand_week=demand.week, reason=month + ' 缺少关键资料 ' + ', '.join(missing)))
         if any(i.severity == 'incomplete' for i in self.issues):
             self.stage('context_check', '关键资料不完整，不能把未知当零产出推荐', status='incomplete')

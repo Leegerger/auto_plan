@@ -105,13 +105,21 @@ class Masters(InputRow):
     capabilities: list[Capability] = Field(default_factory=list)
 
 
-class LineYield(InputRow):
+class LegacyLineYield(InputRow):
     month: Month
     percent: PercentString
 
 
-class ModelYield(LineYield):
+class LineYield(InputRow):
+    month: Month
     model_code: Code
+    percent: PercentString
+
+
+class ModelYield(InputRow):
+    month: Month
+    model_code: Code
+    percent: PercentString
 
 
 class Capacity(InputRow):
@@ -133,7 +141,7 @@ class SwitchDuration(InputRow):
 
 
 class Parameters(InputRow):
-    line_yields: list[LineYield] = Field(default_factory=list)
+    line_yields: list[LineYield | LegacyLineYield] = Field(default_factory=list)
     model_yields: list[ModelYield] = Field(default_factory=list)
     capacities: list[Capacity] = Field(default_factory=list)
     cycle_times: list[CycleTime] = Field(default_factory=list)
@@ -219,6 +227,15 @@ class InputSnapshot(InputRow):
     parameters: Parameters = Field(default_factory=Parameters)
     calendar: Calendar = Field(default_factory=Calendar)
     business: BusinessInputs = Field(default_factory=BusinessInputs)
+
+
+class CurrentParameters(Parameters):
+    line_yields: list[LineYield] = Field(default_factory=list)
+
+
+class CurrentInputSnapshot(InputSnapshot):
+    """Inputs supplied by a current request; legacy global rows are not accepted."""
+    parameters: CurrentParameters = Field(default_factory=CurrentParameters)
 
 
 def normalize_snapshot(payload: dict) -> InputSnapshot:

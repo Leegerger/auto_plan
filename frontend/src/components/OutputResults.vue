@@ -31,7 +31,7 @@ const statusNames:Record<string,string> = {allowed:'允许',pending:'待确认',
     <h3>产出来源与逐笔取整</h3>
     <details v-for="source in sourceRows" :key="source.id" :open="openSources.has(source.id)" @toggle="toggleSource($event,source.id)"><summary>{{ source.model_code }} · {{ source.kind === 'wip' ? '起始在制品' : '跨线投入' }} · {{ source.input_date }} · {{ source.quantity }} 片 · 未分配产出 {{ source.unallocated_output }} 片</summary>
       <template v-if="openSources.has(source.id)">
-      <p>来源 {{ source.id }}；良率月份 {{ source.yield_month }}；统一良率 {{ source.line_yield }}%，机种良率 {{ source.model_yield }}%；{{ source.kind === 'wip' ? '在制品不再套完整CT' : `CT ${source.cycle_time} 天` }}。</p>
+      <p>来源 {{ source.id }}；良率月份 {{ source.yield_month }}；线体良率 {{ source.line_yield }}%，机种良率 {{ source.model_yield }}%；{{ source.kind === 'wip' ? '在制品不再套完整CT' : `CT ${source.cycle_time} 天` }}。</p>
       <table v-if="source.lines.length" class="input-table" aria-label="事实与有效剩余"><thead><tr><th>线体</th><th>计划</th><th>实际累计</th><th>剩余有效</th><th>过期未执行</th></tr></thead><tbody><tr v-for="line in source.lines" :key="line.line_code"><td>{{ line.line_code }}</td><td>{{ line.planned }}</td><td>{{ line.actual ?? '未知' }}</td><td>{{ line.remaining }}</td><td>{{ line.expired }}</td></tr></tbody></table>
       <table class="input-table" aria-label="产出取整依据"><thead><tr><th>产出日</th><th>CT分笔比例</th><th>取整前精确量</th><th>向上取整产出</th><th>未分配</th></tr></thead><tbody><tr v-for="(portion,i) in source.portions" :key="i"><td>{{ portion.date }}</td><td>{{ portion.fraction }}</td><td>{{ portion.before_rounding }}</td><td>{{ portion.quantity }}</td><td>{{ portion.unallocated }}</td></tr></tbody></table>
       </template>

@@ -8,6 +8,7 @@ from openpyxl import Workbook, load_workbook
 from openpyxl.comments import Comment
 from openpyxl.styles import Font, PatternFill
 from openpyxl.worksheet.datavalidation import DataValidation
+from .input_models import LegacyLineYield
 from .inputs import ROW_TYPES, SECTIONS, error
 
 HEADERS = {kind: tuple(model.model_fields) for kind, model in ROW_TYPES.items()}
@@ -15,11 +16,23 @@ MAX_UPLOAD = 10 * 1024 * 1024
 MAX_ROWS = 100000
 
 
+def header_error(kind, actual):
+    if kind == 'line_yields' and 'model_code' not in actual:
+        reason = '旧格式缺少机种列 model_code，请使用包含机种的新格式或新模板'
+    else:
+        reason = '列名或顺序与标准模板不一致'
+    return error(kind, 1, 'headers', reason)
+
+
 def workbook_bytes(snapshot=None):
     book = Workbook()
     book.remove(book.active)
     document = snapshot.model_dump(mode='json') if snapshot else None
-    for kind, headers in HEADERS.items():
+    sheet_headers = dict(HEADERS)
+    line_yields = document['parameters']['line_yields'] if document else []
+    if line_yields and all('model_code' not in row for row in line_yields):
+        sheet_headers['line_yields'] = tuple(LegacyLineYield.model_fields)
+    for kind, headers in sheet_headers.items():
         sheet = book.create_sheet(kind)
         sheet.append(headers)
         sheet.freeze_panes = 'A2'
@@ -36,7 +49,7 @@ def workbook_bytes(snapshot=None):
                 validation.add(f'{cell.column_letter}2:{cell.column_letter}100001')
         if document:
             for row in document[SECTIONS[kind]][kind]:
-                sheet.append([row[header] for header in headers])
+                sheet.append([row.get(header) for header in headers])
                 # Fixed codes/names/decimals remain text even if a name starts with '='.
                 for cell in sheet[sheet.max_row]:
                     if isinstance(cell.value, str):
@@ -59,7 +72,7 @@ def paste_rows(kind, text, headers=HEADERS):
     except csv.Error:
         return {}, [error(kind, 1, 'table', '粘贴内容不是有效制表符表格')]
     if not rows or tuple(rows[0]) != headers[kind]:
-        return {}, [error(kind, 1, 'headers', '首行列名与标准模板不一致')]
+        return {}, [header_error(kind, tuple(rows[0]) if rows else ())]
     result, errors = [], []
     if len(rows) > MAX_ROWS + 1:
         return {}, [error(kind, 1, 'table', '单批最多100000行')]
@@ -97,7 +110,7 @@ def excel_rows(content, headers=HEADERS):
             while header_values and header_values[-1] is None:
                 header_values = header_values[:-1]
             if header_values != headers[kind]:
-                errors.append(error(kind, 1, 'headers', '列名或顺序与标准模板不一致'))
+                errors.append(header_error(kind, header_values))
                 continue
             changes[kind] = []
             for index, cells in enumerate(iterator, 2):

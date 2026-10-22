@@ -4,8 +4,9 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, ConfigDict, Field, JsonValue
 from .app import require_editor, require_viewer
 from .access import StoreUnavailable
-from .inputs import InputConflict, InputErrors, apply_batch, preview, continue_months, selection_options, availability
+from .inputs import InputConflict, InputErrors, apply_batch, preview, prepare_current, expanded_legacy_line_yields, selection_options, availability
 from .input_models import InputSnapshot, month_value, date_value
+from .system_actors import SYSTEM_MAINTENANCE_ACTOR
 
 router = APIRouter()
 
@@ -18,6 +19,17 @@ def input_store(request: Request):
         from .oracle_inputs import OracleInputStore
         request.app.state.input_store = OracleInputStore(pool)
     return request.app.state.input_store
+
+
+def current_inputs(request: Request):
+    now = request.app.state.clock()
+    month = now.astimezone(ZoneInfo('Asia/Shanghai')).strftime('%Y-%m')
+    return input_store(request).update(
+        SYSTEM_MAINTENANCE_ACTOR, now, lambda current: prepare_current(current, month))
+
+
+def inputs_with_legacy_yields_expanded(request: Request):
+    return expanded_legacy_line_yields(input_store(request).read())
 
 
 class Batch(BaseModel):
@@ -46,9 +58,7 @@ class InputPreview(BaseModel):
 def read_inputs(request: Request, version: int | None = None, principal=Depends(require_viewer)) -> InputSnapshot:
     try:
         if version is None:
-            now = request.app.state.clock()
-            month = now.astimezone(ZoneInfo('Asia/Shanghai')).strftime('%Y-%m')
-            return input_store(request).update('SYSTEM_MONTH_CONTINUATION', now, lambda current: continue_months(current, month))
+            return current_inputs(request)
         return input_store(request).read(version)
     except KeyError:
         raise HTTPException(404, '输入版本不存在') from None
@@ -56,7 +66,7 @@ def read_inputs(request: Request, version: int | None = None, principal=Depends(
 
 @router.get('/inputs/options')
 def options(request: Request, principal=Depends(require_viewer)):
-    return selection_options(input_store(request).read())
+    return selection_options(inputs_with_legacy_yields_expanded(request))
 
 
 @router.get('/inputs/availability')
@@ -67,7 +77,7 @@ def get_availability(request: Request, month: str, model_code: str, line_code: s
             production_date = date_value(date)
             if production_date.strftime('%Y-%m') != month:
                 raise ValueError('月份必须与生产日期的投入月份一致')
-        return availability(input_store(request).read(), month, model_code, line_code, date, from_recipe)
+        return availability(inputs_with_legacy_yields_expanded(request), month, model_code, line_code, date, from_recipe)
     except ValueError as exc:
         raise HTTPException(422, str(exc)) from None
     except KeyError:
@@ -77,7 +87,7 @@ def get_availability(request: Request, month: str, model_code: str, line_code: s
 @router.post('/inputs/preview')
 def preview_inputs(payload: Batch, request: Request, principal=Depends(require_editor)) -> InputPreview:
     try:
-        return preview(input_store(request).read(), payload.base_version, payload.changes)
+        return preview(inputs_with_legacy_yields_expanded(request), payload.base_version, payload.changes)
     except InputConflict:
         raise HTTPException(409, '资料已更新，请重新读取差异并预览') from None
 
@@ -101,7 +111,7 @@ class Paste(BaseModel):
 
 def adapted_preview(request, base_version, changes, adapter_errors):
     try:
-        result = preview(input_store(request).read(), base_version, changes)
+        result = preview(inputs_with_legacy_yields_expanded(request), base_version, changes)
     except InputConflict:
         raise HTTPException(409, '资料已更新，请重新读取差异并预览') from None
     result['errors'] = adapter_errors + result['errors']
@@ -143,7 +153,7 @@ def export_inputs(request: Request, version: int | None = None, principal=Depend
     from fastapi.responses import Response
     from .input_tables import workbook_bytes
     try:
-        snapshot = input_store(request).read(version)
+        snapshot = input_store(request).read(version) if version is not None else inputs_with_legacy_yields_expanded(request)
     except KeyError:
         raise HTTPException(404, '输入版本不存在') from None
     return Response(workbook_bytes(snapshot), media_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', headers={'Content-Disposition': f'attachment; filename="auto-plan-input-v{snapshot.input_version}.xlsx"'})

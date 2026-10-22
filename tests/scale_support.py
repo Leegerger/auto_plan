@@ -34,7 +34,7 @@ def full_window():
                 'lines': [{'code': line, 'name': line, 'active': True} for line in lines],
                 'capabilities': [{'recipe_code': r, 'line_code': line, 'allowed': True} for r in recipes for line in lines]},
             'parameters': {
-                'line_yields': [{'month': m, 'percent': '100'} for m in months],
+                'line_yields': [{'month': m, 'model_code': model, 'percent': '100'} for m in months for model in models],
                 'model_yields': [{'month': m, 'model_code': model, 'percent': '100'} for m in months for model in models],
                 'capacities': [{'month': m, 'recipe_code': r, 'line_code': line, 'pieces': 2400} for m in months for r in recipes for line in lines],
                 'cycle_times': [{'model_code': model, 'days': '0'} for model in models],

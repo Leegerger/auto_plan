@@ -10,7 +10,7 @@ export const categories: InputCategory[] = [
   {kind:'models',title:'机种',section:'masters',fields:['code','name','active','recipe_code'],keys:['code','recipe_code'],note:'每个机种固定一个 Recipe，创建后不能更换。'},
   {kind:'lines',title:'线体',section:'masters',fields:['code','name','active'],keys:['code'],note:'编码固定。名称可改，停用后保留引用历史。'},
   {kind:'capabilities',title:'可生产能力',section:'masters',fields:['recipe_code','line_code','allowed'],keys:['recipe_code','line_code'],note:'明确不能生产与缺产能、零产能分别记录。'},
-  {kind:'line_yields',title:'统一线体良率',section:'parameters',fields:['month','percent'],keys:['month'],note:'全厂统一。百分数填 95.50 表示 95.50%，范围大于 0 至 100，最多两位小数。'},
+  {kind:'line_yields',title:'线体良率',section:'parameters',fields:['month','model_code','percent'],keys:['month','model_code'],note:'按机种和月份维护，同一机种在各线体共用。百分数填 95.50 表示 95.50%，范围大于 0 至 100，最多两位小数。'},
   {kind:'model_yields',title:'机种良率',section:'parameters',fields:['month','percent','model_code'],keys:['month','model_code'],note:'按机种和月份维护。填 98 表示 98%，最多两位小数。'},
   {kind:'capacities',title:'全日产能',section:'parameters',fields:['month','recipe_code','line_code','pieces'],keys:['month','recipe_code','line_code'],note:'连续 24 小时可投入的非负整数片数。显式零与缺失不同。'},
   {kind:'cycle_times',title:'Cycle Time',section:'parameters',fields:['model_code','days'],keys:['model_code'],note:'以天为单位，非负，最多两位小数，零允许。'},
