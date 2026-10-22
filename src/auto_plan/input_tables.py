@@ -16,6 +16,14 @@ MAX_UPLOAD = 10 * 1024 * 1024
 MAX_ROWS = 100000
 
 
+def header_error(kind, actual):
+    if kind == 'line_yields' and 'model_code' not in actual:
+        reason = '旧格式缺少机种列 model_code，请使用包含机种的新格式或新模板'
+    else:
+        reason = '列名或顺序与标准模板不一致'
+    return error(kind, 1, 'headers', reason)
+
+
 def workbook_bytes(snapshot=None):
     book = Workbook()
     book.remove(book.active)
@@ -64,7 +72,7 @@ def paste_rows(kind, text, headers=HEADERS):
     except csv.Error:
         return {}, [error(kind, 1, 'table', '粘贴内容不是有效制表符表格')]
     if not rows or tuple(rows[0]) != headers[kind]:
-        return {}, [error(kind, 1, 'headers', '首行列名与标准模板不一致')]
+        return {}, [header_error(kind, tuple(rows[0]) if rows else ())]
     result, errors = [], []
     if len(rows) > MAX_ROWS + 1:
         return {}, [error(kind, 1, 'table', '单批最多100000行')]
@@ -102,7 +110,7 @@ def excel_rows(content, headers=HEADERS):
             while header_values and header_values[-1] is None:
                 header_values = header_values[:-1]
             if header_values != headers[kind]:
-                errors.append(error(kind, 1, 'headers', '列名或顺序与标准模板不一致'))
+                errors.append(header_error(kind, header_values))
                 continue
             changes[kind] = []
             for index, cells in enumerate(iterator, 2):
