@@ -9,6 +9,8 @@ from auto_plan.app import create_app
 from auto_plan.settings import Settings
 from tests.support import CompanyAuthentication, MemoryAccessStore
 from tests.input_support import MemoryInputStore
+from tests.plan_support import MemoryPlanStore
+from tests.demand_support import MemoryDemandStore
 
 if __name__ == '__main__':
     with tempfile.TemporaryDirectory(prefix='auto-plan-browser-') as directory:
@@ -20,7 +22,8 @@ if __name__ == '__main__':
         access = MemoryAccessStore()
         inputs = MemoryInputStore()
         # Browser business fixtures use October 2026 dates, independent of wall time.
-        options = {'clock': lambda: datetime(2026, 10, 14, tzinfo=timezone.utc)}
+        default_plans = MemoryPlanStore(inputs)
+        options = {'clock': lambda: datetime(2026, 10, 14, tzinfo=timezone.utc), 'plan_store': default_plans, 'demand_store': MemoryDemandStore(default_plans)}
         if os.getenv('AUTO_PLAN_BROWSER_OUTPUT_FIXTURE') == '1':
             from datetime import datetime, timezone
             from auto_plan.input_models import InputSnapshot

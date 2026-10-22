@@ -14,13 +14,13 @@ test('acceptance navigation starts from another week and another populated day',
     { id: 'navigation-target', date: '2027-01-24', line_code: 'L', model_code: 'M', quantity: 100, hours: '3', order: 0 },
     { id: 'navigation-other', date: '2027-01-18', line_code: 'L', model_code: 'M', quantity: 100, hours: '3', order: 0 },
   ]
-  const seeded = await page.request.post('/planning/api/plans/save', { headers: { Origin: 'https://localhost:8774', 'X-Auto-Plan-Request': '1' }, data: {
+  const seeded = await page.request.post('/planning/api/plans/save', { headers: { Origin: `https://localhost:${process.env.AUTO_PLAN_BROWSER_PORT ?? '8774'}`, 'X-Auto-Plan-Request': '1' }, data: {
     base_revision: before.revision, input_version: before.input_version, latest_adoption: before.latest_adoption,
     operation_id: crypto.randomUUID(), pending: true, operations: [{ kind: 'replace_plan', plan: { segments: rows } }],
   } })
   expect(seeded.ok()).toBeTruthy()
   await page.goto('/planning/plans/shared')
-  await expect(page.getByRole('button', { name: '预览本机修改', exact: true })).toBeEnabled()
+  await expect(page.getByRole('button', { name: '预览当前计划', exact: true })).toBeEnabled()
   const head = await (await page.request.get('/planning/api/plans/current')).json()
   await page.getByLabel('计划周次', { exact: true }).selectOption('15')
   await page.getByRole('button', { name: '2027-01-24 L 日内详情', exact: true }).click()

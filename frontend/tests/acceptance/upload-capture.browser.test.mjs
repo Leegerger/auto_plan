@@ -33,7 +33,7 @@ test('native File transport has exact response-bound received bytes, including a
     const headers={Origin:origin,'X-Auto-Plan-Request':'1'}
     assert.equal((await context.request.post(prefix+'/auth/login',{headers,data:{username:'ACCEPTANCE0',password:'company-secret'}})).status(),200)
     const page=await context.newPage();page.setDefaultTimeout(10000)
-    await page.goto(origin+'/planning/initialize');await page.getByRole('heading',{name:'首次接入与需求变更',exact:true}).waitFor()
+    await page.goto(origin+'/planning/data/initialization');await page.getByRole('heading',{name:'首次接入',exact:true}).waitFor()
     const responseSession=await context.newCDPSession(page);await responseSession.send('Network.enable',{maxTotalBufferSize:134217728,maxResourceBufferSize:67108864,enableDurableMessages:true})
     const bytes=Buffer.from([80,75,0,255,128,13,10,110,111,116,45,97,110,45,120,108,115,120]),path=resolve(output,'rejected.xlsx');writeFileSync(path,bytes)
     report.expected={sha256:sha(bytes),length:bytes.length}

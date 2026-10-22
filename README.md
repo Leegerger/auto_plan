@@ -28,6 +28,8 @@ npm run build
 cd ..
 ```
 
+前端采用工作流优先的桌面信息架构：工作台、排程、需求与资料、版本与采用、系统管理。视觉 token 与交互规则见[前端设计规格](docs/frontend-design.md)，架构取舍见[ADR 0002](docs/adr/0002-workflow-first-desktop-frontend.md)。`DESIGN.md` 是视觉参考来源，项目适配规则以设计规格为准。
+
 配置通过环境变量传入，不把密码写入仓库。必要配置为 `AUTO_PLAN_ORACLE_USER`、`AUTO_PLAN_ORACLE_PASSWORD`、`AUTO_PLAN_ORACLE_DSN`、`AUTO_PLAN_AUTH_CA_FILE` 和 `AUTO_PLAN_INITIAL_ADMIN_ID`。`AUTO_PLAN_PUBLIC_ORIGIN` 默认 `https://fsscm.cminl.oa`，`AUTO_PLAN_BASE_PATH` 默认 `/auto_plan`，代理保留此前缀。`AUTO_PLAN_ORACLE_CLIENT_PATH` 默认 `/opt/oracle/instantclient_21_13`，连接池上限默认 10。
 
 打包、运行配置、显式校验和迁移、启动就绪、信号停止、升级与回退流程见[部署运行手册](docs/deployment.md)。使用 `scripts/build-image.sh RELEASE_ID IMAGE_TAG` 构建包含前端、API 和 worker 的单镜像。维护者先记录恢复点，再显式安装迁移台账并顺序执行 001 至 005，启动不改 schema。

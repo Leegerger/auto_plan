@@ -6,15 +6,37 @@ import 'element-plus/dist/index.css'
 import './style.css'
 import App from './App.vue'
 import Login from './views/Login.vue'
-import Home from './views/Home.vue'
-import Authorizations from './views/Authorizations.vue'
+import Workbench from './views/Workbench.vue'
 import Inputs from './views/Inputs.vue'
 import PlanPreview from './views/PlanPreview.vue'
-import SharedPlans from './views/SharedPlans.vue'
-import Initialization from './views/Initialization.vue'
-import { basePath } from './api'
+import ScheduleWorkspace from './views/ScheduleWorkspace.vue'
+import PlanningJobs from './views/PlanningJobs.vue'
+import ExecutionReset from './views/ExecutionReset.vue'
+import DemandManagement from './views/DemandManagement.vue'
+import InitializationSetup from './views/InitializationSetup.vue'
+import Versions from './views/Versions.vue'
+import SystemManagement from './views/SystemManagement.vue'
+import { basePath, principal } from './api'
+import { useSharedPlan } from './useSharedPlan'
 const router = createRouter({ history: createWebHistory(`${basePath}/`), routes: [
-  { path: '/login', component: Login }, { path: '/', component: Home },
-  { path: '/initialize', component: Initialization }, { path: '/admin', component: Authorizations }, { path: '/inputs', component: Inputs }, { path: '/plans/preview', component: PlanPreview }, { path: '/plans/shared', component: SharedPlans }, { path: '/:pathMatch(.*)*', redirect: '/' },
+  { path: '/login', component: Login },
+  { path: '/', component: Workbench },
+  { path: '/schedule', component: ScheduleWorkspace, meta: { section: 'schedule' } },
+  { path: '/schedule/jobs', component: PlanningJobs, meta: { section: 'schedule' } },
+  { path: '/schedule/reset', component: ExecutionReset, meta: { section: 'schedule' } },
+  { path: '/schedule/day', component: PlanPreview, meta: { section: 'schedule' } },
+  { path: '/data/demand', component: DemandManagement, meta: { section: 'data' } },
+  { path: '/data/base', component: Inputs, meta: { section: 'data' } },
+  { path: '/data/initialization', component: InitializationSetup, meta: { section: 'data' } },
+  { path: '/versions', component: Versions },
+  { path: '/system', component: SystemManagement },
+  { path: '/initialize', redirect: '/data/demand' },
+  { path: '/admin', redirect: '/system' },
+  { path: '/inputs', redirect: '/data/base' },
+  { path: '/plans/shared', redirect: '/schedule' },
+  { path: '/plans/preview', redirect: '/schedule/day' },
+  { path: '/:pathMatch(.*)*', redirect: '/' },
 ] })
+const sharedPlan=useSharedPlan()
+router.beforeEach(async to=>{if(principal.value&&to.path!=='/login')await sharedPlan.refresh()})
 createApp(App).use(router).use(ElementPlus, { locale: zhCn }).mount('#app')

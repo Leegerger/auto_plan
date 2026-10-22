@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, reactive, ref, shallowRef, watch } from 'vue'
+import { useRouter } from 'vue-router'
+import { ElMessageBox } from 'element-plus'
 import { api, ApiError, basePath, online, principal } from '../api'
 import type { useSharedPlan } from '../useSharedPlan'
 import type { CandidateView, ComputationSource, Job, JobCandidateRef, JobList, SolveRequest, SubmissionResult } from '../jobTypes'
@@ -8,6 +10,7 @@ import OutputResults from './OutputResults.vue'
 import ComputationSourceReview from './ComputationSourceReview.vue'
 
 const props=defineProps<{shared:ReturnType<typeof useSharedPlan>}>()
+const router=useRouter()
 const jobs=ref<Job[]>([]),queueCapacity=ref(0),workerLimit=ref(0)
 const busy=ref(false),error=ref(''),message=ref(''),storageIssue=ref('')
 const viewed=ref<CandidateView|null>(null),selected=ref<string[]>([])
@@ -29,7 +32,7 @@ const viewOnly=computed(()=>viewed.value?.validity?.state==='view_only')
 const candidateChanges=computed(()=>{
   const operation=viewed.value?.candidate.operation
   if(!operation)return []
-  const names:Record<string,string>={segments:'生产段',remove_segments:'移除生产段',switches:'切机安排',remove_switches:'移除切机',initial_states:'起始 Recipe',ordinary_idle:'普通空闲',remove_idle:'移除普通空闲'}
+  const names:Record<string,string>={patch_plan:'计划编辑',replace_plan:'完整计划',segments:'生产段',remove_segments:'移除生产段',switches:'切机安排',remove_switches:'移除切机',initial_states:'起始 Recipe',ordinary_idle:'普通空闲',remove_idle:'移除普通空闲'}
   return Object.keys(names).flatMap(kind=>{
     const values=operation[kind]
     if(!Array.isArray(values))return []
@@ -96,6 +99,9 @@ async function submit(){
   if(blocked.value || unsaved.value || sourceBlocked.value || !props.shared.head.value)return
   error.value='';message.value=''
   if(!request.scope.start_date || !request.scope.end_date || !request.scope.line_codes.length){error.value='请选择计算日期和至少一条线体';return}
+  if(request.mode==='all_replan'){
+    try{await ElMessageBox.confirm(`全部重排范围 ${request.scope.start_date} 至 ${request.scope.end_date}，${request.scope.line_codes.length} 条线体。提交前请确认已核对计算来源。`,'确认全部重排',{type:'warning',confirmButtonText:'提交全部重排',cancelButtonText:'返回核对',autofocus:false})}catch{return}
+  }
   busy.value=true
   try {
     restoreSubmission()
@@ -159,6 +165,7 @@ async function stageCandidate(partial:boolean){
   // The local draft contains only the server reference and optional selection.
   props.shared.restoreDraft({data_version:1,...candidate.proposal,operations:[{kind:'apply_candidate',job_id:candidate.job_id,candidate_id:candidate.candidate_id,payload_sha:candidate.payload_sha,...(partial ? {selection:[...selected.value]} : {})}]})
   await props.shared.check()
+  if(!props.shared.error.value||props.shared.conflict.value)await router.push('/schedule')
 }
 const states:Record<Job['state'],string>={queued:'排队中',running:'计算中',completed:'已完成',stopped:'已停止',interrupted:'已中断',failed:'失败'}
 const outcomes:Record<string,string>={feasible:'已找到可行候选',stopped:'已停止',time_limit:'达到计算时限',no_candidate:'未找到候选',incomplete:'输入不完整',scope_conflict:'调整范围冲突'}

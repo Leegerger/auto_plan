@@ -66,9 +66,9 @@ export async function importBrowserContract({ pages, fixtures, output, origin, p
   const primary = pages[0]
   const loadPrimary = async reload => {
     const pending = primary.waitForResponse(response => response.url() === prefix+'/plans/current' && response.request().method() === 'GET')
-    if (reload) await primary.reload(); else await primary.goto(origin+'/planning/initialize')
+    if (reload) await primary.reload(); else await primary.goto(origin+'/planning/data/initialization')
     const observed = await body(await pending)
-    await expect(primary.getByRole('heading', { name: '首次接入与需求变更', exact: true })).toBeVisible()
+    await expect(primary.getByRole('heading', { name: '首次接入', exact: true })).toBeVisible()
     await twoFrames(primary)
     return { value: observed.value, artifact: capture(observed.bytes) }
   }

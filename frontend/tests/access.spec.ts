@@ -12,10 +12,10 @@ test('login, nested prefix assets, authorize, last administrator, and logout', a
   await expect(page.getByLabel('公司密码', { exact: true })).toHaveValue('')
   await page.getByLabel('公司密码', { exact: true }).fill('company-secret')
   await page.getByRole('button', { name: '登录', exact: true }).click()
-  await expect(page.getByRole('heading', { name: '欢迎，ADMIN' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: '工作台', exact: true })).toBeVisible()
   const cookie = (await context.cookies()).find(cookie => cookie.name === 'auto_plan_session')!
   expect(cookie).toMatchObject({ httpOnly: true, secure: true, sameSite: 'Strict', path: '/planning' })
-  await page.getByRole('link', { name: '账号授权', exact: true }).click()
+  await page.getByRole('link', { name: '系统管理', exact: true }).click()
   await expect(page.getByRole('heading', { name: '账号授权', exact: true })).toBeVisible()
   await page.getByRole('textbox', { name: '授权账号' }).fill('reviewer')
   await page.getByRole('group', { name: '角色' }).getByText('查看者', { exact: true }).click()

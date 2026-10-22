@@ -2,24 +2,39 @@
 import { computed, onMounted, ref } from 'vue'
 import { api, basePath, online, principal } from '../api'
 import { categories, fieldNames, type CellValue, type InputRow, type InputSnapshot, type InputPreview } from '../inputFields'
+import { useSharedPlan } from '../useSharedPlan'
+const shared=useSharedPlan()
 const snapshot = ref<InputSnapshot | null>(null)
 const selected = ref('recipes')
 const category = computed(() => categories.find(c => c.kind === selected.value)!)
+const categorySections = computed(() => [
+  {key:'masters',title:'主资料'},
+  {key:'parameters',title:'参数'},
+  {key:'calendar',title:'日历'},
+  {key:'business',title:'确认'},
+].map(section => ({...section,items:categories.filter(category => category.section===section.key)})))
 const rows = ref<InputRow[]>([])
 const existing = ref<boolean[]>([])
 const paste = ref('')
 const preview = ref<InputPreview | null>(null)
 const previewTables = computed(() => Object.entries(preview.value?.changes ?? {}).filter(([, changed]) => changed.length))
 const busy = ref(false)
+const query = ref('')
 const error = ref('')
 const status = ref('')
 const editor = computed(() => principal.value?.roles.includes('editor') ?? false)
-const editable = computed(() => editor.value && online.value && !busy.value)
+const editable = computed(() => editor.value && online.value && !busy.value && !shared.unknown.value)
+const matchesRow = (row:InputRow) => {
+  const needle=query.value.trim().toLocaleLowerCase()
+  return !needle||Object.values(row).some(value=>String(value??'').toLocaleLowerCase().includes(needle))
+}
+const visibleCount = computed(()=>rows.value.filter(matchesRow).length)
 const choices: Record<string, {value:string;label:string}[]> = {kind:[{value:'material',label:'物料确认'},{value:'shipping',label:'出货确认'}],status:[{value:'allowed',label:'允许'},{value:'pending',label:'待确认'},{value:'forbidden',label:'整周跨周禁令'},{value:'revoked',label:'撤销／解除本批禁令'}]}
 const boolFields = ['active','allowed','holiday','enabled']
 const refs: Record<string, string> = {recipe_code:'recipes',from_recipe:'recipes',to_recipe:'recipes',model_code:'models',line_code:'lines'}
 function fieldName(field: string) { return field.split(',').map(f => fieldNames[f] ?? f).join('、') }
 function invalidate() { preview.value = null; status.value = ''; error.value = '' }
+function selectCategory(kind:string){selected.value=kind;showRows()}
 function showRows() {
   rows.value = (snapshot.value?.[category.value.section][selected.value] ?? []).map(row => ({...row}))
   existing.value = rows.value.map(() => true)
@@ -81,25 +96,32 @@ onMounted(load)
 </script>
 <template>
   <section v-if="principal">
-    <h1>输入资料维护</h1>
-    <p>编辑、粘贴或导入 Excel 后，先预览整批，再确认提交。未提供的组合保持原值。任何错误都不会部分提交。</p>
-    <p v-if="snapshot">当前资料版本 {{ snapshot.input_version }}。当月及后四个月的缺失月度参数自动复制上月值，已有值保持独立。</p>
+    <header class="page-heading">
+      <div><p class="eyebrow">主资料、参数、日历与确认</p><h1>基础资料</h1><p class="page-subtitle">编辑、粘贴或导入后先预览整批，再确认提交。任何错误都不会部分提交。</p></div>
+      <span v-if="snapshot" class="section-count">资料版本 {{ snapshot.input_version }}</span>
+    </header>
     <div class="input-toolbar">
       <a :href="`${basePath}/api/inputs/template.xlsx`">下载标准 Excel 模板</a>
       <a v-if="snapshot" :href="`${basePath}/api/inputs/export.xlsx?version=${snapshot.input_version}`">导出当前资料 Excel</a>
       <el-button @click="load" :disabled="busy || !online">重新读取资料</el-button>
     </div>
     <el-alert v-if="!editor" title="当前为查看权限，可查询和导出资料" type="info" :closable="false" />
+    <el-alert v-if="shared.unknown.value" title="共享计划保存结果待核实，资料编辑当前只读。" type="warning" :closable="false" />
     <el-alert v-if="error" :title="error" type="error" :closable="false" />
     <p v-if="busy" role="status">正在处理资料…</p>
     <p v-if="status" role="status">{{ status }}</p>
-    <label>资料类别 <select aria-label="资料类别" v-model="selected" @change="showRows" :disabled="busy"><option v-for="item in categories" :key="item.kind" :value="item.kind">{{ item.title }}</option></select></label>
-    <p>{{ category.note }}</p>
-    <el-button @click="add" :disabled="!editable">新增一行</el-button>
+    <div class="data-layout">
+      <aside class="category-nav" aria-label="资料分类">
+        <label>资料类别 <select aria-label="资料类别" v-model="selected" @change="showRows" :disabled="busy"><option v-for="item in categories" :key="item.kind" :value="item.kind">{{ item.title }}</option></select></label>
+        <section v-for="section in categorySections" :key="section.key"><h3>{{ section.title }}</h3><button v-for="item in section.items" :key="item.kind" type="button" :class="{active:item.kind===selected}" @click="selectCategory(item.kind)">{{ item.title }}</button></section>
+      </aside>
+      <div class="category-content">
+    <div class="section-heading"><div><p class="eyebrow">当前资料类别</p><h2>{{ category.title }}</h2></div><div class="heading-actions"><el-input v-model="query" aria-label="搜索资料" placeholder="搜索资料" clearable /><el-button @click="add" :disabled="!editable">新增一行</el-button></div></div>
+    <p class="category-note">{{ category.note }}</p>
     <div class="input-table-scroll">
       <table :aria-label="category.title" class="input-table">
         <thead><tr><th>行</th><th v-for="field in category.fields" :key="field">{{ fieldName(field) }}</th><th>操作</th></tr></thead>
-        <tbody><tr v-for="(row, index) in rows" :key="index"><td>{{ index + 1 }}</td>
+        <tbody><template v-for="(row,index) in rows" :key="index"><tr v-if="matchesRow(row)"><td>{{ index + 1 }}</td>
           <td v-for="field in category.fields" :key="field">
             <select v-if="boolFields.includes(field)" :aria-label="`${fieldName(field)} 第${index+1}行`" :value="String(row[field])" @change="update(row,field,($event.target as HTMLSelectElement).value)" :disabled="!editable"><option value="true">是</option><option value="false">否</option></select>
             <select v-else-if="refs[field]" :aria-label="`${fieldName(field)} 第${index+1}行`" :value="String(row[field] ?? '')" @change="update(row,field,($event.target as HTMLSelectElement).value)" :disabled="!editable || (existing[index] && category.keys.includes(field))"><option value="">请选择</option><option v-for="master in referenceOptions(field,row[field] ?? null)" :key="String(master.code)" :value="String(master.code)">{{ master.code }} · {{ master.name }}{{ master.active ? '' : ' (停用)' }}</option></select>
@@ -107,10 +129,11 @@ onMounted(load)
             <el-input v-else :aria-label="`${fieldName(field)} 第${index+1}行`" :model-value="String(row[field] ?? '')" @update:model-value="update(row,field,$event)" :disabled="!editable || (existing[index] && category.keys.includes(field))" :placeholder="field === 'percent' ? '95.50 表示 95.50%' : field === 'month' ? 'YYYY-MM' : ['date','week'].includes(field) ? 'YYYY-MM-DD' : ''" />
           </td>
           <td><el-button v-if="!existing[index]" @click="rows.splice(index,1); existing.splice(index,1); invalidate()" :disabled="!editable">撤回新增</el-button><span v-else>已存资料</span></td>
-        </tr></tbody>
+        </tr></template></tbody>
       </table>
     </div>
     <p v-if="rows.length === 0">暂无资料。缺失值保持未知，请明确录入；零值不会由空白自动生成。</p>
+    <p v-else-if="visibleCount === 0" class="empty-inline">没有符合搜索条件的资料。</p>
     <el-button type="primary" @click="previewTable" :disabled="!editable">预览表格变更</el-button>
     <div v-if="editor" class="input-import">
       <label for="input-paste">粘贴表格</label><p>首行请使用标准模板列名，列之间使用制表符：</p><code>{{ category.fields.join('　') }}</code>
@@ -127,5 +150,7 @@ onMounted(load)
       <div v-for="[kind,changed] in previewTables" :key="kind"><h3>{{ categories.find(c=>c.kind === kind)?.title ?? kind }} ({{ changed.length }} 行)</h3><div class="input-table-scroll"><table :aria-label="`${kind} 预览`" class="input-table"><thead><tr><th v-for="field in categories.find(c=>c.kind === kind)?.fields" :key="field">{{ fieldName(field) }}</th></tr></thead><tbody><tr v-for="(row,index) in changed" :key="index"><td v-for="field in categories.find(c=>c.kind === kind)?.fields" :key="field">{{ typeof row[field] === 'boolean' ? (row[field] ? '是' : '否') : row[field] }}</td></tr></tbody></table></div></div>
     </div>
     <el-button v-if="editor" type="success" @click="apply" :disabled="!editable || !preview?.valid">确认提交整批</el-button>
+      </div>
+    </div>
   </section>
 </template>

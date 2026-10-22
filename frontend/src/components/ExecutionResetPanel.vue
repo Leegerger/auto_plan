@@ -1,9 +1,11 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
+import { useRouter } from 'vue-router'
 import { api } from '../api'
 import type { useSharedPlan, BusinessOperation } from '../useSharedPlan'
 import type { ExecutionCell, ResetSnapshot } from '../executionTypes'
 const props=defineProps<{shared:ReturnType<typeof useSharedPlan>}>()
+const router=useRouter()
 const head=computed(()=>props.shared.head.value)
 const context=computed(()=>props.shared.proposal.value?.context ?? head.value?.context)
 const reset=computed(()=>props.shared.proposal.value?.reset_preview ?? head.value?.reset_preview)
@@ -51,12 +53,15 @@ watch(head,async value=>{
   factDate.value=today.value;cutoff.value=beijing(value.context.execution.cutoff ?? value.time.as_of);observedAt.value=beijing(value.time.as_of)
   coverageStart.value=week.value;coverageEnd.value=today.value;scopeStart.value=week.value;scopeEnd.value=lastDay.value
   const existing=value.context.reset
-  batch.value=existing?.production_week===week.value ? existing.batch_id : `week-${week.value}`
-  correction.value=false;decisions.value={};pendingFacts.value=[]
+  const retained=props.shared.operations.value.slice().reverse().find(operation=>operation.kind==='weekly_reset') as ({snapshot?:ResetSnapshot;correction?:boolean;choices?:{revision:number;retain:boolean}[];scope?:{start_date:string;end_date:string;line_codes:string[];model_codes:string[]}}|undefined)
+  const resetSnapshot=retained?.snapshot??(existing?.production_week===week.value?existing:undefined)
+  batch.value=resetSnapshot?.batch_id??`week-${week.value}`
+  correction.value=retained?.correction??false;decisions.value=Object.fromEntries((retained?.choices??[]).map(choice=>[choice.revision,choice.retain?'keep':'retract']));pendingFacts.value=[]
   snapshotRows.value=(participants.value?.model_codes ?? []).map(code=>{
-    const old=existing?.production_week===week.value ? existing.models.find(model=>model.model_code===code) : undefined
+    const old=resetSnapshot?.models.find(model=>model.model_code===code)
     return {model_code:code,wip:old ? String(old.wip) : '',net_balance:old ? String(old.net_balance) : ''}
   })
+  if(retained?.scope){scopeStart.value=retained.scope.start_date;scopeEnd.value=retained.scope.end_date;scopeLines.value=[...retained.scope.line_codes];scopeModels.value=[...retained.scope.model_codes]}
   try{
     const input=await api<{masters:{lines:{code:string;name:string}[];models:{code:string;name:string}[];recipes:{code:string;name:string}[]}}>(`/inputs?version=${value.input_version}`)
     lines.value=input.masters.lines;models.value=input.masters.models;recipes.value=input.masters.recipes
@@ -93,10 +98,14 @@ async function append(operation:BusinessOperation,amend=false){
       const index=props.shared.operations.value.indexOf(old)
       props.shared.operations.value[index]={...operation,action_id:old.action_id}
       if(!props.shared.selectedActions.value.includes(old.action_id!))props.shared.selectedActions.value.push(old.action_id!)
-      props.shared.changed();await props.shared.check();return
+      props.shared.changed();await returnToWorkspace();return
     }
   }
-  props.shared.appendOperation(operation);await props.shared.check()
+  props.shared.appendOperation(operation);await returnToWorkspace()
+}
+async function returnToWorkspace(){
+  await props.shared.check()
+  if(!props.shared.error.value||props.shared.conflict.value)await router.push('/schedule')
 }
 async function facts(){
   error.value=''

@@ -1199,9 +1199,9 @@ try {
           entry.submitted_action = command; entry.observed_totals = result.evaluation.output_totals
         } else if (operation === 'shared_save') await uiSave(page, entry, modifiedPlan)
         else if (importOnly) {
-          await page.goto(config.origin + config.base_path + '/initialize'); const before = await readState(page)
+          await page.goto(config.origin + config.base_path + '/data/initialization'); const before = await readState(page)
           assertState(before, initialState); assert.ok(before.head.revision === 0 && before.head.latest_adoption === 0, 'Import target changed before upload.')
-          await expect(page.getByRole('heading', { name: '首次接入与需求变更', exact: true })).toBeVisible()
+          await expect(page.getByRole('heading', { name: '首次接入', exact: true })).toBeVisible()
           await retainImportResponse(page, entry)
           const response = responseFor(page, r => r.url().startsWith(api('/initialization/excel/preview')), { timeout: 180000 })
           await arm(page); await page.getByLabel('上传标准工作簿并预览', { exact: true }).setInputFiles(workbook); await clicked(page, entry)

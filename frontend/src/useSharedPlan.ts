@@ -1,6 +1,6 @@
 import type { ExecutionCell, ResetPreview } from './executionTypes'
 
-import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { api, ApiError, principal, basePath, online } from './api'
 import type { OutputEvaluation } from './outputTypes'
 import { draftLease, draftStorage, validatedDraft } from './localDrafts'
@@ -21,7 +21,14 @@ interface Command { base_revision: number; input_version: number; latest_adoptio
 type Stored = Outstanding
 interface Result { status: 'COMMITTED' | 'ABORTED_VOID'; revision?: number; latest_adoption?: number }
 
+let instance: ReturnType<typeof createSharedPlan> | null = null
+
 export function useSharedPlan() {
+  instance ??= createSharedPlan()
+  return instance
+}
+
+function createSharedPlan() {
 const head = ref<Head | null>(null), proposal=ref<PreviewResult|null>(null)
 const preview=computed(()=>proposal.value?.evaluation ?? null), plan=computed(()=>proposal.value?.plan ?? head.value?.plan), rows=computed(()=>plan.value?.segments ?? [])
 const hourDisplay=computed(()=>proposal.value?.hour_display ?? head.value?.hour_display)
@@ -35,18 +42,18 @@ const editor = computed(() => principal.value?.roles.includes('editor'))
 const localDraftId=ref('main'), localState=ref('尚无本机修改'), localWarning=ref(''), localBytes=ref(0)
 const recoveryRecords=ref<RecoveryRecord[]>([]), recoveryCandidate=ref<RecoveryRecord|null>(null), recovered=ref(false)
 const recoveryChanges=ref<Record<string,unknown>[]>([]),recoveryInputChanges=ref<Record<string,unknown>[]>([]),recoveryCompareError=ref('')
-const ownsDraft=ref(false), leaseIssue=ref(''), storage=draftStorage(basePath,principal.value?.user_id ?? '')
-let lease:ReturnType<typeof draftLease>|null=null,stopLease:(()=>void)|undefined,initialized=false,suspendLocal=false
+const ownsDraft=ref(false), leaseIssue=ref(''), storage=ref(draftStorage(basePath,''))
+let lease:ReturnType<typeof draftLease>|null=null,stopLease:(()=>void)|undefined,initialized=false,suspendLocal=false,started=false,startPromise:Promise<void>|null=null
 const readonly = computed(() => !editor.value || !head.value || busy.value || unknown.value || !online.value || !ownsDraft.value || !!recoveryCandidate.value || (recovered.value && !!recoveryCompareError.value))
 const recoveryDifferences=computed(()=>recovered.value && draftBase.value && head.value ? [
   `原共享修订 ${draftBase.value.base_revision} / 当前 ${head.value.revision}`,
   `原输入版本 ${draftBase.value.input_version} / 当前 ${head.value.input_version}`,
   `原最近采用版 ${draftBase.value.latest_adoption} / 当前 ${head.value.latest_adoption}`,
 ] : [])
-function refreshRecords(){try{recoveryRecords.value=storage.list()}catch{localWarning.value='无法读取本机记录。页面修改仍可明确保存 Oracle，刷新或关闭后无法保证恢复。'}}
+function refreshRecords(){try{recoveryRecords.value=storage.value.list()}catch{localWarning.value='无法读取本机记录。页面修改仍可明确保存 Oracle，刷新或关闭后无法保证恢复。'}}
 function openLease(){
   stopLease?.();lease?.close();ownsDraft.value=false
-  lease=draftLease(storage.key(localDraftId.value))
+  lease=draftLease(storage.value.key(localDraftId.value))
   stopLease=watch([lease.owned,lease.issue],([owned,issue])=>{ownsDraft.value=owned;leaseIssue.value=issue},{immediate:true})
 }
 function persistLocal(){
@@ -54,9 +61,9 @@ function persistLocal(){
   try{
     const value:LocalRecord={data_version:2,draft_id:localDraftId.value,updated_at:new Date().toISOString(),draft:localDraft(),pending:pending.value,outstanding:outstanding.value}
     const raw=JSON.stringify(value);localBytes.value=raw.length*2
-    storage.write(value)
+    storage.value.write(value)
     const prior=recoveryRecords.value.find(row=>row.id===localDraftId.value)
-    if(prior && prior.key!==storage.key(localDraftId.value))storage.remove(prior)
+    if(prior && prior.key!==storage.value.key(localDraftId.value))storage.value.remove(prior)
     localWarning.value=localBytes.value>=4*1024*1024 ? '本机临时稿已接近或超过 4 MB，请先共享保存 Oracle，避免浏览器额度不足。' : ''
     localState.value=operations.value.length || outstanding.value ? '已暂存本机，尚未共享' : '尚无本机修改'
     refreshRecords();return true
@@ -110,7 +117,7 @@ async function discardLocal(id=localDraftId.value){
   // An unknown key must be verified even when the rest of a draft is discarded.
   if(row?.record?.outstanding){error.value='前次保存结果须先核实，不能丢弃操作编号';return}
   try{
-    if(row)storage.remove(row)
+    if(row)storage.value.remove(row)
     if(id===localDraftId.value){recoveryCandidate.value=null;await load();resetComparison();localState.value='尚无本机修改'}
     refreshRecords()
   }catch(e){showError(e)}
@@ -125,7 +132,6 @@ function selectLocalDraft(id:string){
 function newLocalDraft(){selectLocalDraft(crypto.randomUUID())}
 function retryLocal(){persistLocal()}
 watch(pending,()=>{if(initialized)persistLocal()})
-onUnmounted(()=>{stopLease?.();lease?.close()})
 async function load(replace = true) {
   const current = await api<Head>('/plans/current')
   head.value = current
@@ -194,8 +200,17 @@ async function verify() {
     }
   } catch (e) { showError(e) } finally { busy.value = false }
 }
-onMounted(async () => {
+function start() {
+  if(started)return Promise.resolve()
+  if(startPromise)return startPromise
+  startPromise=startInternal().finally(()=>{startPromise=null})
+  return startPromise
+}
+async function startInternal() {
+  if(!principal.value || !principal.value.roles.some(role=>role==='viewer'||role==='editor'))return
+  started=true
   busy.value = true
+  storage.value=draftStorage(basePath,principal.value.user_id)
   try {
     refreshRecords()
     const unresolved=recoveryRecords.value.find(value=>value.record?.outstanding)
@@ -209,7 +224,24 @@ onMounted(async () => {
     await load(!outstanding.value)
     if(outstanding.value)await compareRecovery()
   } catch (e) { showError(e) } finally { initialized=true;busy.value = false }
-})
+}
+
+async function refresh() {
+  if(startPromise)await startPromise
+  if(!started||busy.value||!online.value||unknown.value||proposal.value||operations.value.length||recoveryCandidate.value)return
+  try{await load(true)}catch(e){showError(e)}
+}
+
+function stop() {
+  stopLease?.();lease?.close();stopLease=undefined;lease=null
+  ownsDraft.value=false
+  started=false;initialized=false;busy.value=false
+  head.value=null;proposal.value=null;operations.value=[];selectedActions.value=[]
+  outstanding.value=null;unknown.value=false;pending.value=false
+  error.value='';message.value='';conflict.value=null;differences.value=[]
+  recoveryCandidate.value=null;recoveryRecords.value=[];recoveryChanges.value=[];recoveryInputChanges.value=[];recoveryCompareError.value=''
+  localDraftId.value='main';localState.value='尚无本机修改';localWarning.value='';localBytes.value=0
+}
 
 function appendOperation(operation: BusinessOperation) {
   if (readonly.value) return
@@ -238,6 +270,7 @@ function localDraft() {
 return {head,rows,plan,hourDisplay,proposal,unallocated,selectedActions,draftBase,undo,restoreDraft,preview,busy,unknown,pending,message,error,differences,conflict,outstanding,voided,
   editor,readonly,load,command,changed,check,submit,verify,appendOperation,operations,localDraft,
   localDraftId,localState,localWarning,localBytes,recoveryRecords,recoveryCandidate,recoveryDifferences,ownsDraft,leaseIssue,
-  recoverLocal,discardLocal,retryLocal,newLocalDraft,selectLocalDraft,exportLocal,takeOver,retryComparison,recoveryChanges,recoveryInputChanges,recoveryCompareError}
+  recoverLocal,discardLocal,retryLocal,newLocalDraft,selectLocalDraft,exportLocal,takeOver,retryComparison,recoveryChanges,recoveryInputChanges,recoveryCompareError,
+  start,stop,refresh}
 
 }
