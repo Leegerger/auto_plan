@@ -14,6 +14,48 @@ def output_snapshot(quantity=1000, day='2026-10-14', yield_percent='93.10', ct='
     return data
 
 
+def test_raw_legacy_global_line_yield_snapshot_remains_evaluable(inputs_client):
+    data = output_snapshot(1000, yield_percent='90', ct='0')
+    data['inputs']['parameters']['line_yields'] = [{'month': '2026-10', 'percent': '95'}]
+    result = preview(inputs_client, data)
+    assert result['output_sources'][0]['line_yield'] == '95'
+    assert result['output_totals']['expected'] == 855
+
+
+def test_same_recipe_models_keep_independent_model_month_line_yields(inputs_client):
+    data = snapshot()
+    data['time'] = {'as_of': '2026-10-14T09:00:00+08:00', 'window_start': '2026-10-12'}
+    data['inputs']['parameters']['line_yields'] = [
+        {'month': '2026-10', 'model_code': 'M', 'percent': '95'},
+        {'month': '2026-10', 'model_code': 'N', 'percent': '80'},
+    ]
+    data['inputs']['parameters']['model_yields'] = [
+        {'month': '2026-10', 'model_code': 'M', 'percent': '90'},
+        {'month': '2026-10', 'model_code': 'N', 'percent': '90'},
+    ]
+    data['inputs']['parameters']['cycle_times'] = [
+        {'model_code': 'M', 'days': '0'}, {'model_code': 'N', 'days': '0'}]
+    data['inputs']['parameters']['capacities'] = [
+        {'month': '2026-10', 'recipe_code': 'R', 'line_code': 'L', 'pieces': 10000}]
+    data['plan']['segments'] = [
+        segment('a', 0, 'M', 1000, '12'),
+        segment('b', 1, 'N', 1000, '12'),
+    ]
+    data['execution'] = {
+        'cutoff': '2026-10-14T09:00:00+08:00',
+        'coverage': [{'start_date': '2026-10-12', 'end_date': '2026-10-14',
+                      'line_codes': ['L'], 'model_codes': ['M', 'N'], 'blanks_are_zero': True}],
+    }
+    result = preview(inputs_client, data)
+    assert {source['model_code']: source['portions'][0]['quantity']
+            for source in result['output_sources']} == {'M': 855, 'N': 720}, result['issues']
+
+    data['inputs']['parameters']['line_yields'][0]['percent'] = '96'
+    result = preview(inputs_client, data)
+    assert {source['model_code']: source['portions'][0]['quantity']
+            for source in result['output_sources']} == {'M': 864, 'N': 720}
+
+
 def test_exact_ct_portions_and_cross_line_aggregation(inputs_client):
     data = output_snapshot()
     result = preview(inputs_client, data)
@@ -175,7 +217,7 @@ def test_pending_material_does_not_reserve_shipping_and_revocation_rematches_onl
 def test_cross_month_sources_keep_yield_month_and_window_tail_can_cover_original_week(inputs_client):
     data = output_snapshot(100, '2026-10-31', '90', '0.5')
     data['plan']['segments'].append(segment('b', 0, 'M', 100, '24', '2026-11-01'))
-    data['inputs']['parameters']['line_yields'].append({'month': '2026-11', 'percent': '100'})
+    data['inputs']['parameters']['line_yields'].append({'month': '2026-11', 'model_code': 'M', 'percent': '100'})
     data['inputs']['parameters']['model_yields'].append({'month': '2026-11', 'model_code': 'M', 'percent': '100'})
     data['inputs']['parameters']['capacities'].append({'month': '2026-11', 'recipe_code': 'R', 'line_code': 'L', 'pieces': 10000})
     data['inputs']['business']['demands'] = [{'model_code': 'M', 'week': '2026-10-26', 'quantity': 100}, {'model_code': 'M', 'week': '2026-11-02', 'quantity': 100}]

@@ -10,7 +10,7 @@ class InputIndex:
         self.lines = {row.code: row for row in inputs.masters.lines}
         self.capabilities = {(row.recipe_code, row.line_code): row for row in inputs.masters.capabilities}
         self.capacities = {(row.month, row.recipe_code, row.line_code): row for row in inputs.parameters.capacities}
-        self.line_yields = {row.month: row for row in inputs.parameters.line_yields}
+        self.line_yields = {(row.month, getattr(row, 'model_code', None)): row for row in inputs.parameters.line_yields}
         self.model_yields = {(row.month, row.model_code): row for row in inputs.parameters.model_yields}
         self.cycle_times = {row.model_code: row for row in inputs.parameters.cycle_times}
         self.switch_durations = {(row.from_recipe, row.to_recipe): row for row in inputs.parameters.switch_durations}
@@ -40,10 +40,7 @@ class InputIndex:
         return {'available_hours': available, 'output_holiday': holiday}
 
     def yields(self, month: str, model_code: str):
-        # Schema 1 stores one global line yield per month. The model identity is
-        # already part of this boundary so stored snapshot versions can select a
-        # model-specific rule without changing callers.
-        return {'line_yield': self.line_yields.get(month),
+        return {'line_yield': self.line_yields.get((month, model_code)) or self.line_yields.get((month, None)),
                 'model_yield': self.model_yields.get((month, model_code))}
 
     def critical_parameters(self, month: str, model_code: str):

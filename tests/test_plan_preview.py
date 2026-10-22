@@ -11,7 +11,7 @@ def snapshot():
                    {'code': 'N', 'name': '机种二', 'active': True, 'recipe_code': 'R'},
                    {'code': 'P', 'name': '机种三', 'active': True, 'recipe_code': 'S'}]},
         'parameters': {'capacities': [{'month': '2026-10', 'recipe_code': r, 'line_code': 'L', 'pieces': 1000} for r in ('R', 'S')],
-        'line_yields': [{'month': '2026-10', 'percent': '100'}],
+        'line_yields': [{'month': '2026-10', 'model_code': m, 'percent': '100'} for m in ('M', 'N', 'P')],
         'model_yields': [{'month': '2026-10', 'model_code': m, 'percent': '100'} for m in ('M', 'N', 'P')],
         'cycle_times': [{'model_code': m, 'days': '0'} for m in ('M', 'N', 'P')],
         'switch_durations': [{'from_recipe': 'R', 'to_recipe': 'S', 'hours': '0.95'},

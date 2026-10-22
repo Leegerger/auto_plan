@@ -10,7 +10,7 @@ SECTIONS = {kind: 'masters' for kind in ROW_TYPES}
 KEYS = {'recipes': ('code',), 'lines': ('code',), 'models': ('code',), 'capabilities': ('recipe_code', 'line_code')}
 ROW_TYPES.update(line_yields=LineYield, model_yields=ModelYield, capacities=Capacity, cycle_times=CycleTime, switch_durations=SwitchDuration)
 SECTIONS.update({kind: 'parameters' for kind in ['line_yields', 'model_yields', 'capacities', 'cycle_times', 'switch_durations']})
-KEYS.update(line_yields=('month',), model_yields=('month', 'model_code'), capacities=('month', 'recipe_code', 'line_code'), cycle_times=('model_code',), switch_durations=('from_recipe', 'to_recipe'))
+KEYS.update(line_yields=('month', 'model_code'), model_yields=('month', 'model_code'), capacities=('month', 'recipe_code', 'line_code'), cycle_times=('model_code',), switch_durations=('from_recipe', 'to_recipe'))
 ROW_TYPES.update(holidays=Holiday, opening_exceptions=OpeningException, maintenance=Occupancy, experiments=Occupancy)
 SECTIONS.update({kind: 'calendar' for kind in ['holidays', 'opening_exceptions', 'maintenance', 'experiments']})
 KEYS.update(holidays=('date',), opening_exceptions=('date', 'line_code'), maintenance=('date', 'line_code'), experiments=('date', 'line_code'))
@@ -110,8 +110,24 @@ def apply_batch(current, base_version, changes):
     return normalize_snapshot(result['snapshot'])
 
 
-def continue_months(current: InputSnapshot, month: str) -> InputSnapshot:
-    document = current.model_dump(mode='json')
+def _expand_legacy_line_yields(document):
+    rows = document['parameters']['line_yields']
+    model_codes = [row['code'] for row in document['masters']['models']]
+    present = {(row['month'], row['model_code']) for row in rows if 'model_code' in row}
+    expanded = []
+    for row in rows:
+        if 'model_code' in row:
+            expanded.append(row)
+            continue
+        for model_code in model_codes:
+            key = (row['month'], model_code)
+            if key not in present:
+                expanded.append(row | {'model_code': model_code})
+                present.add(key)
+    document['parameters']['line_yields'] = expanded
+
+
+def _advance_current_document(document, month):
     start_year, start_month = map(int, month.split('-'))
     start = start_year * 12 + start_month - 1
     for kind in ('line_yields', 'model_yields', 'capacities'):
@@ -126,10 +142,35 @@ def continue_months(current: InputSnapshot, month: str) -> InputSnapshot:
                 if old['month'] == prior_month and key not in present:
                     rows.append(deepcopy(old) | {'month': current_month})
                     present.add(key)
+    return document
+
+
+def _advance_current(current: InputSnapshot, month: str, *, expand_legacy: bool):
+    document = current.model_dump(mode='json')
+    if expand_legacy:
+        _expand_legacy_line_yields(document)
+    document = _advance_current_document(document, month)
     if document == current.model_dump(mode='json'):
         return current
     document['input_version'] += 1
     return normalize_snapshot(document)
+
+
+def convert_legacy_line_yields(current: InputSnapshot) -> InputSnapshot:
+    document = current.model_dump(mode='json')
+    _expand_legacy_line_yields(document)
+    if document == current.model_dump(mode='json'):
+        return current
+    document['input_version'] += 1
+    return normalize_snapshot(document)
+
+
+def continue_months(current: InputSnapshot, month: str) -> InputSnapshot:
+    return _advance_current(current, month, expand_legacy=False)
+
+
+def prepare_current(current: InputSnapshot, month: str) -> InputSnapshot:
+    return _advance_current(current, month, expand_legacy=True)
 
 
 def selection_options(current: InputSnapshot):

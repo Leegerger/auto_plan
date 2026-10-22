@@ -8,6 +8,7 @@ from openpyxl import Workbook, load_workbook
 from openpyxl.comments import Comment
 from openpyxl.styles import Font, PatternFill
 from openpyxl.worksheet.datavalidation import DataValidation
+from .input_models import LegacyLineYield
 from .inputs import ROW_TYPES, SECTIONS, error
 
 HEADERS = {kind: tuple(model.model_fields) for kind, model in ROW_TYPES.items()}
@@ -19,7 +20,11 @@ def workbook_bytes(snapshot=None):
     book = Workbook()
     book.remove(book.active)
     document = snapshot.model_dump(mode='json') if snapshot else None
-    for kind, headers in HEADERS.items():
+    sheet_headers = dict(HEADERS)
+    line_yields = document['parameters']['line_yields'] if document else []
+    if line_yields and all('model_code' not in row for row in line_yields):
+        sheet_headers['line_yields'] = tuple(LegacyLineYield.model_fields)
+    for kind, headers in sheet_headers.items():
         sheet = book.create_sheet(kind)
         sheet.append(headers)
         sheet.freeze_panes = 'A2'
@@ -36,7 +41,7 @@ def workbook_bytes(snapshot=None):
                 validation.add(f'{cell.column_letter}2:{cell.column_letter}100001')
         if document:
             for row in document[SECTIONS[kind]][kind]:
-                sheet.append([row[header] for header in headers])
+                sheet.append([row.get(header) for header in headers])
                 # Fixed codes/names/decimals remain text even if a name starts with '='.
                 for cell in sheet[sheet.max_row]:
                     if isinstance(cell.value, str):

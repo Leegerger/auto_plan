@@ -14,7 +14,7 @@ CHANGES = {
     'recipes': [{'code': 'R', 'name': '工艺 Ω', 'active': True}],
     'lines': [{'code': 'L', 'name': '一线', 'active': True}],
     'models': [{'code': 'M', 'name': '机种 🧪', 'active': True, 'recipe_code': 'R'}],
-    'line_yields': [{'month': '2026-10', 'percent': '95.50'}],
+    'line_yields': [{'month': '2026-10', 'model_code': 'M', 'percent': '95.50'}],
     'model_yields': [{'month': '2026-10', 'percent': '98', 'model_code': 'M'}],
     'capacities': [{'month': '2026-10', 'recipe_code': 'R', 'line_code': 'L', 'pieces': BIG}],
     'cycle_times': [{'model_code': 'M', 'days': '0.50'}],

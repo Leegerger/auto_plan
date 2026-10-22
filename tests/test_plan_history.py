@@ -32,26 +32,35 @@ def test_selected_history_keeps_original_inputs_results_and_missing_old_metrics(
 
 def test_legacy_global_yields_remain_raw_in_history_after_current_masters_change(shared_client):
     import json
-    client, _, _ = shared_client
-    configured = client.post('/auto_plan/api/inputs/apply', json={'base_version': 1, 'changes': {
-        'line_yields': [{'month': '2026-10', 'percent': '95'}],
-        'model_yields': [{'month': '2026-10', 'model_code': 'M', 'percent': '98'}]
-    }})
-    assert configured.status_code == 200, configured.text
-    saved = post(client, 'save', command(patch(row()), version=2))
+    from auto_plan.input_models import InputSnapshot
+    client, _, inputs = shared_client
+    legacy_document = inputs.read().model_dump(mode='json')
+    legacy_document['parameters']['line_yields'] = [{'month': '2026-10', 'percent': '95'}]
+    legacy_document['parameters']['model_yields'] = [
+        {'month': '2026-10', 'model_code': 'M', 'percent': '98'}]
+    legacy = InputSnapshot.model_validate(legacy_document)
+    inputs.versions[1] = legacy
+    inputs.version = 1
+    saved = post(client, 'save', command(patch(row()), version=1))
     assert saved.status_code == 200, saved.text
-    original_input = client.get('/auto_plan/api/inputs?version=2').json()
+    original_input = client.get('/auto_plan/api/inputs?version=1').json()
     original = client.get('/auto_plan/api/plans/revisions/1').json()
     assert original['snapshot']['inputs']['parameters']['line_yields'] == [{'month': '2026-10', 'percent': '95'}]
 
-    changed = client.post('/auto_plan/api/inputs/apply', json={'base_version': 2, 'changes': {
+    converted = client.get('/auto_plan/api/inputs').json()
+    changed = client.post('/auto_plan/api/inputs/apply', json={'base_version': converted['input_version'], 'changes': {
         'models': [{'code': 'Q', 'name': '新机种', 'active': True, 'recipe_code': 'R'}],
-        'line_yields': [{'month': '2026-10', 'percent': '94'}]
+        'line_yields': [{'month': '2026-10', 'model_code': 'M', 'percent': '96'}]
     }})
     assert changed.status_code == 200, changed.text
     assert changed.json()['masters']['models'][-1]['code'] == 'Q'
+    current_yields = {(row['month'], row['model_code']): row['percent']
+                      for row in changed.json()['parameters']['line_yields']}
+    assert current_yields['2026-10', 'M'] == '96'
+    assert current_yields['2026-10', 'N'] == '95'
+    assert ('2026-10', 'Q') not in current_yields
 
-    assert client.get('/auto_plan/api/inputs?version=2').json() == original_input
+    assert client.get('/auto_plan/api/inputs?version=1').json() == original_input
     selected = client.get('/auto_plan/api/plans/revisions/1').json()
     assert selected == original
     reevaluated = client.post('/auto_plan/api/plans/evaluate', json={'snapshot': original['snapshot']})
