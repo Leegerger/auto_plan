@@ -30,6 +30,38 @@ def test_selected_history_keeps_original_inputs_results_and_missing_old_metrics(
     assert client.get('/auto_plan/api/plans/current').json()['input_version'] == 2
 
 
+def test_legacy_global_yields_remain_raw_in_history_after_current_masters_change(shared_client):
+    import json
+    client, _, _ = shared_client
+    configured = client.post('/auto_plan/api/inputs/apply', json={'base_version': 1, 'changes': {
+        'line_yields': [{'month': '2026-10', 'percent': '95'}],
+        'model_yields': [{'month': '2026-10', 'model_code': 'M', 'percent': '98'}]
+    }})
+    assert configured.status_code == 200, configured.text
+    saved = post(client, 'save', command(patch(row()), version=2))
+    assert saved.status_code == 200, saved.text
+    original_input = client.get('/auto_plan/api/inputs?version=2').json()
+    original = client.get('/auto_plan/api/plans/revisions/1').json()
+    assert original['snapshot']['inputs']['parameters']['line_yields'] == [{'month': '2026-10', 'percent': '95'}]
+
+    changed = client.post('/auto_plan/api/inputs/apply', json={'base_version': 2, 'changes': {
+        'models': [{'code': 'Q', 'name': '新机种', 'active': True, 'recipe_code': 'R'}],
+        'line_yields': [{'month': '2026-10', 'percent': '94'}]
+    }})
+    assert changed.status_code == 200, changed.text
+    assert changed.json()['masters']['models'][-1]['code'] == 'Q'
+
+    assert client.get('/auto_plan/api/inputs?version=2').json() == original_input
+    selected = client.get('/auto_plan/api/plans/revisions/1').json()
+    assert selected == original
+    reevaluated = client.post('/auto_plan/api/plans/evaluate', json={'snapshot': original['snapshot']})
+    assert reevaluated.status_code == 200, reevaluated.text
+    assert {source['line_yield'] for source in reevaluated.json()['output_sources']} == {'95'}
+    book = workbook(client.get('/auto_plan/api/plans/revisions/1/export.xlsx'))
+    exported = json.loads(''.join(row['json_chunk'] for row in records(book, '_record_json')))
+    assert exported == original
+
+
 def test_restore_resolves_server_reference_into_new_draft_with_current_inputs_and_lineage(shared_client):
     client, plans, _ = shared_client
     assert post(client, 'save', command(patch(row()))).status_code == 200

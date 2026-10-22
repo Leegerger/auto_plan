@@ -4,7 +4,7 @@ from pathlib import Path
 import struct
 import sys
 from .job_codec import document, PAYLOAD_LIMIT
-from .solver_models import FrozenSolveInput
+from .stored_snapshots import decode_stored_frozen_solve
 
 
 def emit(value):
@@ -18,7 +18,7 @@ def main():
     raw=sys.stdin.buffer.read(PAYLOAD_LIMIT+1)
     if len(raw)>PAYLOAD_LIMIT: raise ValueError('Frozen input too large')
     data=json.loads(raw)
-    frozen=FrozenSolveInput.model_validate(data['frozen'])
+    frozen=decode_stored_frozen_solve(data['frozen'])
     cancel=Path(data['cancel_file'])
     from .solver import solve
     result=solve(frozen,emit,lambda:cancel.exists())
