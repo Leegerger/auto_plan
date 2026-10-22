@@ -76,6 +76,59 @@ def test_initial_import_saves_inputs_context_demand_file_and_pending_plan_withou
     assert len(files[0]['rows'])==15
 
 
+def test_initial_import_expands_legacy_yields_before_adding_models(import_client):
+    from auto_plan.input_models import InputSnapshot
+
+    client=import_client
+    legacy_document=snapshot()['inputs']
+    legacy_document['parameters']['line_yields']=[{'month':'2026-10','percent':'95'}]
+    legacy=InputSnapshot.model_validate(legacy_document|{'schema_version':1,'input_version':1})
+    inputs=client.app.state.input_store
+    inputs.versions[1]=legacy
+    inputs.version=1
+    payload=initial_payload()
+    payload['input_version']=1
+    payload['changes']={
+        'models':[{'code':'Q','name':'同批新增机种','recipe_code':'R','active':True}],
+        'capacities':[{'month':'2026-10','recipe_code':'R','line_code':'L','pieces':2000}],
+    }
+
+    checked=client.post('/auto_plan/api/initialization/preview',json=payload)
+    assert checked.status_code==200,checked.text
+    assert checked.json()['valid'],checked.json()
+    preview_yields={(row['month'],row['model_code']):row['percent']
+                    for row in checked.json()['inputs']['parameters']['line_yields']}
+    assert {key:preview_yields[key] for key in (
+        ('2026-10','M'),('2026-10','N'),('2026-10','P'))} == {
+            ('2026-10','M'):'95',('2026-10','N'):'95',('2026-10','P'):'95'}
+    assert ('2026-10','Q') not in preview_yields
+    assert inputs.version==1 and inputs.read()==legacy
+
+    applied=client.post('/auto_plan/api/initialization/apply',json=payload|{'operation_id':str(uuid4())})
+    assert applied.status_code==200,applied.text
+    assert client.get('/auto_plan/api/inputs?version=1').json()==legacy.model_dump(mode='json')
+    current=client.get('/auto_plan/api/inputs').json()
+    current_yields={(row['month'],row['model_code']):row['percent']
+                    for row in current['parameters']['line_yields']}
+    assert current_yields[('2026-10','M')] == '95'
+    assert ('2026-10','Q') not in current_yields
+
+    availability=client.get(
+        '/auto_plan/api/inputs/availability?month=2026-10&model_code=Q&line_code=L').json()
+    assert availability['line_yield']['state']=='missing'
+
+    evaluation=client.post('/auto_plan/api/plans/evaluate',json={'snapshot':{
+        'inputs':current,
+        'plan':{'segments':[
+            {'id':'q','date':'2026-10-15','line_code':'L','model_code':'Q',
+             'order':0,'quantity':100,'hours':'1'}]},
+    }})
+    assert evaluation.status_code==200,evaluation.text
+    assert evaluation.json()['computation_complete'] is False
+    assert any(issue['code']=='missing_line_yield' and issue['model_code']=='Q'
+               for issue in evaluation.json()['issues'])
+
+
 def initialize(client):
     response=client.post('/auto_plan/api/initialization/apply',json=initial_payload()|{'operation_id':str(uuid4())})
     assert response.status_code==200,response.text

@@ -16,12 +16,11 @@ def output_snapshot(quantity=1000, day='2026-10-14', yield_percent='93.10', ct='
     return data
 
 
-def test_raw_legacy_global_line_yield_snapshot_remains_evaluable(inputs_client):
+def test_raw_legacy_global_line_yield_snapshot_is_not_a_current_evaluation_input(inputs_client):
     data = output_snapshot(1000, yield_percent='90', ct='0')
     data['inputs']['parameters']['line_yields'] = [{'month': '2026-10', 'percent': '95'}]
-    result = preview(inputs_client, data)
-    assert result['output_sources'][0]['line_yield'] == '95'
-    assert result['output_totals']['expected'] == 855
+    response = inputs_client.post('/auto_plan/api/plans/evaluate', json={'snapshot': data})
+    assert response.status_code == 422, response.text
 
 
 def test_same_recipe_models_keep_independent_model_month_line_yields(inputs_client):
@@ -73,18 +72,15 @@ def test_missing_model_month_yield_is_localized_and_marks_evaluation_incomplete(
     assert result['output_sources'] == []
 
 
-def test_current_model_month_does_not_fallback_to_a_legacy_global_line_yield(inputs_client):
+def test_current_snapshot_rejects_global_fallback_alongside_model_rows(inputs_client):
     data = output_snapshot(1000, yield_percent='90', ct='0')
     data['inputs']['parameters']['line_yields'] = [
         row for row in data['inputs']['parameters']['line_yields'] if row['model_code'] != 'M']
     data['inputs']['parameters']['line_yields'].append({'month': '2026-10', 'percent': '100'})
 
-    result = preview(inputs_client, data)
+    response = inputs_client.post('/auto_plan/api/plans/evaluate', json={'snapshot': data})
 
-    missing = next(row for row in result['issues'] if row['code'] == 'missing_line_yield')
-    assert (missing['model_code'], missing['yield_month']) == ('M', '2026-10')
-    assert result['output_sources'] == []
-    assert result['computation_complete'] is False
+    assert response.status_code == 422, response.text
 
 
 def test_saved_model_month_yields_reach_public_evaluation_and_update_only_one_model(inputs_client):

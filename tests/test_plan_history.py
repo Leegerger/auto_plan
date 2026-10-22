@@ -63,9 +63,8 @@ def test_legacy_global_yields_remain_raw_in_history_after_current_masters_change
     assert client.get('/auto_plan/api/inputs?version=1').json() == original_input
     selected = client.get('/auto_plan/api/plans/revisions/1').json()
     assert selected == original
-    reevaluated = client.post('/auto_plan/api/plans/evaluate', json={'snapshot': original['snapshot']})
-    assert reevaluated.status_code == 200, reevaluated.text
-    assert {source['line_yield'] for source in reevaluated.json()['output_sources']} == {'95'}
+    rejected = client.post('/auto_plan/api/plans/evaluate', json={'snapshot': original['snapshot']})
+    assert rejected.status_code == 422, rejected.text
     book = workbook(client.get('/auto_plan/api/plans/revisions/1/export.xlsx'))
     exported = json.loads(''.join(row['json_chunk'] for row in records(book, '_record_json')))
     assert exported == original
