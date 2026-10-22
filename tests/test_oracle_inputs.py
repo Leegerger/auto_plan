@@ -55,7 +55,7 @@ def test_oracle_legacy_line_yields_convert_once_and_survive_reopen():
     headers = {'Origin': settings.public_origin, 'X-Auto-Plan-Request': '1'}
     try:
         with disposable_business_namespace(
-                access.pool, 'AP_TEST_LEGACY_' + uuid.uuid4().hex[:6].upper()) as namespace:
+                access.pool, 'AP_TEST_' + uuid.uuid4().hex[:6].upper()) as namespace:
             store = OracleInputStore(namespace)
             legacy = InputSnapshot.model_validate({
                 'schema_version': 1,
@@ -80,6 +80,11 @@ def test_oracle_legacy_line_yields_convert_once_and_survive_reopen():
             with TestClient(app(), base_url=settings.public_origin) as client:
                 assert client.post('/auto_plan/api/auth/login',
                                    json={'username': 'T24ADMIN', 'password': 'company-secret'},
+                                   headers=headers).status_code == 200
+                assert client.put('/auto_plan/api/admin/authorizations/T29EDITOR',
+                                  json={'roles': ['editor']}, headers=headers).status_code == 200
+                assert client.post('/auto_plan/api/auth/login',
+                                   json={'username': 'T29EDITOR', 'password': 'company-secret'},
                                    headers=headers).status_code == 200
                 converted = client.get('/auto_plan/api/inputs', headers=headers)
                 assert converted.status_code == 200, converted.text
@@ -108,7 +113,7 @@ def test_oracle_legacy_line_yields_convert_once_and_survive_reopen():
 
             with TestClient(app(), base_url=settings.public_origin) as reopened:
                 assert reopened.post('/auto_plan/api/auth/login',
-                                     json={'username': 'T24ADMIN', 'password': 'company-secret'},
+                                     json={'username': 'T29EDITOR', 'password': 'company-secret'},
                                      headers=headers).status_code == 200
                 assert reopened.get('/auto_plan/api/inputs', headers=headers).json() == persisted
                 assert reopened.get('/auto_plan/api/inputs?version=1', headers=headers).json() == legacy.model_dump(mode='json')
