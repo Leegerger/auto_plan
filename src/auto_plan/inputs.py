@@ -63,8 +63,12 @@ def preview(current: InputSnapshot, base_version: int, changes: dict[str, list[d
                 item = ROW_TYPES[kind].model_validate(values).model_dump(mode='json')
             except ValidationError as exc:
                 for detail in exc.errors():
-                    reason = detail['ctx']['error'] if 'ctx' in detail and 'error' in detail['ctx'] else '字段必填或格式无效'
-                    errors.append(error(kind, source_row, str(detail['loc'][0]), str(reason)))
+                    field = str(detail['loc'][0])
+                    if kind == 'line_yields' and field == 'model_code' and detail.get('type') == 'missing':
+                        reason = '线体良率缺少机种 model_code，请使用包含机种的新格式或新模板'
+                    else:
+                        reason = detail['ctx']['error'] if 'ctx' in detail and 'error' in detail['ctx'] else '字段必填或格式无效'
+                    errors.append(error(kind, source_row, field, str(reason)))
                 continue
             key = tuple(item[field] for field in KEYS[kind])
             if key in seen:
