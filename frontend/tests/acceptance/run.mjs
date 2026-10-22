@@ -6,8 +6,10 @@ import { resolve, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { gunzipSync } from 'node:zlib'
 import { createHash, randomUUID } from 'node:crypto'
-import { spawnSync } from 'node:child_process'
+import { execFile, spawnSync } from 'node:child_process'
+import { promisify } from 'node:util'
 import { performance } from 'node:perf_hooks'
+import * as planUi from './plan-workflow.mjs'
 import { prepareWeekNavigation, navigateWeek, prepareDayNavigation, navigateDay, assertSelected, unselectSegment } from './navigation.mjs'
 import { canonical, assertPlan, assertState, manualRows, scopeFor, assertManualRequest, assertManualPlan, assertManualEvaluation, failEntry, terminal } from './contracts.mjs'
 import { inputEditorLoop } from './input-editors.mjs'
@@ -18,6 +20,7 @@ import { captureExpectedState } from './expected-source.mjs'
 import { inputContentDigest, resolveInputCompanion } from './input-load.mjs'
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../../..')
+const runPython = promisify(execFile)
 const flags = Object.fromEntries(process.argv.slice(2).map((arg, i, all) => arg.startsWith('--') ? [arg.slice(2), all[i + 1]] : null).filter(Boolean))
 assert.ok(flags.config && flags.output, 'Provide --config and a new --output directory.')
 const configBytes = readFileSync(flags.config), config = JSON.parse(configBytes)
@@ -130,7 +133,7 @@ if (mode !== 'solo' && !localWorkload) {
   writeFileSync(resolve(output, 'input-companion.json'), bytes)
   mkdirSync(resolve(output, 'input-bodies'))
 }
-const helperFiles = ['frontend/tests/acceptance/private-shared-workload.mjs', ...(fullSharedSave ? ['frontend/tests/acceptance/private-shared-fixture.mjs', 'frontend/tests/acceptance/private-observation.mjs', 'scripts/acceptance/job_lifecycle_observer.py'] : []), 'frontend/tests/acceptance/private-shared-epoch.mjs', 'frontend/tests/acceptance/expected-source.mjs', 'scripts/acceptance/materialize_source.py', 'frontend/tests/acceptance/navigation.mjs', 'frontend/tests/acceptance/contracts.mjs', 'frontend/tests/acceptance/input-load.mjs', 'frontend/tests/acceptance/input-editors.mjs', 'scripts/acceptance/check_result.py', 'scripts/acceptance/input_companion.py', 'scripts/acceptance/assertions.py', 'scripts/acceptance/compare.py', 'scripts/acceptance/workbook.py']
+const helperFiles = ['scripts/acceptance/prepare_candidate_evaluation.py', 'frontend/tests/acceptance/plan-workflow.mjs', 'frontend/tests/acceptance/private-shared-workload.mjs', ...(fullSharedSave ? ['frontend/tests/acceptance/private-shared-fixture.mjs', 'frontend/tests/acceptance/private-observation.mjs', 'scripts/acceptance/job_lifecycle_observer.py'] : []), 'frontend/tests/acceptance/private-shared-epoch.mjs', 'frontend/tests/acceptance/expected-source.mjs', 'scripts/acceptance/materialize_source.py', 'frontend/tests/acceptance/navigation.mjs', 'frontend/tests/acceptance/contracts.mjs', 'frontend/tests/acceptance/input-load.mjs', 'frontend/tests/acceptance/input-editors.mjs', 'scripts/acceptance/check_result.py', 'scripts/acceptance/input_companion.py', 'scripts/acceptance/assertions.py', 'scripts/acceptance/compare.py', 'scripts/acceptance/workbook.py']
 const requiredEnvironment = ['image_digest', 'source_commit', 'migration_versions', 'python', 'native_libraries', 'server_hardware', 'client_hardware', 'cgroup_cpu_max', 'cgroup_memory_max', 'solver_threads', 'worker_count', 'oracle_pool_maximum', 'oracle_pool_observed_usage', 'network_proxy_path', 'peak_cpu_memory']
 const missingEnvironment = requiredEnvironment.filter(key => config.environment?.[key] === null || config.environment?.[key] === undefined || config.environment[key] === '')
 const evidence = { schema_version: localWorkload ? 4 : inputCompanion ? 3 : 2, kind: localEditingProbe ? 'public browser private-draft correctness probe; no timed acceptance' : editingProbe ? 'public browser input-editing correctness probe; no timed acceptance' : config.target.kind === 'adapter' ? 'external browser with explicit test adapters' : 'external browser to operator-attested disposable PLAN_TEST',
@@ -169,7 +172,6 @@ let inputEditors, sourceReadSequence = 0
 const pages = [], createdJobs = new Map()
 const importCaptureSessions = new WeakMap()
 function responseFor(page, predicate, options) { const pending = page.waitForResponse(predicate, options); pending.catch(() => {}); return pending }
-function requestFor(page, predicate, options) { const pending = page.waitForRequest(predicate, options); pending.catch(() => {}); return pending }
 async function retainImportResponse(page, entry) {
   let session = importCaptureSessions.get(page)
   if (!session) { session = await page.context().newCDPSession(page); importCaptureSessions.set(page, session) }
@@ -210,8 +212,8 @@ async function readState(page, browserRead = false) {
 function allowedPlans() { return [initialState.snapshot.plan, ...primaryPlans] }
 function assertAllowed(state, plans = allowedPlans()) { assertState(state, initialState, plans, { inputCompanion }) }
 const tokens = head => ({ base_revision: head.revision, input_version: head.input_version, latest_adoption: head.latest_adoption })
-const queue = page => page.getByRole('region', { name: '本机完整动作队列', exact: true }).getByRole('checkbox')
-async function idle(page) { await expect(page.getByRole('button', { name: '预览本机修改', exact: true })).toBeEnabled({ timeout: 180000 }) }
+const ui = page => ({ page, appUrl: config.origin + config.base_path })
+const inputObservation = (page, entry) => ({ beforeInput: () => arm(page), afterInput: () => clicked(page, entry) })
 async function settle(page) { return page.evaluate(() => new Promise(done => requestAnimationFrame(() => requestAnimationFrame(() => done(performance.timeOrigin + performance.now()))))) }
 async function arm(page) { await page.evaluate(() => { window.__acceptanceInputEpoch = undefined }) }
 async function clicked(page, entry) {
@@ -242,71 +244,44 @@ function check(kind, evaluation, plan, stem, proof, observedSource) {
   assert.equal(result.status, 0, `Independent ${kind} comparison failed; retained ${stem} artifacts identify the inputs.`)
   return JSON.parse(result.stdout)
 }
-async function shared(page) {
-  await page.goto(config.origin + config.base_path + '/plans/shared', { timeout: 180000 })
-  await expect(page.getByLabel('计划周次', { exact: true })).toBeVisible({ timeout: 180000 }); await idle(page)
-  await expect(queue(page)).toHaveCount(0)
-}
-async function selectRow(page, row) {
-  assert.ok(row, 'A requested source segment is absent.')
-  const week = Math.floor((Date.parse(row.date) - Date.parse(source.time.window_start)) / 604800000) + 1
-  await page.getByLabel('计划周次', { exact: true }).selectOption(String(week))
-  await page.getByRole('button', { name: `${row.date} ${row.line_code} 日内详情`, exact: true }).click()
-  await page.getByLabel('选择生产段 ' + row.id, { exact: true }).check()
-  await scopeInputs(page, scopeFor([row]))
-  await page.getByLabel('顺延截止日', { exact: true }).fill(row.date)
-}
-async function scopeInputs(page, scope) {
-  await page.getByLabel('调整范围起日', { exact: true }).fill(scope.start_date)
-  await page.getByLabel('调整范围终日', { exact: true }).fill(scope.end_date)
-  await page.getByLabel('调整范围线体', { exact: true }).selectOption(scope.line_codes)
-  await page.getByLabel('调整范围机种', { exact: true }).selectOption(scope.model_codes)
-}
-async function assertDaily(page, row, quantity) {
-  const tr = page.getByLabel('选择生产段 ' + row.id, { exact: true }).locator('xpath=ancestor::tr')
-  await expect(tr).toContainText(row.model_code)
-  await expect(tr.locator('td').nth(2)).toHaveText(`${quantity}片`)
-}
-async function assertOutput(page, evaluation, parent = page) {
-  const result = parent === page
-    ? page.getByRole('heading', { name: '共享计划', exact: true }).locator('..').locator(':scope > section[aria-label="产出需求与确认核算"]')
-    : parent.getByRole('region', { name: '产出需求与确认核算', exact: true })
-  await expect(result.locator('p').filter({ hasText: /(?:预计产出|当前已算产出)/ })).toContainText(new RegExp(`预计产出\\s*${evaluation.output_totals.expected}\\s*片；窗口外\\s*${evaluation.output_totals.outside_window}\\s*片；未分配\\s*${evaluation.output_totals.unallocated}\\s*片。`))
-  const first = evaluation.weekly_results[0]
-  if (first) {
-    const row = result.getByRole('table', { name: '周需求覆盖', exact: true }).locator('tbody tr').first()
-    for (const [index, value] of [[0, first.model_code], [1, first.week], [2, first.demand], [3, first.on_time], [6, first.gap]]) await expect(row.locator('td').nth(index)).toHaveText(String(value))
-  }
+async function evaluateCandidate(page, candidate, stem) {
+  const originalPath = stem + '-evaluation-historical-snapshot.json', provenancePath = stem + '-evaluation-transport.json'
+  const original = JSON.stringify({ ...candidate.snapshot, plan: candidate.plan })
+  writeFileSync(resolve(output, originalPath), original, { flag: 'wx' })
+  const prepared = await runPython(config.python ?? 'python', [resolve(root, 'scripts/acceptance/prepare_candidate_evaluation.py'),
+    '--snapshot', resolve(output, originalPath), '--provenance', resolve(output, provenancePath)], {
+    cwd: root, encoding: 'utf8', timeout: 30000, maxBuffer: 64 * 1024 * 1024,
+    env: { ...process.env, PYTHONPATH: [resolve(root, 'src'), root, process.env.PYTHONPATH].filter(Boolean).join(':') },
+  })
+  const payload = JSON.parse(prepared.stdout), requestPath = stem + '-evaluation-request.json', responsePath = stem + '-evaluation-response.json'
+  const retained = structuredClone(payload.snapshot), historical = JSON.parse(original)
+  retained.inputs.parameters.line_yields = historical.inputs.parameters.line_yields
+  assert.deepEqual(retained, historical, 'Evaluation transport changed a field outside historical line yields.')
+  const requestBytes = Buffer.from(prepared.stdout)
+  writeFileSync(resolve(output, requestPath), requestBytes, { flag: 'wx' })
+  const response = await page.request.post(api('/plans/evaluate'), { headers: { ...headers, 'Content-Type': 'application/json' }, data: requestBytes }), bytes = await response.body()
+  writeFileSync(resolve(output, responsePath), bytes, { flag: 'wx' })
+  const captures = evidence.candidate_evaluations ??= []
+  captures.push({ historical: { path: originalPath, sha256: sha(original) },
+    transport: { path: provenancePath, sha256: sha(readFileSync(resolve(output, provenancePath))), ...JSON.parse(readFileSync(resolve(output, provenancePath))) },
+    request: { path: requestPath, sha256: sha(requestBytes) }, response: { path: responsePath, sha256: sha(bytes), status: response.status() } })
+  persist()
+  assert.ok(response.ok(), 'Independent public candidate evaluation failed; complete request and response retained.')
+  return JSON.parse(bytes)
 }
 async function previewChange(page, row, quantity, entry) {
-  await page.getByLabel('改量后总量', { exact: true }).fill(String(quantity))
-  await expect(page.getByLabel('改量后总量', { exact: true })).toHaveValue(String(quantity))
-  const response = responseFor(page, r => r.url() === api('/plans/preview') && r.request().method() === 'POST', { timeout: 180000 })
-  await arm(page); await page.getByRole('button', { name: '预览完整改量顺延', exact: true }).click(); await clicked(page, entry)
-  const received = await response; assert.ok(received.ok(), 'Quantity preview failed.')
-  const result = await received.json(), command = received.request().postDataJSON()
-  await expect(page.getByText('预览完成，尚未共享', { exact: true })).toBeVisible({ timeout: 180000 })
-  await idle(page); await assertDaily(page, row, quantity); await assertOutput(page, result.evaluation)
+  const attempt = await planUi.previewQuantity(ui(page), { source, row, quantity }, inputObservation(page, entry))
   await rendered(page, entry)
-  return { result, command, response: received }
+  return attempt
 }
 async function resetQueue(page, expectedCount) {
-  await idle(page)
-  let remaining = await queue(page).count()
-  if (expectedCount !== undefined) assert.equal(remaining, expectedCount, 'Unexpected action count before settled undo.')
-  const countBefore = remaining
-  let lastResult
-  while (remaining) {
-    const response = responseFor(page, r => r.url() === api('/plans/preview') && r.request().method() === 'POST', { timeout: 180000 })
-    await page.getByRole('button', { name: '撤销最后完整动作', exact: true }).click()
-    const received = await response; assert.ok(received.ok(), 'Undo preview failed.'); lastResult = await received.json()
-    await idle(page); await expect(queue(page)).toHaveCount(--remaining)
-  }
-  await settle(page); await expect(queue(page)).toHaveCount(0)
+  const attempts = await planUi.undoLocalDraft(ui(page), { count: expectedCount })
+  await settle(page); await planUi.expectLocalActions(ui(page), 0)
   const local = await page.evaluate(() => Object.keys(localStorage).map(key => { try { const value = JSON.parse(localStorage.getItem(key)); return value?.draft ? { count: value.draft.operations.length, outstanding: !!value.outstanding } : null } catch { return null } }).filter(Boolean))
   assert.ok(local.every(row => row.count === 0 && !row.outstanding), 'A local queue or unresolved UUID remains after reset.')
+  const lastResult = attempts.at(-1)?.result
   if (lastResult) assert.ok(allowedPlans().some(plan => { try { assertPlan(lastResult.plan, plan); return true } catch { return false } }), 'Empty local replay did not restore a complete permitted shared source witness.')
-  return { actions_undone: countBefore, queue_empty: true, effective_plan_sha256: lastResult ? sha(JSON.stringify(canonical(lastResult.plan))) : null }
+  return { actions_undone: attempts.length, queue_empty: true, effective_plan_sha256: lastResult ? sha(JSON.stringify(canonical(lastResult.plan))) : null }
 }
 function registerOperation(command, purpose) {
   const record = { operation_id: command.operation_id, purpose, command, status: 'submitted' }
@@ -345,20 +320,24 @@ async function apiSave(page, operation, purpose, expectedPlan) {
   return { ...result, operation_id: command.operation_id }
 }
 async function uiSave(page, entry, expectedPlan) {
-  const request = requestFor(page, r => r.url() === api('/plans/save') && r.method() === 'POST', { timeout: 180000 })
-  const response = responseFor(page, r => r.url() === api('/plans/save') && r.request().method() === 'POST', { timeout: 180000 })
-  await arm(page); await page.getByRole('button', { name: '共享保存', exact: true }).click(); await clicked(page, entry)
-  const command = (await request).postDataJSON()
-  const record = registerOperation(command, 'measured_modified_shared_save')
-  entry.submitted_save = command
-  assert.deepEqual(canonical(command.operations), canonical(entry.prepared_save_command.operations), 'Saved actions differ from the modified checked preview.')
-  assert.equal(command.input_version, initialState.head.input_version, 'Save input binding changed.')
-  assert.equal(command.latest_adoption, initialState.head.latest_adoption, 'Save adoption binding changed.')
-  const received = await response; assert.ok(received.ok(), 'Modified shared save was not acknowledged.')
-  const result = await received.json(); assert.equal(result.status, 'COMMITTED', 'Save did not commit.')
-  await expect(page.getByText(`已共享保存修订 ${result.revision}，最近采用版未改变`, { exact: true })).toBeVisible({ timeout: 180000 })
-  await idle(page); await expect(queue(page)).toHaveCount(0); entry.expected_queue_count = 0
-  const changed = expectedPlan.segments.find(row => row.id === config.primary_segment); await assertDaily(page, changed, 99)
+  let record
+  const attempt = await planUi.saveLocalDraft(ui(page), {}, {
+    ...inputObservation(page, entry),
+    submitted: request => {
+      const command = request.postDataJSON()
+      entry.submitted_save = command
+      record = registerOperation(command, 'measured_modified_shared_save')
+      assert.deepEqual(canonical(command.operations), canonical(entry.prepared_save_command.operations), 'Saved actions differ from the modified checked preview.')
+      assert.equal(command.input_version, initialState.head.input_version, 'Save input binding changed.')
+      assert.equal(command.latest_adoption, initialState.head.latest_adoption, 'Save adoption binding changed.')
+    },
+  })
+  assert.equal(attempt.status, 200, 'Modified shared save was not acknowledged.')
+  const { command, result } = attempt
+  assert.equal(result.status, 'COMMITTED', 'Save did not commit.')
+  entry.expected_queue_count = 0
+  const changed = expectedPlan.segments.find(row => row.id === config.primary_segment)
+  await planUi.assertDaily(ui(page), changed, 99)
   await rendered(page, entry)
   entry.phase = 'verify_uuid_revision_and_fresh_modified_read'
   await verifySave(page, command, result, expectedPlan, record)
@@ -412,41 +391,34 @@ async function compute(page, operation, entry, stem) {
   assert.equal(operation, action.request.mode, 'Measured computation differs from the frozen mode.')
   const release = await holdSaveAdmission(entry)
   try {
-  await shared(page)
-  for (const [label, value] of [['计算模式', operation], ['求解策略', action.request.strategy]]) await page.getByLabel(label, { exact: true }).selectOption(value)
-  for (const [label, value] of [['计算范围起日', action.request.scope.start_date], ['计算范围终日', action.request.scope.end_date], ['计算时限', String(action.request.time_limit_seconds)], ['候选数量', String(action.request.max_candidates)]]) await page.getByLabel(label, { exact: true }).fill(value)
-  await page.getByLabel('计算线体', { exact: true }).selectOption(action.request.scope.line_codes)
-  await page.getByLabel('计算机种', { exact: true }).selectOption(action.request.scope.model_codes ?? [])
-  const captured = await readState(page); assertState(captured, initialState)
-  const request = requestFor(page, r => r.url() === api('/jobs') && r.method() === 'POST', { timeout: 180000 })
-  const response = responseFor(page, r => r.url() === api('/jobs') && r.request().method() === 'POST', { timeout: 180000 })
-  await arm(page); await page.getByRole('button', { name: '提交计算任务', exact: true }).click(); await clicked(page, entry)
-  const submitted = (await request).postDataJSON(), pending = registerSubmission(entry, submitted, 'measured_computation')
-  const received = await response; assert.ok(received.ok(), 'Computation was not accepted.')
-  const accepted = await received.json(); pending.status = accepted.status; pending.job_id = accepted.job_id
-  trackJob(accepted.job_id, submitted, 'measured_computation'); entry.job_id = accepted.job_id; entry.submission_id = submitted.submission_id
-  release()
-  await expect(page.getByRole('region', { name: '计算任务', exact: true })).toContainText('计算任务已接收'); entry.feedback_ms = performance.now()
-  const item = page.getByRole('list', { name: '持久计算任务', exact: true }).locator('li').filter({ hasText: accepted.job_id })
-  const button = item.getByRole('button', { name: '查看候选内容', exact: true }).first()
-  await expect(button).toBeVisible({ timeout: 180000 })
-  const viewResponse = responseFor(page, r => r.url().startsWith(api(`/jobs/${accepted.job_id}/candidates/`)), { timeout: 180000 })
-  await button.click(); const viewed = await viewResponse; assert.ok(viewed.ok(), 'Candidate content request failed.')
-  const view = await viewed.json(), candidate = view.candidate
-  const region = page.getByRole('region', { name: '候选内容', exact: true })
-  await expect(region.getByRole('heading', { name: '候选 ' + view.candidate_id, exact: true })).toBeVisible()
-  await expect(region).toContainText(`原共享修订 ${submitted.base_revision} · 输入版本 ${submitted.input_version} · 最近采用版 ${submitted.latest_adoption}`)
-  await expect(region).toContainText('可执行候选')
-  await region.locator('summary').filter({ hasText: '查看原始候选业务检查' }).click()
-  await assertOutput(page, candidate.evaluation, region)
-  await rendered(page, entry)
-  entry.phase = 'candidate_frozen_provenance_and_independent_quality'
-  assert.equal(view.job_id, accepted.job_id, 'Displayed candidate belongs to another job.')
-  const proof = { candidate, submitted, source: captured }
-  const evaluation = await json(page, '/plans/evaluate', { snapshot: { ...candidate.snapshot, plan: candidate.plan } })
-  const compared = check('candidate', evaluation, candidate.plan, stem, proof)
-  entry.candidate_id = view.candidate_id; entry.objective = compared.objective; entry.stage_bounds = candidate.stage_bounds
-  entry.verification_finished_ms = performance.now()
+    await planUi.openWorkspace(ui(page))
+    await planUi.prepareComputation(ui(page), action.request)
+    const captured = await readState(page); assertState(captured, initialState)
+    let pending
+    const attempt = await planUi.submitComputation(ui(page), {
+      ...inputObservation(page, entry),
+      submitted: request => { pending = registerSubmission(entry, request.postDataJSON(), 'measured_computation') },
+      responded: ({ command, result, status }) => {
+        if (status !== 200) return
+        pending.status = result.status; pending.job_id = result.job_id
+        trackJob(result.job_id, command, 'measured_computation')
+        entry.job_id = result.job_id; entry.submission_id = command.submission_id
+        release()
+      },
+      feedback: () => { entry.feedback_ms = performance.now() },
+    })
+    assert.equal(attempt.status, 200, 'Computation was not accepted.')
+    const submitted = attempt.command, accepted = attempt.result
+    const viewed = await planUi.viewCandidate(ui(page), { jobId: accepted.job_id, submitted })
+    const view = viewed.result, candidate = view.candidate
+    assert.equal(candidate.eligibility, 'executable', 'The candidate is not executable.')
+    await rendered(page, entry)
+    entry.phase = 'candidate_frozen_provenance_and_independent_quality'
+    const proof = { candidate, submitted, source: captured }
+    const evaluation = await evaluateCandidate(page, candidate, stem)
+    const compared = check('candidate', evaluation, candidate.plan, stem, proof)
+    entry.candidate_id = view.candidate_id; entry.objective = compared.objective; entry.stage_bounds = candidate.stage_bounds
+    entry.verification_finished_ms = performance.now()
   } finally { if (saveAdmissionHeld) release() }
 }
 
@@ -494,7 +466,6 @@ async function privateSharedSaveContract(before, job, observe) {
   const observation = fullSharedSave ? privateObservation(record) : null
   const step = (phase, work) => observation ? observation.step(phase, work) : work()
   const check = (phase, work) => observation ? observation.sync(phase, work) : work()
-  let primaryError, hasPrimaryError = false
   let forwarded = 0, restoreNeeded = false, primaryPlan
   const dropped = deferred()
   const interceptor = async route => {
@@ -531,13 +502,12 @@ async function privateSharedSaveContract(before, job, observe) {
     record.shared_history = await json(page, '/plans/history', undefined, observation, 'cleanup_history')
     restoreNeeded = false
   }
-  try {
+  const work = async () => {
     record.original_revision = await json(page, '/plans/revisions/1')
     record.original_adoption = await json(page, '/plans/adoptions/1')
-    await assertDaily(page, row, 100)
     const prepared = await previewChange(page, row, 99, edit)
     edit.events.push({ phase: 'native_quantity_submit', epoch_ms: edit.clicked_epoch_ms }, { phase: 'complete_preview', epoch_ms: edit.browser_after_result_frames_epoch_ms })
-    edit.changed_response_artifact = captureLocalBody(await prepared.response.body())
+    edit.changed_response_artifact = captureLocalBody(prepared.bytes)
     assertManualRequest(prepared.command, [row], 'change_quantity', 99)
     const wanted = structuredClone(source.plan), actual = structuredClone(prepared.result.plan)
     wanted.segments.find(item => item.id === row.id).quantity = 99
@@ -551,30 +521,37 @@ async function privateSharedSaveContract(before, job, observe) {
     record.prepared_preview_artifact = edit.changed_response_artifact
     record.running_before_save = await observe(); assert.equal(record.running_before_save.body.state, 'running')
     await page.route(api('/plans/save'), interceptor)
-    const requested = requestFor(page, request => request.url() === api('/plans/save') && request.method() === 'POST')
     const clock = {}
-    await arm(page); await page.getByRole('button', { name: '共享保存', exact: true }).click(); await clicked(page, clock)
-    record.clock.origin_epoch_ms = record.clock.first_clicked_epoch_ms = clock.clicked_epoch_ms
-    record.events.push({ phase: 'native_shared_save', epoch_ms: clock.clicked_epoch_ms })
-    record.submitted = (await requested).postDataJSON(); restoreNeeded = true
-    assert.deepEqual(canonical(record.submitted.operations), canonical(prepared.command.operations))
-    const operation = registerOperation(record.submitted, 'private_shared_save_unknown_reply')
+    let operation
+    await planUi.saveLocalDraft(ui(page), {}, {
+      ...inputObservation(page, clock),
+      afterInput: async () => {
+        await clicked(page, clock)
+        record.clock.origin_epoch_ms = record.clock.first_clicked_epoch_ms = clock.clicked_epoch_ms
+        record.events.push({ phase: 'native_shared_save', epoch_ms: clock.clicked_epoch_ms })
+      },
+      submitted: request => {
+        record.submitted = request.postDataJSON(); restoreNeeded = true
+        operation = registerOperation(record.submitted, 'private_shared_save_unknown_reply')
+        assert.deepEqual(canonical(record.submitted.operations), canonical(prepared.command.operations))
+      },
+    })
     await dropped.promise; await page.unroute(api('/plans/save'), interceptor)
-    await expect(page.getByText('前次保存结果未知，当前只读。请先核实，避免重复保存或采用。', { exact: true })).toBeVisible({ timeout: 60000 })
-    for (const name of ['共享保存','正式采用','预览本机修改','撤销最后完整动作']) await expect(page.getByRole('button', { name, exact: true })).toBeDisabled({ timeout: 60000 })
     record.readonly_unknown_observed = true
-    const verification = responseFor(page, response => response.url() === api('/plans/verify') && response.request().method() === 'POST')
-    await page.getByRole('button', { name: '核实前次操作', exact: true }).click()
-    const response = await step('verify_S0_headers', () => verification), bytes = await step('verify_S0_body', () => response.body())
-    record.verification_command = response.request().postDataJSON(); record.resolution = check('verify_S0_parse', () => JSON.parse(bytes))
-    record.verification_artifact = check('verify_S0_capture', () => captureLocalBody(bytes))
-    check('verify_S0_assertions', () => {
-      assert.deepEqual(record.verification_command, { operation_id: record.submitted.operation_id })
-      assert.equal(record.resolution.status, 'COMMITTED'); assert.equal(record.resolution.revision, 2)
+    await planUi.verifyLocalSave(ui(page), {
+      step: (phase, work) => phase === 'parse' ? check('verify_S0_parse', work) : step('verify_S0_' + phase, work),
+      responded: attempt => {
+        record.verification_command = attempt.command; record.resolution = attempt.result
+        record.verification_artifact = check('verify_S0_capture', () => captureLocalBody(attempt.bytes))
+        check('verify_S0_assertions', () => {
+          assert.deepEqual(record.verification_command, { operation_id: record.submitted.operation_id })
+          assert.equal(record.resolution.status, 'COMMITTED'); assert.equal(record.resolution.revision, 2)
+        })
+      },
     })
     operation.resolution = record.resolution; operation.status = 'COMMITTED'; operation.revision = 2
     await step('verified_message_dom', () => expect(page.getByText('已核实前次操作成功，共享修订 2', { exact: true })).toBeVisible({ timeout: 60000 }))
-    await step('verified_idle_dom', () => idle(page)); await step('verified_empty_queue_dom', () => expect(queue(page)).toHaveCount(0, { timeout: 60000 }))
+    await step('verified_idle_dom', () => planUi.waitForEditing(ui(page))); await step('verified_empty_queue_dom', () => planUi.expectLocalActions(ui(page), 0))
     await step('verification_button_absent_dom', () => expect(page.getByRole('button', { name: '核实前次操作', exact: true })).toHaveCount(0, { timeout: 60000 }))
     const saved = await privateSource(observation, 'saved_source'), revision = await json(page, '/plans/revisions/2', undefined, observation, 'saved_revision_R2')
     check('saved_source_assertions', () => {
@@ -584,15 +561,16 @@ async function privateSharedSaveContract(before, job, observe) {
     record.epochs.saved = { revision: 2, source_artifact: saved.artifact, revision_artifact: check('saved_revision_capture', () => captureLocalBody(Buffer.from(JSON.stringify(revision)))) }
     // The saved page displays the persisted plan; a real empty-queue preview
     // supplies its complete visible output without introducing a business write.
-    const emptyPreview = responseFor(page, response => response.url() === api('/plans/preview') && response.request().method() === 'POST')
-    await step('saved_preview_click_dom', () => page.getByRole('button', { name: '预览本机修改', exact: true }).click())
-    const displayed = await step('saved_preview_headers', () => emptyPreview), displayBytes = await step('saved_preview_body', () => displayed.body()), result = check('saved_preview_parse', () => JSON.parse(displayBytes))
+    const display = await step('saved_preview_workflow_dom', () => planUi.previewDraft(ui(page), {}, {
+      step: (phase, work) => phase === 'parse' ? check('saved_preview_parse', work) : step('saved_preview_' + phase, work),
+    }))
+    const displayed = display.response, displayBytes = display.bytes, result = display.result
     check('saved_preview_assertions', () => {
       assert.equal(displayed.status(), 200); assert.deepEqual(displayed.request().postDataJSON().operations, [])
       assertPlan(result.plan, primaryPlan); assertPrivateEpochResult(result, displayed.request().postDataJSON(), null)
     })
     if (fullSharedSave) record.display_command = displayed.request().postDataJSON()
-    await step('saved_preview_idle_dom', () => idle(page)); await step('saved_daily_dom', () => assertDaily(page, row, 99)); await step('saved_output_dom', () => assertOutput(page, result.evaluation)); await step('saved_two_frames_dom', () => rendered(page, clock))
+    await step('saved_preview_idle_dom', () => planUi.waitForEditing(ui(page))); await step('saved_daily_dom', () => planUi.assertDaily(ui(page), row, 99)); await step('saved_output_dom', () => planUi.assertOutput(ui(page), result.evaluation)); await step('saved_two_frames_dom', () => rendered(page, clock))
     record.display_artifact = check('saved_display_capture', () => captureLocalBody(displayBytes))
     record.clock.rendered_epoch_ms = clock.browser_after_result_frames_epoch_ms; record.clock.seconds = clock.browser_after_result_frames_seconds
     record.running_after_confirmed_paint = await step('running_after_confirmed_paint', () => observe()); check('running_after_confirmed_paint_assertions', () => assert.equal(record.running_after_confirmed_paint.body.state, 'running'))
@@ -603,20 +581,15 @@ async function privateSharedSaveContract(before, job, observe) {
     })
     record.forwarded_original_save_count = forwarded
     record.status = 'pass'
-  } catch (error) {
-    if (observation) { primaryError = error; hasPrimaryError = true; observation.primary(error) }
-    throw error
-  } finally {
-    try {
-      await step('cleanup_unroute', () => page.unroute(api('/plans/save'), interceptor))
-      await restore(); edit.finished_ms = performance.now(); persist()
-    } catch (error) {
-      if (observation) { observation.cleanup(error); if (hasPrimaryError) throw primaryError }
-      throw error
-    }
   }
+  const cleanup = async () => {
+    await step('cleanup_unroute', () => page.unroute(api('/plans/save'), interceptor))
+    await restore(); edit.finished_ms = performance.now(); persist()
+  }
+  if (observation) await observation.run(work, cleanup)
+  else { try { await work() } finally { await cleanup() } }
   await expect.poll(() => new Set(evidence.editor_actions.filter(row => row.editor > 0 && row.status === 'pass' && row.undo_parent_revision === 3).map(row => row.editor)).size, { timeout: 60000 }).toBe(4)
-  await shared(page)
+  await planUi.openWorkspace(ui(page))
   edit.status = 'pass'; edit.undo = { queue_empty: true, origin_restored: true, restoration_operation_id: record.restoration.submitted.operation_id }
 }
 async function privateEditCycle(target) {
@@ -625,11 +598,10 @@ async function privateEditCycle(target) {
       changed_quantity: target.operation.quantity, started_ms: performance.now(), phase: 'private_quantity_edit', status: 'fail', events: [] }
     evidence.editor_actions.push(entry); persist()
     try {
-      await selectRow(page, row); await assertDaily(page, row, row.quantity)
       const preview = await previewChange(page, row, target.operation.quantity, entry)
       entry.events.push({ phase: 'native_quantity_submit', epoch_ms: entry.clicked_epoch_ms },
         { phase: 'complete_preview', epoch_ms: entry.browser_after_result_frames_epoch_ms })
-      entry.changed_response_artifact = captureLocalBody(await preview.response.body())
+      entry.changed_response_artifact = captureLocalBody(preview.bytes)
       const expected = structuredClone(privateEpochPlan(preview.result.parent_revision))
       entry.parent_revision = preview.result.parent_revision; entry.base_revision = preview.command.base_revision; entry.merged = preview.result.merged
       const expectedRow = expected.segments.find(item => item.id === row.id)
@@ -656,19 +628,19 @@ async function privateEditCycle(target) {
       }
       entry.observed_totals = Object.fromEntries(Object.keys(target.expected.totals).map(key => [key, preview.result.evaluation.output_totals[key]]))
       entry.phase = 'settled_private_undo'
-      await expect(queue(page)).toHaveCount(1)
-      const pending = responseFor(page, response => response.url() === api('/plans/preview') && response.request().method() === 'POST')
-      await arm(page)
-      await page.getByRole('button', { name: '撤销最后完整动作', exact: true }).click()
-      entry.events.push({ phase: 'native_undo_click', epoch_ms: await page.evaluate(() => window.__acceptanceInputEpoch) })
-      const response = await pending; assert.equal(response.status(), 200, 'Private undo preview failed.')
-      const bytes = await response.body(), undone = JSON.parse(bytes)
-      await idle(page); await expect(queue(page)).toHaveCount(0); await settle(page)
+      await planUi.expectLocalActions(ui(page), 1)
+      const undoAttempt = await planUi.undoLastAction(ui(page), {
+        beforeInput: () => arm(page),
+        afterInput: async () => { entry.events.push({ phase: 'native_undo_click', epoch_ms: await page.evaluate(() => window.__acceptanceInputEpoch) }) },
+      })
+      assert.equal(undoAttempt.status, 200, 'Private undo preview failed.')
+      const bytes = undoAttempt.bytes, undone = undoAttempt.result
+      await settle(page)
       assertPlan(undone.plan, privateEpochPlan(undone.parent_revision), 'Private undo did not restore its actual complete shared epoch.')
       entry.undo_parent_revision = undone.parent_revision
-      if (privateSharedSaveProbe) assertPrivateEpochResult(undone, response.request().postDataJSON(), null)
-      await assertDaily(page, row, row.quantity); await assertOutput(page, undone.evaluation)
-      entry.undo = { ...await resetQueue(page, 0), origin_restored: true, response_artifact: captureLocalBody(bytes), ...(fullSharedSave ? { command: response.request().postDataJSON() } : {}) }
+      if (privateSharedSaveProbe) assertPrivateEpochResult(undone, undoAttempt.command, null)
+      await planUi.assertDaily(ui(page), row, row.quantity)
+      entry.undo = { ...await resetQueue(page, 0), origin_restored: true, response_artifact: captureLocalBody(bytes), ...(fullSharedSave ? { command: undoAttempt.command } : {}) }
       entry.events.push({ phase: 'complete_undo', epoch_ms: await settle(page) })
       entry.status = 'pass'
     } catch (error) {
@@ -699,28 +671,33 @@ async function privatePrimaryJobContract(before) {
     return { body, epoch_ms: await page.evaluate(() => performance.timeOrigin + performance.now()) }
   }
   try {
-    for (const [label, value] of [['计算模式', action.request.mode], ['求解策略', action.request.strategy]]) await page.getByLabel(label, { exact: true }).selectOption(value)
-    for (const [label, value] of [['计算范围起日', action.request.scope.start_date], ['计算范围终日', action.request.scope.end_date], ['计算时限', String(action.request.time_limit_seconds)], ['候选数量', String(action.request.max_candidates)]]) await page.getByLabel(label, { exact: true }).fill(value)
-    await page.getByLabel('计算线体', { exact: true }).selectOption(action.request.scope.line_codes)
-    await page.getByLabel('计算机种', { exact: true }).selectOption(action.request.scope.model_codes)
-    await selectRow(page, source.plan.segments.find(row => row.id === localWorkload.targets.find(target => target.editor === 0).segment_id))
+    // The completed initial undo leaves an empty ephemeral preview. Discard it
+    // explicitly before the first job click, while setup is still unmeasured.
+    await planUi.openWorkspace(ui(page))
+    await planUi.expectLocalActions(ui(page), 0)
+    await planUi.prepareComputation(ui(page), action.request)
     await Promise.all(ready.map(value => value.first.promise))
     if (editorFailure) throw editorFailure
-    await expect(queue(page)).toHaveCount(0)
-    await expect(page.getByRole('button', { name: '核实前次操作', exact: true })).toHaveCount(0)
-    const pendingRequest = requestFor(page, request => request.url() === api('/jobs') && request.method() === 'POST')
-    const pendingResponse = responseFor(page, response => response.url() === api('/jobs') && response.request().method() === 'POST')
-    await arm(page); await page.getByRole('button', { name: '提交计算任务', exact: true }).click(); await clicked(page, entry)
-    record.clock.origin_epoch_ms = record.clock.first_clicked_epoch_ms = entry.clicked_epoch_ms
-    const request = await pendingRequest, commandBytes = request.postDataBuffer(), command = JSON.parse(commandBytes)
-    const submission = registerSubmission(entry, command, 'private_primary_job')
-    const received = await pendingResponse, bytes = await received.body(), response = JSON.parse(bytes)
-    const attempt = { command, response_status: received.status(), response, clicked_epoch_ms: entry.clicked_epoch_ms,
-      request_artifact: captureLocalBody(commandBytes), response_artifact: captureLocalBody(bytes) }
-    record.attempts.push(attempt)
-    if (received.status() === 200) {
-      record.accepted = response; submission.job_id = response.job_id; trackJob(response.job_id, command, 'private_primary_job')
-    }
+    let submission, attempt
+    const submitted = await planUi.submitComputation(ui(page), {
+      ...inputObservation(page, entry),
+      afterInput: async () => {
+        await clicked(page, entry)
+        record.clock.origin_epoch_ms = record.clock.first_clicked_epoch_ms = entry.clicked_epoch_ms
+      },
+      submitted: request => { submission = registerSubmission(entry, request.postDataJSON(), 'private_primary_job') },
+      responded: received => {
+        const commandBytes = received.request.postDataBuffer()
+        attempt = { command: received.command, response_status: received.status, response: received.result, clicked_epoch_ms: entry.clicked_epoch_ms,
+          request_artifact: captureLocalBody(commandBytes), response_artifact: received.bytes ? captureLocalBody(received.bytes) : null }
+        record.attempts.push(attempt)
+        if (received.status === 200) {
+          record.accepted = received.result; submission.job_id = received.result.job_id
+          trackJob(received.result.job_id, received.command, 'private_primary_job')
+        }
+      },
+    })
+    const command = submitted.command, received = submitted.response, response = submitted.result
     attempt.resolution = await json(page, '/jobs/verify', { submission_id: command.submission_id })
     submission.resolution = attempt.resolution; submission.status = attempt.resolution.status
     assert.equal(received.status(), 200, 'The stable private source was not admitted; original UUID outcome is retained.')
@@ -736,33 +713,21 @@ async function privatePrimaryJobContract(before) {
     record.running_after_primary_undo ??= await observe()
     assert.equal(record.running_after_primary_undo.body.state, 'running', 'The native job did not span the complete primary edit and undo.')
     for (const key of ['job_id', 'generation', 'source_revision', 'input_version', 'latest_adoption', 'started_at']) assert.deepEqual(record.running_after_primary_undo.body[key], record.running_before_primary_edit.body[key], 'The running job identity/generation changed.')
-    const item = page.getByRole('list', { name: '持久计算任务', exact: true }).locator('li').filter({ hasText: response.job_id })
-    const button = item.getByRole('button', { name: '查看候选内容', exact: true }).first()
-    while (!await button.isVisible()) {
+    while (!await planUi.hasCandidate(ui(page), response.job_id)) {
       if (editorFailure) throw editorFailure
       if (!privateSharedSaveProbe) await privateEditCycle(localWorkload.targets.find(target => target.editor === 0))
       else await new Promise(done => setTimeout(done, 250))
       const current = await observe()
-      if (terminal(current.body.state)) { if (!privateSharedSaveProbe) await expect(button).toBeVisible({ timeout: 10000 }); break }
+      if (terminal(current.body.state)) break
     }
-    // A complete empty undo still has its local proposal. Reload the public
-    // shared view after that settled undo so raw candidate checks are visible.
-    // The original job command and first-click clock remain in this record.
-    await shared(page)
-    await expect(button).toBeVisible({ timeout: 30000 })
-    const pendingView = responseFor(page, reply => reply.url().startsWith(api('/jobs/' + response.job_id + '/candidates/')))
-    await button.click(); const viewed = await pendingView; assert.equal(viewed.status(), 200)
-    const viewBytes = await viewed.body(), view = JSON.parse(viewBytes), candidate = view.candidate
-    record.candidate_artifact = captureLocalBody(viewBytes)
-    const region = page.getByRole('region', { name: '候选内容', exact: true })
-    await expect(region).toContainText(`原共享修订 ${command.base_revision} · 输入版本 ${command.input_version} · 最近采用版 ${command.latest_adoption}`)
-    await expect(region).toContainText('可执行候选')
-    await region.locator('summary').filter({ hasText: '查看原始候选业务检查' }).click()
-    await assertOutput(page, candidate.evaluation, region)
+    const viewed = await planUi.viewCandidate(ui(page), { jobId: response.job_id, submitted: command, reload: true })
+    const view = viewed.result, candidate = view.candidate
+    record.candidate_artifact = captureLocalBody(viewed.bytes)
+    assert.equal(candidate.eligibility, 'executable', 'The candidate is not executable.')
     await rendered(page, entry)
     record.clock.rendered_epoch_ms = entry.browser_after_result_frames_epoch_ms
     record.clock.seconds = entry.browser_after_result_frames_seconds
-    const evaluation = await json(page, '/plans/evaluate', { snapshot: { ...candidate.snapshot, plan: candidate.plan } })
+    const evaluation = await evaluateCandidate(page, candidate, 'private-primary-job')
     const frozen = { kind: 'public_computation_source', status: 200, artifact: before.artifact,
       head: { revision: before.value.source_revision, input_version: before.value.input_version, latest_adoption: before.value.latest_adoption }, snapshot: before.value.snapshot }
     record.objective = check('candidate', evaluation, candidate.plan, 'private-primary-job', { candidate, submitted: command, source: frozen }).objective
@@ -872,35 +837,32 @@ async function finishInputEditors() {
 }
 async function primaryInputPinProbe() {
   const page = pages[0], row = source.plan.segments.find(item => item.id === config.primary_segment)
-  await selectRow(page, row)
-  await page.getByLabel('改量后总量', { exact: true }).fill('99')
   const entry = {}, record = { attempts: [], clock: { retry_clicked_epoch_ms: [] } }
   evidence.primary_pin_probe = record
   const until = performance.now() + 30000
   let first = true
   while (performance.now() < until) {
-    const pending = responseFor(page, response => response.url() === api('/plans/preview') && response.request().method() === 'POST', { timeout: 180000 })
-    if (first) {
-      await arm(page); await page.getByRole('button', { name: '预览完整改量顺延', exact: true }).click(); await clicked(page, entry)
-      record.clock.origin_epoch_ms = record.clock.first_clicked_epoch_ms = entry.clicked_epoch_ms
-    } else {
-      await page.getByRole('button', { name: '按最新资料重新预览', exact: true }).click()
-      record.clock.retry_clicked_epoch_ms.push(await page.evaluate(() => window.__acceptanceInputEpoch))
-    }
-    const received = await pending, request = received.request(), bytes = await received.body()
-    const attempt = { command: request.postDataJSON(), response_status: received.status(), response: JSON.parse(bytes),
-      request_artifact: captureInputBody(request.postDataBuffer()), response_artifact: captureInputBody(bytes) }
+    const attemptUi = first
+      ? await planUi.previewQuantity(ui(page), { source, row, quantity: 99 }, {
+          ...inputObservation(page, entry),
+          afterInput: async () => { await clicked(page, entry); record.clock.origin_epoch_ms = record.clock.first_clicked_epoch_ms = entry.clicked_epoch_ms },
+        })
+      : await planUi.previewDraft(ui(page), { latest: true }, {
+          afterInput: async () => { record.clock.retry_clicked_epoch_ms.push(await page.evaluate(() => window.__acceptanceInputEpoch)) },
+        })
+    const attempt = { command: attemptUi.command, response_status: attemptUi.status, response: attemptUi.result,
+      request_artifact: captureInputBody(attemptUi.request.postDataBuffer()), response_artifact: captureInputBody(attemptUi.bytes) }
     record.attempts.push(attempt); persist()
     if (first) assert.equal(attempt.response_status, 409, 'The primary probe did not begin with its actual stale UI source.')
     first = false
-    if (attempt.response_status === 409) { await idle(page); continue }
+    if (attempt.response_status === 409) { await planUi.waitForEditing(ui(page)); continue }
     assert.equal(attempt.response_status, 200, 'The latest-input primary preview failed.')
     assertManualRequest(attempt.command, [row], 'change_quantity', 99)
     assertManualPlan(attempt.response.plan, source, [row], 'change_quantity')
     resolveInputCompanion(inputCompanion, initialState.snapshot.inputs, attempt.response.snapshot.inputs)
     assert.equal(attempt.command.input_version, attempt.response.snapshot.inputs.input_version)
     await expect(page.getByText('预览完成，尚未共享', { exact: true })).toBeVisible()
-    await idle(page); await assertDaily(page, row, 99); await assertOutput(page, attempt.response.evaluation)
+    await planUi.waitForEditing(ui(page)); await planUi.assertDaily(ui(page), row, 99); await planUi.assertOutput(ui(page), attempt.response.evaluation)
     await rendered(page, entry)
     record.accepted = attempt
     Object.assign(record.clock, { rendered_epoch_ms: entry.browser_after_result_frames_epoch_ms,
@@ -918,13 +880,11 @@ async function cleanPrimaryInputPinProbe() {
   const page = pages[0], attempts = []
   let undo = true, result
   for (let number = 0; number < 3; number++) {
-    const pending = responseFor(page, response => response.url() === api('/plans/preview') && response.request().method() === 'POST', { timeout: 180000 })
-    await page.getByRole('button', { name: undo ? '撤销最后完整动作' : '按最新资料重新预览', exact: true }).click()
-    const received = await pending
-    attempts.push({ response_status: received.status(), command: received.request().postDataJSON() })
-    if (received.status() === 409) { undo = false; await idle(page); continue }
-    assert.equal(received.status(), 200, 'The original local plan could not be rechecked after input-name restoration.')
-    result = await received.json(); break
+    const attempt = undo ? await planUi.undoLastAction(ui(page)) : await planUi.previewDraft(ui(page), { latest: true })
+    attempts.push({ response_status: attempt.status, command: attempt.command })
+    if (attempt.status === 409) { undo = false; continue }
+    assert.equal(attempt.status, 200, 'The original local plan could not be rechecked after input-name restoration.')
+    result = attempt.result; break
   }
   assert.ok(result, 'The original local queue remains unresolved.')
   assertPlan(result.plan, source.plan, 'Undo did not restore the original complete local plan.')
@@ -935,42 +895,35 @@ async function cleanPrimaryInputPinProbe() {
 async function primaryJobPinProbe() {
   evidence.phase = 'primary_job_pin_probe'
   const page = pages[0], record = evidence.primary_job_probe = { attempts: [], refreshes: [], clock: { retry_clicked_epoch_ms: [] } }
-  const entry = {}, configure = async () => {
-    for (const [label, value] of [['计算模式', action.request.mode], ['求解策略', action.request.strategy]]) await page.getByLabel(label, { exact: true }).selectOption(value)
-    for (const [label, value] of [['计算范围起日', action.request.scope.start_date], ['计算范围终日', action.request.scope.end_date], ['计算时限', String(action.request.time_limit_seconds)], ['候选数量', String(action.request.max_candidates)]]) await page.getByLabel(label, { exact: true }).fill(value)
-    await page.getByLabel('计算线体', { exact: true }).selectOption(action.request.scope.line_codes)
-    await page.getByLabel('计算机种', { exact: true }).selectOption(action.request.scope.model_codes)
-  }
+  const entry = {}
   let accepted
-  await configure()
+  await planUi.prepareComputation(ui(page), action.request)
   for (let number = 0; number < 12; number++) {
     let reviewedRead
     if (number) {
-      await expect(queue(page)).toHaveCount(0)
+      await planUi.expectLocalActions(ui(page), 0)
       await expect(page.getByRole('button', { name: '核实前次操作', exact: true })).toHaveCount(0)
       await expect(page.getByRole('button', { name: '核实计算提交', exact: true })).toHaveCount(0)
-      const refresh = page.getByRole('button', { name: '重新读取计算来源', exact: true })
-      await expect(refresh).toBeVisible({ timeout: 5000 })
-      const pendingSource = responseFor(page, response => response.url() === api('/jobs/source') && response.request().method() === 'GET')
-      await refresh.click()
-      const received = await pendingSource
-      assert.equal(received.status(), 200, 'The explicit source review did not receive the complete public computation source.')
-      reviewedRead={status:received.status(),body:received.body().then(bytes=>({bytes}),error=>({error}))}
-      const review = page.getByRole('region', { name: '计算来源核对', exact: true })
-      await review.getByRole('checkbox', { name: '已核对本次计算来源', exact: true }).check()
+      reviewedRead = await planUi.reviewComputationSource(ui(page))
     }
-    const pendingRequest = requestFor(page, request => request.url() === api('/jobs') && request.method() === 'POST')
-    const pendingResponse = responseFor(page, response => response.url() === api('/jobs') && response.request().method() === 'POST')
-    await arm(page); await page.getByRole('button', { name: '提交计算任务', exact: true }).click(); await clicked(page, entry)
-    if(entry.source_review_trace)record.browser_trace=entry.source_review_trace
-    if (record.clock.origin_epoch_ms === undefined) record.clock.origin_epoch_ms = record.clock.first_clicked_epoch_ms = entry.clicked_epoch_ms
-    else record.clock.retry_clicked_epoch_ms.push(entry.clicked_epoch_ms)
-    const request = await pendingRequest, commandBytes = request.postDataBuffer(), command = JSON.parse(commandBytes)
-    const submission = registerSubmission(entry, command, 'primary_job_pin_probe')
-    const received = await pendingResponse, bytes = await received.body(), response = JSON.parse(bytes)
-    const attempt = { command, response_status: received.status(), response,
-      request_artifact: captureInputBody(commandBytes), response_artifact: captureInputBody(bytes) }
-    record.attempts.push(attempt)
+    let submission, attempt
+    const submitted = await planUi.submitComputation(ui(page), {
+      ...inputObservation(page, entry),
+      afterInput: async () => {
+        await clicked(page, entry)
+        if(entry.source_review_trace)record.browser_trace=entry.source_review_trace
+        if (record.clock.origin_epoch_ms === undefined) record.clock.origin_epoch_ms = record.clock.first_clicked_epoch_ms = entry.clicked_epoch_ms
+        else record.clock.retry_clicked_epoch_ms.push(entry.clicked_epoch_ms)
+      },
+      submitted: request => { submission = registerSubmission(entry, request.postDataJSON(), 'primary_job_pin_probe') },
+      responded: received => {
+        attempt = { command: received.command, response_status: received.status, response: received.result,
+          request_artifact: captureInputBody(received.request.postDataBuffer()), response_artifact: received.bytes ? captureInputBody(received.bytes) : null }
+        record.attempts.push(attempt)
+        if (received.status === 200) { submission.job_id = received.result.job_id; trackJob(received.result.job_id, received.command, 'primary_job_pin_probe') }
+      },
+    })
+    const command = submitted.command, received = submitted.response, response = submitted.result
     const resolution = await json(page, '/jobs/verify', { submission_id: command.submission_id })
     attempt.resolution = resolution; submission.resolution = resolution; submission.status = resolution.status
     assert.ok(['ACCEPTED', 'ABORTED_VOID'].includes(resolution.status), 'The original computation UUID remains unknown.')
@@ -1013,22 +966,14 @@ async function primaryJobPinProbe() {
   resolveInputCompanion(inputCompanion, initialState.snapshot.inputs, reviewed.snapshot.inputs)
   record.source = {kind:'public_computation_source',status:reviewed.status,artifact:reviewed.artifact,
     head:{revision:reviewed.head_revision,input_version:reviewed.input_version,latest_adoption:reviewed.latest_adoption},snapshot:reviewed.snapshot}
-  const item = page.getByRole('list', { name: '持久计算任务', exact: true }).locator('li').filter({ hasText: accepted.response.job_id })
-  const button = item.getByRole('button', { name: '查看候选内容', exact: true }).first()
-  await expect(button).toBeVisible({ timeout: 60000 })
-  const pendingView = responseFor(page, response => response.url().startsWith(api('/jobs/' + accepted.response.job_id + '/candidates/')))
-  await button.click(); const viewResponse = await pendingView; assert.equal(viewResponse.status(), 200)
-  const viewBytes = await viewResponse.body(), view = JSON.parse(viewBytes), candidate = view.candidate
-  record.candidate = candidate; record.candidate_view_artifact = captureInputBody(viewBytes)
-  const region = page.getByRole('region', { name: '候选内容', exact: true })
-  await expect(region).toContainText(`原共享修订 ${command.base_revision} · 输入版本 ${command.input_version} · 最近采用版 ${command.latest_adoption}`)
-  await expect(region).toContainText('可执行候选')
-  await region.locator('summary').filter({ hasText: '查看原始候选业务检查' }).click()
-  await assertOutput(page, candidate.evaluation, region)
+  const viewed = await planUi.viewCandidate(ui(page), { jobId: accepted.response.job_id, submitted: command })
+  const candidate = viewed.result.candidate
+  record.candidate = candidate; record.candidate_view_artifact = captureInputBody(viewed.bytes)
+  assert.equal(candidate.eligibility, 'executable', 'The candidate is not executable.')
   entry.clicked_epoch_ms = record.clock.origin_epoch_ms; entry.clicked_ms = entry.clicked_epoch_ms - performance.timeOrigin
   await rendered(page, entry)
   Object.assign(record.clock, { rendered_epoch_ms: entry.browser_after_result_frames_epoch_ms, seconds: entry.browser_after_result_frames_seconds })
-  const evaluation = await json(page, '/plans/evaluate', { snapshot: { ...candidate.snapshot, plan: candidate.plan } })
+  const evaluation = await evaluateCandidate(page, candidate, 'primary-job-pin-probe')
   const compared = check('candidate', evaluation, candidate.plan, 'primary-job-pin-probe', { candidate, submitted: command, source: record.source })
   record.objective = compared.objective
   await expect.poll(async () => {
@@ -1036,7 +981,7 @@ async function primaryJobPinProbe() {
     return record.displayed_reload.head.input_version > command.input_version
   }, { timeout: 30000 }).toBe(true)
   record.cleanup = await finishJob(page, accepted.response.job_id)
-  await expect(queue(page)).toHaveCount(0); record.local_queue_empty = true; persist()
+  await planUi.expectLocalActions(ui(page), 0); record.local_queue_empty = true; persist()
 }
 try {
   assert.ok(!inputCompanion || editingProbe, 'Primary load timing/pin/retry qualification is pending; only the explicit adapter editing probe is enabled.')
@@ -1105,7 +1050,11 @@ try {
     await page.getByLabel('公司密码', { exact: true }).fill(accounts[editor].password)
     const login = responseFor(page, r => r.url() === api('/auth/login') && r.request().method() === 'POST')
     await page.getByRole('button', { name: '登录', exact: true }).click(); assert.ok((await login).ok(), 'Login was not acknowledged.'); accounts[editor].password = ''
-    await expect(page.getByRole('button', { name: '退出登录', exact: true })).toBeVisible({ timeout: 180000 }); await shared(page)
+    await expect(page.getByRole('button', { name: '退出登录', exact: true })).toBeVisible({ timeout: 180000 })
+    if (!importOnly && !(inputCompanion && editor > 0)) await planUi.openWorkspace(ui(page))
+    // Keep the primary's loaded source fixed before the input actors change it.
+    // Entering the jobs route later would refresh the shared head in the router.
+    if (editor === 0 && primaryJobProbe) await planUi.prepareComputation(ui(page), action.request)
   }
   evidence.phase = 'complete_source_preflight'; persist()
   initialState = await readState(pages[0]); const head = initialState.head
@@ -1126,12 +1075,9 @@ try {
   assert.equal((await activeJobs(pages[0])).length, 0, 'An unreported active/queued job predates the run.')
   if(outputTextProbe){
     evidence.phase='public_output_text_contract';persist()
-    const page=pages[0],pending=responseFor(page,response=>response.url()===api('/plans/preview') && response.request().method()==='POST')
-    await page.getByRole('button',{name:'预览本机修改',exact:true}).click()
-    const received=await pending,bytes=await received.body(),preview=JSON.parse(bytes)
-    assert.equal(received.status(),200,'The public empty-queue preview did not complete.')
-    assert.deepEqual(received.request().postDataJSON().operations,[],'The text probe unexpectedly staged a plan edit.')
-    await idle(page);await assertOutput(page,preview.evaluation)
+    const page=pages[0], displayed=await planUi.previewDraft(ui(page)), preview=displayed.result
+    assert.equal(displayed.status,200,'The public empty-queue preview did not complete.')
+    assert.deepEqual(displayed.command.operations,[],'The text probe unexpectedly staged a plan edit.')
     const totals=preview.evaluation.output_totals,first=preview.evaluation.weekly_results[0]
     evidence.output_text_contract={status:'pass',expected:totals.expected,outside_window:totals.outside_window,unallocated:totals.unallocated,
       first_week:{model_code:first.model_code,week:first.week,demand:first.demand,on_time:first.on_time,gap:first.gap}}
@@ -1159,17 +1105,11 @@ try {
       try {
         assert.ok(!stopped, 'A background editor stopped unexpectedly.')
         entry.active_jobs_before = await activeJobs(page); assert.equal(entry.active_jobs_before.length, 0, 'A preceding job is still queued/running.')
-        if (!importOnly) { await shared(page); const current = await readState(page); assertState(current, initialState); entry.source_tokens = { source_revision: current.head.revision, input_version: current.head.input_version, latest_adoption: current.head.latest_adoption }; await selectRow(page, primary) }
+        if (!importOnly) { await planUi.openWorkspace(ui(page)); const current = await readState(page); assertState(current, initialState); entry.source_tokens = { source_revision: current.head.revision, input_version: current.head.input_version, latest_adoption: current.head.latest_adoption }; await planUi.selectRows(ui(page), { source, rows: [primary] }) }
         if (operation === 'selection') await assertSelected(page, primary)
         if (operation === 'week') entry.navigation = await prepareWeekNavigation(page, head, primary.line_code)
         if (operation === 'day') entry.navigation = await prepareDayNavigation(page, source, primary)
         const batch = operation === 'batch_preview' ? manualRows(source, ['S-2027-01-24-M00', 'S-2027-01-24-M02']) : null
-        if (batch) {
-          await page.getByRole('button', { name: '取消生产段选择', exact: true }).click()
-          for (const row of batch) { await selectRow(page, row); await expect(page.getByLabel('选择生产段 ' + row.id, { exact: true })).toBeChecked() }
-          await scopeInputs(page, scopeFor(batch)); await page.getByLabel('手动操作', { exact: true }).selectOption('clear_segments')
-          await expect(page.getByText(`已选 2 段：${batch.map(row => `${row.date}/${row.line_code}/${row.model_code} 100片`).join('；')}`, { exact: true })).toBeVisible()
-        }
         if (operation === 'shared_save') {
           entry.phase = 'prepare_real_modified_save'; entry.expected_queue_count = 1
           const preview = await previewChange(page, primary, 99, {})
@@ -1190,10 +1130,8 @@ try {
           assertManualRequest(preview.command, [primary], 'change_quantity', 99); assertManualPlan(preview.result.plan, source, [primary], 'change_quantity'); assertManualEvaluation(preview.result.evaluation, [primary])
           entry.submitted_action = preview.command; entry.observed_totals = preview.result.evaluation.output_totals
         } else if (batch) {
-          const response = responseFor(page, r => r.url() === api('/plans/preview') && r.request().method() === 'POST', { timeout: 180000 })
-          await page.getByRole('button', { name: '加入完整动作并预览', exact: true }).click(); await clicked(page, entry)
-          const received = await response; assert.ok(received.ok(), 'Batch preview failed.'); const result = await received.json(), command = received.request().postDataJSON()
-          await expect(page.getByText('预览完成，尚未共享', { exact: true })).toBeVisible({ timeout: 180000 }); await idle(page); await assertOutput(page, result.evaluation); await rendered(page, entry)
+          const { result, command } = await planUi.previewBatch(ui(page), { source, rows: batch, scope: scopeFor(batch) }, inputObservation(page, entry))
+          await rendered(page, entry)
           entry.phase = 'exact_two_named_batch_postconditions'; assertManualRequest(command, batch, 'clear_segments'); assertManualPlan(result.plan, source, batch, 'clear_segments'); assertManualEvaluation(result.evaluation, batch, 0, true)
           for (const row of batch) assert.ok(!result.plan.segments.some(item => item.id === row.id), 'A named batch segment remains.')
           entry.submitted_action = command; entry.observed_totals = result.evaluation.output_totals
@@ -1238,7 +1176,7 @@ try {
             }
             const verify = page.getByRole('button', { name: '核实前次操作', exact: true })
             if (await verify.isVisible()) {
-              await verify.click(); await idle(page); entry.unknown_save_verified = true
+              await planUi.verifyLocalSave(ui(page)); entry.unknown_save_verified = true
               if (entry.submitted_save) { const resolved = await json(page, '/plans/verify', { operation_id: entry.submitted_save.operation_id }); entry.unknown_save_result = resolved; const operation = evidence.operations.find(record => record.operation_id === entry.submitted_save.operation_id); if (operation) { operation.resolution = resolved; operation.status = resolved.status }
                 entry.expected_queue_count = resolved.status === 'COMMITTED' ? 0 : 1 }
             }

@@ -187,6 +187,17 @@ test(fullSource ? 'five browsers privately edit and undo the full canonical r20 
           assert.equal(sha(bytes), artifact.sha256, 'Captured public response bytes differ.')
           return JSON.parse(bytes)
         }
+        if (primaryJobProbe) {
+          assert.equal(report.candidate_evaluations.length, 1, 'The original candidate needs one independent public evaluation.')
+          const evaluation = report.candidate_evaluations[0]
+          assert.equal(evaluation.response.status, 200)
+          const historical = captured(evaluation.historical), request = captured(evaluation.request)
+          const retained = structuredClone(request.snapshot)
+          retained.inputs.parameters.line_yields = historical.inputs.parameters.line_yields
+          assert.deepEqual(retained, historical, 'The derived request changed another frozen field.')
+          assert.equal(captured(evaluation.transport).input_version, historical.inputs.input_version)
+          captured(evaluation.response)
+        }
         if (fullSource && sharedSaveProbe) {
           const action=JSON.parse(gunzipSync(readFileSync(resolve(fixtures,scenario.action.path))))
           const witnesses=readFileSync(resolve(output,'job-observations.ndjson'),'utf8').trim().split('\n').filter(Boolean).map(JSON.parse)

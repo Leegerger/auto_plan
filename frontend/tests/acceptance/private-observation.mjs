@@ -1,4 +1,4 @@
-/** Primitive Node-clock diagnostics only. Existing work and report persistence remain owned by the caller. */
+/** Node-clock diagnostics and error lifetime. Work, cleanup policy and persistence belong to the caller. */
 import {types} from 'node:util'
 
 export function privateObservation(record,{clock=()=>performance.now()}={}) {
@@ -33,7 +33,16 @@ export function privateObservation(record,{clock=()=>performance.now()}={}) {
     try{const result=work();event(phase,'end',metadata);return result}
     catch(error){lastErrorPhase=phase;event(phase,'error',metadata);throw error}
   }
-  return {step,sync,
-    primary(error){try{value.primary_error??=errorValue(lastErrorPhase??current,error)}catch(observationError){note('primary_error',observationError)}},
-    cleanup(error){try{value.cleanup_errors.push(errorValue(lastErrorPhase??current,error))}catch(observationError){note('cleanup_error',observationError)}}}
+  const primary=error=>{try{value.primary_error??=errorValue(lastErrorPhase??current,error)}catch(observationError){note('primary_error',observationError)}}
+  const secondary=error=>{try{value.cleanup_errors.push(errorValue(lastErrorPhase??current,error))}catch(observationError){note('cleanup_error',observationError)}}
+  return {step,sync,primary,cleanup:secondary,
+    async run(work,cleanup){
+      let original,failed=false
+      try{return await work()}
+      catch(error){original=error;failed=true;primary(error);throw error}
+      finally{
+        try{await cleanup()}
+        catch(error){secondary(error);if(failed)throw original;throw error}
+      }
+    }}
 }
