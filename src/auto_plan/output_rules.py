@@ -124,7 +124,7 @@ def _output_from_cells(snapshot, cells, index):
         if any(p['state'] == 'missing' for p in parameters.values()):
             for name, parameter in parameters.items():
                 if parameter['state'] == 'missing' and not any(i.code == 'missing_'+name and i.date == day and i.model_code == model for i in issues):
-                    issues.append(RuleIssue(code='missing_'+name, reason='投入来源缺少关键良率或 Cycle Time', severity='incomplete', date=day, model_code=model, line_code=lines[0].line_code))
+                    issues.append(RuleIssue(code='missing_'+name, reason='投入来源缺少关键良率或 Cycle Time', severity='incomplete', yield_month=month, date=day, model_code=model, line_code=lines[0].line_code))
             continue
         quantity = sum(row.quantity for row in lines)
         line_yield = parameters['line_yield']['percent']
@@ -166,7 +166,8 @@ def _output_from_cells(snapshot, cells, index):
             line_yield = yields['line_yield']
             model_yield = yields['model_yield']
             if line_yield is None or model_yield is None:
-                issues.append(RuleIssue(code='wip_yield_missing', reason='起始在制品缺少重置月份双良率', severity='incomplete', model_code=row.model_code))
+                issues.append(RuleIssue(code='wip_yield_missing', reason='起始在制品缺少重置月份双良率', severity='incomplete',
+                    yield_month=month, date=reset.production_week, model_code=row.model_code))
                 continue
             value = row.wip * Fraction(line_yield.percent) * Fraction(model_yield.percent) / 10000
             sources.append(OutputSource(id=f'wip:{row.model_code}:{reset.batch_id}', kind='wip',

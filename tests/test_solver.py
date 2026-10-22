@@ -171,6 +171,32 @@ def test_missing_critical_parameter_is_incomplete_instead_of_a_zero_output_recom
     assert any(issue['severity'] == 'incomplete' for issue in result['issues'])
 
 
+def test_solver_stops_for_missing_model_month_without_global_or_cross_model_fallback(shared_client):
+    client, _, inputs = shared_client
+    setup(inputs, [{'model_code': 'M', 'week': '2026-10-12', 'quantity': 1000}], capacity=2000)
+    data = inputs.read().model_dump(mode='json')
+    data['parameters']['line_yields'] = [
+        {'month': '2026-10', 'model_code': 'N', 'percent': '80'},
+        {'month': '2026-10', 'model_code': 'P', 'percent': '70'},
+        {'month': '2026-10', 'percent': '100'},
+    ]
+    data['parameters']['model_yields'] = [
+        {'month': '2026-10', 'model_code': 'M', 'percent': '90'},
+        {'month': '2026-10', 'model_code': 'N', 'percent': '90'},
+        {'month': '2026-10', 'model_code': 'P', 'percent': '90'},
+    ]
+    inputs.versions[1] = InputSnapshot.model_validate(data)
+
+    result = solve(client).json()
+
+    assert result['status'] == 'incomplete'
+    assert result['candidates'] == []
+    missing = next(issue for issue in result['issues'] if issue['code'] == 'missing_solver_parameter')
+    assert (missing['model_code'], missing['yield_month']) == ('M', '2026-10')
+    assert any(stage['stage'] == 'context_check' and stage['status'] == 'incomplete'
+               for stage in result['stage_bounds'])
+
+
 def test_zero_demand_input_can_be_removed_without_inventing_missing_yield(shared_client):
     from auto_plan.plan_models import Plan
     from tests.test_plan_transactions import row
@@ -220,6 +246,74 @@ def test_fractional_ct_rounding_tail_is_retained_and_nominal_input_is_not_a_floo
     assert sum(r['quantity'] for r in candidate['plan']['segments']) == 1072
     assert candidate['evaluation']['output_totals']['unallocated'] == 1
     assert candidate['objective'][:30] == ['0'] * 30
+
+
+def test_solver_quantity_and_final_candidate_use_each_models_month_yields(shared_client):
+    client, _, inputs = shared_client
+    setup(inputs, [
+        {'model_code': 'M', 'week': '2026-10-12', 'quantity': 855},
+        {'model_code': 'N', 'week': '2026-10-12', 'quantity': 720},
+    ], capacity=2000)
+    data = inputs.read().model_dump(mode='json')
+    data['parameters']['line_yields'] = [
+        {'month': '2026-10', 'model_code': 'M', 'percent': '95'},
+        {'month': '2026-10', 'model_code': 'N', 'percent': '80'},
+        {'month': '2026-10', 'model_code': 'P', 'percent': '100'},
+    ]
+    data['parameters']['model_yields'] = [
+        {'month': '2026-10', 'model_code': 'M', 'percent': '90'},
+        {'month': '2026-10', 'model_code': 'N', 'percent': '90'},
+        {'month': '2026-10', 'model_code': 'P', 'percent': '100'},
+    ]
+    inputs.versions[1] = InputSnapshot.model_validate(data)
+
+    result = solve(client, scope={'start_date': '2026-10-15', 'end_date': '2026-10-15',
+                                  'line_codes': ['L', 'B']}).json()
+
+    candidate = result['candidates'][0]
+    assert result['status'] == 'feasible'
+    assert sum(row['quantity'] for row in candidate['plan']['segments'] if row['model_code'] == 'M') > 0
+    assert sum(row['quantity'] for row in candidate['plan']['segments'] if row['model_code'] == 'N') > 0
+    assert {row['model_code']: row['on_time'] for row in candidate['evaluation']['weekly_results']} == {
+        'M': 855, 'N': 720}
+    sources = {row['model_code']: row for row in candidate['evaluation']['output_sources']}
+    assert (sources['M']['line_yield'], sources['M']['model_yield']) == ('95', '90')
+    assert (sources['N']['line_yield'], sources['N']['model_yield']) == ('80', '90')
+    checked = client.post('/auto_plan/api/plans/evaluate', json={
+        'snapshot': candidate['snapshot'] | {'plan': candidate['plan']}})
+    assert checked.status_code == 200, checked.text
+    assert checked.json() == candidate['evaluation']
+
+
+def test_parameter_change_rejects_stale_candidate_and_new_task_uses_new_yield(shared_client):
+    client, _, inputs = shared_client
+    setup(inputs, [{'model_code': 'M', 'week': '2026-10-12', 'quantity': 855}], capacity=2000)
+    data = inputs.read().model_dump(mode='json')
+    data['parameters']['line_yields'][0]['percent'] = '95'
+    data['parameters']['model_yields'][0]['percent'] = '90'
+    data['parameters']['cycle_times'][0]['days'] = '0'
+    inputs.versions[1] = InputSnapshot.model_validate(data)
+    old_source = {'base_revision': 0, 'input_version': 1, 'latest_adoption': 0}
+    old = calculate(client, old_source | {
+        'request': {'scope': {'start_date': '2026-10-15', 'end_date': '2026-10-15', 'line_codes': ['L']}}}).json()['candidates'][0]
+    assert old['evaluation']['output_sources'][0]['line_yield'] == '95'
+
+    changed = client.post('/auto_plan/api/inputs/apply', json={
+        'base_version': 1,
+        'changes': {'line_yields': [{'month': '2026-10', 'model_code': 'M', 'percent': '96'}]},
+    })
+    assert changed.status_code == 200, changed.text
+    stale = client.post('/auto_plan/api/plans/preview', json=old_source | {
+        'operations': old['server_reference']['operations']})
+    assert stale.status_code == 409 and stale.json()['input_version'] > 1
+
+    current = client.get('/auto_plan/api/plans/current').json()
+    source = {name: current[name] for name in ('input_version', 'latest_adoption')} | {'base_revision': current['revision']}
+    fresh = calculate(client, source | {
+        'request': {'scope': {'start_date': '2026-10-15', 'end_date': '2026-10-15', 'line_codes': ['L']}}}).json()['candidates'][0]
+    assert fresh['input_version'] > old['input_version']
+    assert fresh['evaluation']['output_sources'][0]['line_yield'] == '96'
+    assert fresh['id'] != old['id']
 
 
 @pytest.mark.parametrize('fixture', json.loads((Path(__file__).parents[1] / 'docs/validation/solver-small-oracle.json').read_text()))

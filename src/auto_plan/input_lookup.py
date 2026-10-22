@@ -11,6 +11,7 @@ class InputIndex:
         self.capabilities = {(row.recipe_code, row.line_code): row for row in inputs.masters.capabilities}
         self.capacities = {(row.month, row.recipe_code, row.line_code): row for row in inputs.parameters.capacities}
         self.line_yields = {(row.month, getattr(row, 'model_code', None)): row for row in inputs.parameters.line_yields}
+        self.legacy_line_yields = all(getattr(row, 'model_code', None) is None for row in inputs.parameters.line_yields)
         self.model_yields = {(row.month, row.model_code): row for row in inputs.parameters.model_yields}
         self.cycle_times = {row.model_code: row for row in inputs.parameters.cycle_times}
         self.switch_durations = {(row.from_recipe, row.to_recipe): row for row in inputs.parameters.switch_durations}
@@ -40,7 +41,10 @@ class InputIndex:
         return {'available_hours': available, 'output_holiday': holiday}
 
     def yields(self, month: str, model_code: str):
-        return {'line_yield': self.line_yields.get((month, model_code)) or self.line_yields.get((month, None)),
+        line_yield = self.line_yields.get((month, model_code))
+        if line_yield is None and self.legacy_line_yields:
+            line_yield = self.line_yields.get((month, None))
+        return {'line_yield': line_yield,
                 'model_yield': self.model_yields.get((month, model_code))}
 
     def critical_parameters(self, month: str, model_code: str):

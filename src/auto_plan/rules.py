@@ -25,8 +25,9 @@ def _evaluate_fields(snapshot, *, output_cache=None, json_mode=False):
     index = InputIndex(snapshot.inputs)
     issues: list[RuleIssue] = []
 
-    def problem(code, reason, *, segment=None, switch=None, day=None, line=None, severity='error', recipe=None):
+    def problem(code, reason, *, segment=None, switch=None, day=None, line=None, severity='error', recipe=None, yield_month=None):
         issues.append(RuleIssue(code=code, reason=reason, severity=severity,
+            yield_month=yield_month,
             date=segment.date if segment else day, line_code=segment.line_code if segment else switch.line_code if switch else line,
             model_code=segment.model_code if segment else None, recipe_code=recipe,
             segment_id=segment.id if segment else None, switch_id=switch.id if switch else None))
@@ -158,7 +159,8 @@ def _evaluate_fields(snapshot, *, output_cache=None, json_mode=False):
                 if segment.quantity:
                     for kind, parameter in index.critical_parameters(day.strftime('%Y-%m'), segment.model_code).items():
                         if parameter['state'] == 'missing':
-                            problem('missing_' + kind, '缺少关键良率或 Cycle Time，相关产出尚未计算完成', segment=segment, recipe=recipe, severity='incomplete')
+                            problem('missing_' + kind, '缺少关键良率或 Cycle Time，相关产出尚未计算完成', segment=segment, recipe=recipe, severity='incomplete',
+                                    yield_month=day.strftime('%Y-%m'))
         switch_hours = daily_switch[(day, line)]
         used_idle = daily_idle_use[(day, line)]
         reserved_idle = idle_budget.get((day, line), Fraction(0))
