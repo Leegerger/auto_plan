@@ -90,6 +90,18 @@ def test_parameter_batch_is_atomic_strict_and_preserves_unsupplied_values(inputs
     assert client.get('/auto_plan/api/inputs').json()['parameters']['capacities'][0]['pieces'] == 2400
 
 
+def test_current_line_yield_input_still_rejects_model_code(inputs_client):
+    client = inputs_client
+    masters(client)
+    before = client.get('/auto_plan/api/inputs').json()
+    preview = batch(client, {'line_yields': [{'month': '2026-10', 'model_code': 'M', 'percent': '95'}]}, apply=False)
+    assert preview.status_code == 200
+    assert preview.json()['valid'] is False
+    assert preview.json()['errors'][0]['sheet'] == 'line_yields'
+    assert preview.json()['errors'][0]['field'] == 'model_code'
+    assert client.get('/auto_plan/api/inputs').json() == before
+
+
 def test_missing_months_copy_previous_values_once_without_linking_or_overwriting(inputs_client):
     client = inputs_client
     masters(client)

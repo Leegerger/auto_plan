@@ -43,6 +43,8 @@ def test_real_selected_history_recovery_boundary_export_restart_and_immutable_au
                 changes={key:value for section in snapshot()['inputs'].values() for key,value in section.items()}
                 seeded=client.post('/auto_plan/api/inputs/apply',json={'base_version':0,'changes':changes})
                 assert seeded.status_code==200,seeded.text
+                legacy_input=client.get('/auto_plan/api/inputs?version=1').json()
+                assert legacy_input['parameters']['line_yields']==[{'month':'2026-10','percent':'100'}]
                 def head():
                     response=client.get('/auto_plan/api/plans/current');assert response.status_code==200,response.text
                     return response.json()
@@ -76,8 +78,9 @@ def test_real_selected_history_recovery_boundary_export_restart_and_immutable_au
                 assert expired.status_code==410,expired.text
                 permanent={'kind':'restore_history','source':{'kind':'adoption','id':1}}
                 assert post('preview',command(permanent)).status_code==200
-                changed=client.post('/auto_plan/api/inputs/apply',json={'base_version':1,'changes':{'capacities':[{'month':'2026-10','recipe_code':'R','line_code':'L','pieces':2000}]}})
+                changed=client.post('/auto_plan/api/inputs/apply',json={'base_version':1,'changes':{'capacities':[{'month':'2026-10','recipe_code':'R','line_code':'L','pieces':2000}],'line_yields':[{'month':'2026-10','percent':'94'}]}})
                 assert changed.status_code==200,changed.text
+                assert client.get('/auto_plan/api/inputs?version=1').json()==legacy_input
                 assert client.get('/auto_plan/api/plans/adoptions/1').json()==original
                 book=workbook(client.get('/auto_plan/api/plans/adoptions/1/export.xlsx'))
                 assert records(book,'production')[0]['hours_exact']=='60001/20000'
@@ -105,6 +108,7 @@ def test_real_selected_history_recovery_boundary_export_restart_and_immutable_au
                 login(reopened,'T34EDITOR')
                 assert reopened.get('/auto_plan/api/plans/current').json()==expected
                 assert reopened.get('/auto_plan/api/plans/adoptions/1').json()==original
+                assert reopened.get('/auto_plan/api/inputs?version=1').json()==legacy_input
                 assert plans.check_consistency() is True
     finally:
         access.close()

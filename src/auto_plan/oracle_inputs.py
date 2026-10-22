@@ -5,7 +5,8 @@ import zlib
 from contextlib import contextmanager
 import oracledb
 from .access import AuthorizationDenied, StoreUnavailable
-from .input_models import InputSnapshot, normalize_snapshot
+from .input_models import InputSnapshot
+from .stored_snapshots import decode_stored_input
 
 
 class OracleInputStore:
@@ -49,7 +50,7 @@ class OracleInputStore:
             document = zlib.decompress(compressed)
             if hashlib.sha256(document).hexdigest() != row[1]:
                 raise StoreUnavailable
-            snapshot = normalize_snapshot(json.loads(document))
+            snapshot = decode_stored_input(json.loads(document))
             if snapshot.input_version != version:
                 raise StoreUnavailable
             return snapshot

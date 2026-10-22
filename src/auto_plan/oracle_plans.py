@@ -11,6 +11,7 @@ from .input_models import InputSnapshot
 from .oracle_inputs import OracleInputStore
 from .plan_models import Plan
 from .plans import PlanningContext, PlanProblem, PlanBusy, PlanUnknown, cells
+from .stored_snapshots import decode_stored_input
 
 
 def document(value):
@@ -271,6 +272,7 @@ class OraclePlanStore:
                         cursor.execute('SELECT R.REVISION_NO,R.INPUT_VERSION,S.SNAPSHOT_BLOB,S.SHA256 FROM AP_PLAN_REVISION R JOIN AP_PLAN_SNAPSHOT S ON S.SHA256=R.SNAPSHOT_SHA')
                         for revision,version,blob,sha in cursor:
                             record=decode(blob,sha)
+                            decode_stored_input(record['snapshot']['inputs'])
                             with connection.cursor() as refs: self._check_lineage(refs,record.get('lineage',{}))
                             if record.get('parent_revision',revision-1)!=revision-1: raise StoreUnavailable
                             if record.get('revision')!=revision or record.get('input_version')!=version or record['snapshot']['inputs']['input_version']!=version:
@@ -278,6 +280,7 @@ class OraclePlanStore:
                         cursor.execute('SELECT A.ADOPTION_NO,S.SNAPSHOT_BLOB,S.SHA256 FROM AP_PLAN_ADOPTION A JOIN AP_PLAN_SNAPSHOT S ON S.SHA256=A.SNAPSHOT_SHA')
                         for adoption,blob,sha in cursor:
                             record=decode(blob,sha)
+                            decode_stored_input(record['snapshot']['inputs'])
                             if record.get('latest_adoption')!=adoption or record.get('kind')!='adopt' or not record['evaluation']['executable']:
                                 raise StoreUnavailable
                             with connection.cursor() as details:

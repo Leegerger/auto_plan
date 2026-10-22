@@ -8,6 +8,7 @@ from .plans import PlanProblem, PlanBusy
 from .oracle_plans import OraclePlanStore, code
 from .solver_models import FrozenSolveInput, Candidate
 from .job_codec import encode, decode, digest
+from .stored_snapshots import decode_stored_candidate, decode_stored_frozen_solve
 
 RETENTION = timedelta(days=30)
 TERMINAL = {'completed', 'stopped', 'interrupted', 'failed'}
@@ -25,7 +26,7 @@ def retained_candidate(cursor, job_id, candidate_id, sha, now, lock=False):
         raise PlanProblem(410,'候选内容已过期；可按原始输入重新计算',candidate_id=candidate_id)
     if sha is not None and row[1]!=sha:
         raise PlanProblem(409,'候选引用与内容摘要不一致')
-    return Candidate.model_validate(decode(row[0],row[1])),row[1]
+    return decode_stored_candidate(decode(row[0],row[1])),row[1]
 
 
 class OracleJobStore:
@@ -137,7 +138,7 @@ class OracleJobStore:
             cursor.execute('SELECT FROZEN_BLOB,FROZEN_SHA FROM AP_JOB WHERE JOB_ID=:job',job=identity)
             row=cursor.fetchone()
             if not row: raise KeyError(identity)
-            return FrozenSolveInput.model_validate(decode(row[0],row[1]))
+            return decode_stored_frozen_solve(decode(row[0],row[1]))
         return self.transaction(lambda cursor:self._admit(cursor,command,actor,now,capture,digest({'rerun':identity,**command.model_dump(mode='json')})))
 
     def verify(self,key,actor,now):
@@ -253,7 +254,7 @@ class OracleJobStore:
             if cursor.fetchone()[0]: return None  # Strict FIFO, no bypass.
             cursor.execute('SELECT FROZEN_BLOB,FROZEN_SHA FROM AP_JOB WHERE JOB_ID=:job FOR UPDATE WAIT 10',job=identity)
             blob,sha=cursor.fetchone()
-            frozen=FrozenSolveInput.model_validate(decode(blob,sha))
+            frozen=decode_stored_frozen_solve(decode(blob,sha))
             run=str(uuid4())
             cursor.execute("UPDATE AP_JOB SET STATE='running',GENERATION=:generation,RUN_ID=:run,STARTED_AT=:now WHERE JOB_ID=:job",generation=generation,run=run,now=now,job=identity)
             self.pending_claim={'job_id':identity,'run_id':run,'generation':generation,'frozen':frozen}
@@ -294,7 +295,7 @@ class OracleJobStore:
         row=cursor.fetchone()
         if not row or row[0]!='running' or row[1]!=run or row[2]!=generation or current!=generation:
             raise PlanProblem(409,'计算进程已失去该任务的所有权')
-        return FrozenSolveInput.model_validate(decode(row[3],row[4]))
+        return decode_stored_frozen_solve(decode(row[3],row[4]))
 
     def publish(self,identity,run,generation,candidate,now):
         candidate=Candidate.model_validate(candidate)
@@ -389,7 +390,7 @@ class OracleJobStore:
             cursor.execute('SELECT JOB_ID,FROZEN_BLOB,FROZEN_SHA,SOURCE_REVISION,INPUT_VERSION,LATEST_ADOPTION FROM AP_JOB')
             jobs={}
             for identity,blob,sha,revision,version,adoption in cursor:
-                frozen=FrozenSolveInput.model_validate(decode(blob,sha))
+                frozen=decode_stored_frozen_solve(decode(blob,sha))
                 if (frozen.source_revision,frozen.input_version,frozen.latest_adoption)!=(revision,version,adoption): raise StoreUnavailable
                 jobs[identity]=frozen
             cursor.execute('SELECT COUNT(*) FROM AP_JOB J LEFT JOIN AP_PLAN_REVISION R ON R.REVISION_NO=J.SOURCE_REVISION LEFT JOIN AP_INPUT_REVISION I ON I.INPUT_VERSION=J.INPUT_VERSION LEFT JOIN AP_PLAN_ADOPTION A ON A.ADOPTION_NO=J.LATEST_ADOPTION WHERE (J.SOURCE_REVISION<>0 AND R.REVISION_NO IS NULL) OR (J.INPUT_VERSION<>0 AND I.INPUT_VERSION IS NULL) OR (J.LATEST_ADOPTION<>0 AND A.ADOPTION_NO IS NULL)')
@@ -410,7 +411,7 @@ class OracleJobStore:
                 if identity not in jobs or utc(viewed)<utc(published): raise StoreUnavailable
                 if (blob is None)!=(expired is not None) or blob is None and offered: raise StoreUnavailable
                 if blob is not None:
-                    candidate=Candidate.model_validate(decode(blob,sha)); frozen=jobs[identity]
+                    candidate=decode_stored_candidate(decode(blob,sha)); frozen=jobs[identity]
                     if (candidate.snapshot,candidate.request,candidate.source_revision,candidate.input_version,candidate.latest_adoption)!=(frozen.snapshot,frozen.request,frozen.source_revision,frozen.input_version,frozen.latest_adoption): raise StoreUnavailable
             return True
         try: return self.transaction(action)

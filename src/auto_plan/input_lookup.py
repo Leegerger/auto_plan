@@ -39,11 +39,19 @@ class InputIndex:
         available = 0 if holiday and not self.openings.get(key, False) else max(24 - self.maintenance.get(key, 0) - self.experiments.get(key, 0), 0)
         return {'available_hours': available, 'output_holiday': holiday}
 
+    def yields(self, month: str, model_code: str):
+        # Schema 1 stores one global line yield per month. The model identity is
+        # already part of this boundary so stored snapshot versions can select a
+        # model-specific rule without changing callers.
+        return {'line_yield': self.line_yields.get(month),
+                'model_yield': self.model_yields.get((month, model_code))}
+
     def critical_parameters(self, month: str, model_code: str):
         def parameter(row, field):
             return {'state': 'known' if row else 'missing', field: getattr(row, field) if row else None}
-        return {'line_yield': parameter(self.line_yields.get(month), 'percent'),
-                'model_yield': parameter(self.model_yields.get((month, model_code)), 'percent'),
+        yields = self.yields(month, model_code)
+        return {'line_yield': parameter(yields['line_yield'], 'percent'),
+                'model_yield': parameter(yields['model_yield'], 'percent'),
                 'cycle_time': parameter(self.cycle_times.get(model_code), 'days')}
 
     def availability(self, month: str, model_code: str, line_code: str, production_date: date | None, from_recipe: str | None):

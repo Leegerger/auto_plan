@@ -75,6 +75,20 @@ def test_facts_replace_plan_expired_is_not_output_and_wip_is_separate(inputs_cli
     assert any(i['code'] == 'execution_unknown' for i in result['issues'])
 
 
+def test_plan_execution_facts_and_wip_apply_the_same_two_yields(inputs_client):
+    data = output_snapshot(300, '2026-10-12', '98', '0')
+    data['inputs']['parameters']['line_yields'][0]['percent'] = '95'
+    data['execution']['facts'] = [{'date': '2026-10-12', 'line_code': 'L', 'model_code': 'M', 'quantity': 300}]
+    data['reset'] = {'batch_id': 'RESET', 'production_week': '2026-10-12', 'cutoff': '2026-10-12T08:00:00+08:00', 'models': [{'model_code': 'M', 'wip': 100, 'net_balance': 0}]}
+    result = preview(inputs_client, data)
+    sources = {row['kind']: row for row in result['output_sources']}
+    assert (sources['input']['yield_month'], sources['input']['line_yield'], sources['input']['model_yield']) == ('2026-10', '95', '98')
+    assert (sources['wip']['yield_month'], sources['wip']['line_yield'], sources['wip']['model_yield']) == ('2026-10', '95', '98')
+    assert [row['quantity'] for row in sources['input']['portions']] == [280]
+    assert [row['quantity'] for row in sources['wip']['portions']] == [94]
+    assert result['output_totals']['expected'] == 374
+
+
 def test_confirmation_upserts_share_input_version_and_keep_history(inputs_client):
     from tests.test_inputs import masters
     masters(inputs_client)
