@@ -154,6 +154,11 @@ def test_complete_candidate_reference_survives_reopen_application_and_expiry(dur
         current_input=client.get('/auto_plan/api/inputs').json()
         added=client.post('/auto_plan/api/inputs/apply',json={'base_version':current_input['input_version'],'changes':{'models':[{'code':'T37LATE'+str(len(current_input['masters']['models'])),'name':'Post-freeze model','active':True,'recipe_code':'R'}]}})
         assert added.status_code==200,added.text
+        blocked=client.post('/auto_plan/api/plans/save',json=application|{'operation_id':str(uuid4())})
+        assert blocked.status_code==409,blocked.text
+        relabeled=application|{'operation_id':str(uuid4()),'input_version':added.json()['input_version']}
+        assert client.post('/auto_plan/api/plans/save',json=relabeled).status_code==409
+        assert client.get('/auto_plan/api/plans/current').json()['revision']==saved.json()['revision']
         controller.shutdown()
         jobs.recover_startup(NOW+timedelta(days=1))
         reference=proposal['operations'][0]

@@ -122,6 +122,53 @@ def test_fresh_compute_commits_complete_candidate_and_reference_application_pres
     finally: controller.shutdown()
 
 
+def test_frozen_candidate_keeps_pinned_input_but_cannot_bypass_current_version(shared_client):
+    from tests.test_solver import setup
+    from tests.test_plan_transactions import post, row
+    client, plans, inputs = shared_client
+    setup(inputs, [{'model_code': 'M', 'week': '2026-10-12', 'quantity': 1}])
+    controller = install_controller(client, plans)
+    try:
+        submitted = client.post('/auto_plan/api/jobs', json=submission(compute_seconds=10))
+        assert submitted.status_code == 200, submitted.text
+        identity = submitted.json()['job_id']
+        finished = wait_job(client, identity)
+        reference = finished['candidates'][0]
+        viewed = client.get(
+            f'/auto_plan/api/jobs/{identity}/candidates/{reference["candidate_id"]}').json()
+        assert viewed['candidate']['input_version'] == 1
+        assert viewed['candidate']['snapshot']['inputs']['parameters']['line_yields'] == [
+            {'month': '2026-10', 'model_code': 'M', 'percent': '100'},
+            {'month': '2026-10', 'model_code': 'N', 'percent': '100'},
+            {'month': '2026-10', 'model_code': 'P', 'percent': '100'}]
+
+        changed = client.post('/auto_plan/api/inputs/apply', json={
+            'base_version': 1,
+            'changes': {'line_yields': [
+                {'month': '2026-10', 'model_code': 'M', 'percent': '80'}]},
+        })
+        assert changed.status_code == 200, changed.text
+        current_version = changed.json()['input_version']
+
+        still_viewed = client.get(
+            f'/auto_plan/api/jobs/{identity}/candidates/{reference["candidate_id"]}').json()
+        assert still_viewed['candidate'] == viewed['candidate']
+        assert still_viewed['validity'] == {
+            'state': 'view_only', 'current_input_version': current_version}
+
+        original = viewed['proposal'] | {'operation_id': str(uuid4()), 'pending': True}
+        stale = post(client, 'save', original)
+        assert stale.status_code == 409, stale.text
+        assert stale.json()['input_version'] == current_version
+
+        relabeled = original | {'input_version': current_version, 'operation_id': str(uuid4())}
+        rejected = post(client, 'save', relabeled)
+        assert rejected.status_code == 409, rejected.text
+        assert plans.revision == 0
+    finally:
+        controller.shutdown()
+
+
 def fixture_factory(mode,path,processes):
     import sys
     from auto_plan.job_process import ComputeProcess
