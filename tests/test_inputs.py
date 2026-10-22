@@ -285,6 +285,48 @@ def test_missing_months_copy_previous_values_once_without_linking_or_overwriting
     assert client.get(f"/auto_plan/api/inputs?version={data['input_version']}").json() == data
 
 
+def test_line_yields_continue_per_model_without_overwriting_entered_months(inputs_client):
+    client = inputs_client
+    masters(client)
+    added = batch(client, {
+        'models': [
+            {'code': 'A', 'name': '机种 A', 'recipe_code': 'R', 'active': True},
+            {'code': 'B', 'name': '机种 B', 'recipe_code': 'R', 'active': True},
+        ],
+        'line_yields': [
+            {'month': '2026-09', 'model_code': 'A', 'percent': '95'},
+            {'month': '2026-09', 'model_code': 'B', 'percent': '80'},
+            {'month': '2026-11', 'model_code': 'A', 'percent': '70'},
+        ],
+        'model_yields': [
+            {'month': '2026-09', 'model_code': 'A', 'percent': '90'},
+            {'month': '2026-09', 'model_code': 'B', 'percent': '88'},
+        ],
+    })
+    assert added.status_code == 200, added.text
+
+    continued = client.get('/auto_plan/api/inputs').json()
+    line_values = {(row['month'], row['model_code']): row['percent']
+                   for row in continued['parameters']['line_yields']}
+    assert {key: line_values[key] for key in [
+        ('2026-10', 'A'), ('2026-10', 'B'), ('2026-11', 'A'), ('2026-11', 'B')]} == {
+        ('2026-10', 'A'): '95', ('2026-10', 'B'): '80',
+        ('2026-11', 'A'): '70', ('2026-11', 'B'): '80',
+    }
+    model_values = {(row['month'], row['model_code']): row['percent']
+                    for row in continued['parameters']['model_yields']}
+    assert (model_values['2026-10', 'A'], model_values['2026-10', 'B']) == ('90', '88')
+
+    changed = batch(client, {'line_yields': [
+        {'month': '2026-09', 'model_code': 'A', 'percent': '96'}]})
+    assert changed.status_code == 200, changed.text
+    after_change = client.get('/auto_plan/api/inputs').json()
+    values = {(row['month'], row['model_code']): row['percent']
+              for row in after_change['parameters']['line_yields']}
+    assert (values['2026-10', 'A'], values['2026-11', 'A']) == ('95', '70')
+    assert (values['2026-10', 'B'], values['2026-11', 'B']) == ('80', '80')
+
+
 def test_calendar_allows_over_24_and_preserves_distinct_availability_states(inputs_client):
     client = inputs_client
     masters(client)

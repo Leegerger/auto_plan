@@ -2,7 +2,7 @@
 from datetime import datetime, timedelta
 from typing import Literal
 from pydantic import Field, field_validator, model_validator
-from .input_models import InputRow, InputSnapshot, Code, Pieces, ProductionDate, WeeklyDemand
+from .input_models import InputRow, InputSnapshot, Code, Month, Pieces, ProductionDate, WeeklyDemand
 from .exact import Exact, Hours
 
 
@@ -246,6 +246,7 @@ class RuleIssue(InputRow):
     code: str
     reason: str
     severity: Literal['error', 'incomplete', 'warning'] = 'error'
+    yield_month: Month | None = Field(default=None, exclude_if=lambda value: value is None)
     date: ProductionDate | None = None
     line_code: str | None = None
     model_code: str | None = None
