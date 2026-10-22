@@ -4,6 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { CalendarRange, Database, GitBranch, LayoutDashboard, LogOut, Settings, Wifi, WifiOff } from '@lucide/vue'
 import { api, online, principal, refreshPrincipal } from './api'
 import { useSharedPlan } from './useSharedPlan'
+import { confirmPageLeave } from './usePageLeaveGuard'
 import PlanStatusBar from './components/PlanStatusBar.vue'
 
 const router=useRouter(),route=useRoute(),shared=useSharedPlan()
@@ -38,6 +39,7 @@ async function load(){
 }
 async function logout(){
   try{
+    if(!await confirmPageLeave())return
     await api('/auth/logout',{method:'POST'})
     shared.stop();principal.value=null;await router.replace('/login')
   }catch(e){error.value=e instanceof Error?e.message:'退出失败'}

@@ -21,3 +21,4 @@ export const categories: InputCategory[] = [
   {kind:'experiments',title:'实验时间',section:'calendar',fields:['date','line_code','hours'],keys:['date','line_code'],note:'非负整数小时。与保养直接相加，合计超过 24 小时仅表示无可用工时。'},
 ]
 export const fieldNames: Record<string, string> = {week:'需求周周一',kind:'确认类型',batch_id:'批次编号',status:'确认状态',quantity:'额度 (片)',note:'备注',code:'编码',name:'名称',active:'启用',recipe_code:'Recipe 编码',line_code:'线体编码',allowed:'允许生产',month:'月份',percent:'良率 (%)',model_code:'机种编码',pieces:'产能 (片/24小时)',days:'Cycle Time (天)',from_recipe:'原 Recipe',to_recipe:'目标 Recipe',hours:'小时',date:'生产日期',holiday:'Holiday',enabled:'例外开工',headers:'列名',columns:'列数',sheet:'工作表',file:'工作簿',table:'表格'}
+export function fieldName(field: string) { return field.split(',').map(key => fieldNames[key] ?? key).join('、') }

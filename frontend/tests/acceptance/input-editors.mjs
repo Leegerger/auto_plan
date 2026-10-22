@@ -12,6 +12,29 @@ const pendingResponse = (page, predicate) => {
   return pending
 }
 
+export async function discardInputChangesForReload(page, response) {
+  const dialog = page.getByRole('dialog', { name: '舍弃未提交资料变更？', exact: true })
+  const shown = dialog.waitFor({ state: 'visible', timeout: 180000 })
+  shown.catch(() => {})
+  if (await Promise.race([response.then(() => false), shown.then(() => true)])) {
+    await dialog.getByRole('button', { name: '舍弃变更', exact: true }).click()
+  }
+}
+
+async function assignedMasterRow(page, target) {
+  await page.getByLabel('搜索资料', { exact: true }).fill(target.code)
+  const rows = page.getByRole('table', { name: target.kind === 'models' ? '机种' : '线体', exact: true }).locator('tbody tr')
+  const next = page.getByRole('navigation', { name: '基础资料上方分页', exact: true })
+    .getByRole('button', { name: '下一页', exact: true })
+  while (true) {
+    const index = await rows.evaluateAll((elements, code) => elements.findIndex(row =>
+      [...row.querySelectorAll('input')].some(input => input.getAttribute('aria-label')?.startsWith('编码 ') && input.value === code)), target.code)
+    if (index >= 0) return rows.nth(index)
+    assert.ok(await next.isEnabled(), 'The assigned existing master is absent from the input table search results.')
+    await next.click()
+  }
+}
+
 export async function inputEditorLoop({ page, editor, declaration, initialInputs, origin, basePath,
   stopped, captureBody, firstPreview, firstCommit, onAttempt, onCommit, inputTrace }) {
   const target = declaration.targets.find(row => row.editor === editor)
@@ -22,12 +45,15 @@ export async function inputEditorLoop({ page, editor, declaration, initialInputs
   async function load(navigate = false) {
     const pending = pendingResponse(page, response => response.url() === url('/inputs') && response.request().method() === 'GET')
     if (navigate) await page.goto(origin + basePath + '/inputs', { timeout: 180000 })
-    else await page.getByRole('button', { name: '重新读取资料', exact: true }).click()
+    else {
+      await page.getByRole('button', { name: '重新读取资料', exact: true }).click()
+      await discardInputChangesForReload(page, pending)
+    }
     const received = await pending
     assert.equal(received.status(), 200, 'The input editor could not reload public inputs.')
     before = await received.json()
     resolveInputCompanion(declaration, initialInputs, before)
-    await expect(page.getByText(`当前资料版本 ${before.input_version}。当月及后四个月的缺失月度参数自动复制上月值，已有值保持独立。`, { exact: true })).toBeVisible()
+    await expect(page.getByText(`资料版本 ${before.input_version}`, { exact: true })).toBeVisible()
     await page.getByLabel('资料类别', { exact: true }).selectOption(target.kind)
   }
 
@@ -124,14 +150,11 @@ export async function inputEditorLoop({ page, editor, declaration, initialInputs
   await load(true)
   while (!stopped()) {
     const started = performance.now()
-    const rows = page.getByRole('table', { name: target.kind === 'models' ? '机种' : '线体', exact: true }).locator('tbody tr')
-    const index = await rows.evaluateAll((elements, code) => elements.findIndex(row =>
-      [...row.querySelectorAll('input')].some(input => input.getAttribute('aria-label')?.startsWith('编码 ') && input.value === code)), target.code)
-    assert.ok(index >= 0, 'The assigned existing master is absent from the displayed input table.')
-    await expect(page.getByLabel(`编码 第${index + 1}行`, { exact: true })).toHaveValue(target.code)
+    const row = await assignedMasterRow(page, target)
+    await expect(row.getByLabel(/^编码 第\d+行$/)).toHaveValue(target.code)
     const original = before.masters[target.kind].find(row => row.code === target.code)
     const nextName = target.names[original.name === target.names[0] ? 1 : 0]
-    await page.getByLabel(`名称 第${index + 1}行`, { exact: true }).fill(nextName)
+    await row.getByLabel(/^名称 第\d+行$/).fill(nextName)
     const preview = await submit('preview', '预览表格变更', started)
     if (preview.response_status === 409) {
       preview.status = 'conflict'; preview.finished_ms = performance.now(); onAttempt(preview)
@@ -160,7 +183,8 @@ export async function inputEditorLoop({ page, editor, declaration, initialInputs
       { transition: { editor, before: committedBefore, command: applied.command, response_status: applied.response_status, resolution: applied.resolution } })
     if (!applied.resolution) {
       await expect(page.getByText(`已提交资料版本 ${after.input_version}`, { exact: true })).toBeVisible()
-      await expect(page.getByLabel(`名称 第${index + 1}行`, { exact: true })).toHaveValue(nextName)
+      const committedRow = await assignedMasterRow(page, target)
+      await expect(committedRow.getByLabel(/^名称 第\d+行$/)).toHaveValue(nextName)
     }
     applied.status = 'pass'; applied.commit = resolved.transition
     applied.before = committedBefore; applied.after = after; applied.finished_ms = performance.now()

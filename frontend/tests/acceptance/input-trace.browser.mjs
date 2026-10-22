@@ -8,6 +8,7 @@ import { performance } from 'node:perf_hooks'
 import { setTimeout as delay } from 'node:timers/promises'
 import { installInputConsumptionTrace } from './input-consumption-trace.mjs'
 import { joinInputTransition } from './input-trace-join.mjs'
+import { discardInputChangesForReload } from './input-editors.mjs'
 assert.equal(process.env.AUTO_PLAN_INPUT_TRACE_BROWSER, '1')
 const config = JSON.parse(readFileSync(process.argv[2])), output = resolve(config.output)
 const accounts = JSON.parse(readFileSync(0, 'utf8')).accounts
@@ -58,8 +59,8 @@ try {
     await page.getByRole('button', { name: '登录', exact: true }).click()
     await expect(page.getByRole('button', { name: '退出登录', exact: true })).toBeVisible()
     await page.goto(config.origin + '/planning/inputs', { timeout: 15000 })
-    await expect(page.getByText('输入资料维护', { exact: true })).toBeVisible()
-    await expect(page.getByText('当前资料版本 1。当月及后四个月的缺失月度参数自动复制上月值，已有值保持独立。', { exact: true })).toBeVisible()
+    await expect(page.getByRole('heading', { name: '基础资料', exact: true })).toBeVisible()
+    await expect(page.getByText('资料版本 1', { exact: true })).toBeVisible()
   }
   const one = structuredClone(config.inputs), a = structuredClone(one), b = structuredClone(one)
   a.masters.lines[0].name = 'A changed'; b.masters.lines[1].name = 'B changed'
@@ -72,8 +73,9 @@ try {
   await expect(pages[0].getByRole('button', { name: '确认提交整批', exact: true })).toBeDisabled()
   const reloaded = pages[0].waitForResponse(reply => reply.request().method() === 'GET' && reply.url().endsWith('/api/inputs'))
   await pages[0].getByRole('button', { name: '重新读取资料', exact: true }).click()
+  await discardInputChangesForReload(pages[0], reloaded)
   assert.deepEqual(await (await reloaded).json(), b)
-  await expect(pages[0].getByText('当前资料版本 2。当月及后四个月的缺失月度参数自动复制上月值，已有值保持独立。', { exact: true })).toBeVisible()
+  await expect(pages[0].getByText('资料版本 2', { exact: true })).toBeVisible()
   const both = structuredClone(b); both.masters.lines[0].name = 'A changed'
   const freshA = await preview(pages[0], 0, 'A changed', both)
   const appliedA = await action(pages[0], '确认提交整批'); both.input_version = 3

@@ -35,6 +35,9 @@ function fixture(directory) {
   source.inputs.masters.recipes = source.inputs.masters.recipes.filter(row => contains(recipes, row.code))
   source.inputs.masters.capabilities = source.inputs.masters.capabilities.filter(row => contains(recipes, row.recipe_code) && contains(lines, row.line_code))
   const parameters = source.inputs.parameters
+  parameters.line_yields = parameters.line_yields.flatMap(row => row.model_code
+    ? contains(models, row.model_code) ? [row] : []
+    : models.map(model_code => ({ ...row, model_code })))
   parameters.model_yields = parameters.model_yields.filter(row => contains(models, row.model_code))
   parameters.capacities = parameters.capacities.filter(row => contains(recipes, row.recipe_code) && contains(lines, row.line_code))
   parameters.cycle_times = parameters.cycle_times.filter(row => contains(models, row.model_code))

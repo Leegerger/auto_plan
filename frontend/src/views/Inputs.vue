@@ -1,8 +1,12 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
+import { ElMessageBox } from 'element-plus'
 import { api, basePath, online, principal } from '../api'
-import { categories, fieldNames, type CellValue, type InputRow, type InputSnapshot, type InputPreview } from '../inputFields'
+import { categories, fieldName, type CellValue, type InputRow, type InputSnapshot, type InputPreview } from '../inputFields'
 import { useSharedPlan } from '../useSharedPlan'
+import { usePageLeaveGuard } from '../usePageLeaveGuard'
+import InputPagination from '../components/InputPagination.vue'
+import InputPreviewPanel from '../components/InputPreview.vue'
 const shared=useSharedPlan()
 const snapshot = ref<InputSnapshot | null>(null)
 const selected = ref('recipes')
@@ -15,29 +19,75 @@ const categorySections = computed(() => [
 ].map(section => ({...section,items:categories.filter(category => category.section===section.key)})))
 const rows = ref<InputRow[]>([])
 const existing = ref<boolean[]>([])
+const changedRows = ref(new Set<number>())
 const paste = ref('')
 const preview = ref<InputPreview | null>(null)
-const previewTables = computed(() => Object.entries(preview.value?.changes ?? {}).filter(([, changed]) => changed.length))
 const busy = ref(false)
 const query = ref('')
+const page = ref(1)
+const pageSize = ref(20)
+const table = ref<HTMLTableElement | null>(null)
 const error = ref('')
 const status = ref('')
 const editor = computed(() => principal.value?.roles.includes('editor') ?? false)
 const editable = computed(() => editor.value && online.value && !busy.value && !shared.unknown.value)
-const matchesRow = (row:InputRow) => {
+const hasPendingChanges = computed(() => changedRows.value.size > 0 || existing.value.some(saved => !saved) || !!paste.value.trim() || preview.value !== null)
+const filteredRows = computed(() => {
   const needle=query.value.trim().toLocaleLowerCase()
-  return !needle||Object.values(row).some(value=>String(value??'').toLocaleLowerCase().includes(needle))
-}
-const visibleCount = computed(()=>rows.value.filter(matchesRow).length)
+  return rows.value.map((row, index) => ({ row, index })).filter(({ row }) =>
+    !needle || Object.values(row).some(value => String(value ?? '').toLocaleLowerCase().includes(needle)))
+})
+const visibleRows = computed(() => filteredRows.value.slice((page.value - 1) * pageSize.value, page.value * pageSize.value))
+watch([query, pageSize], () => { page.value = 1 }, { flush: 'sync' })
+watch(() => filteredRows.value.length, total => {
+  page.value = Math.min(page.value, Math.max(1, Math.ceil(total / pageSize.value)))
+}, { flush: 'sync' })
 const choices: Record<string, {value:string;label:string}[]> = {kind:[{value:'material',label:'物料确认'},{value:'shipping',label:'出货确认'}],status:[{value:'allowed',label:'允许'},{value:'pending',label:'待确认'},{value:'forbidden',label:'整周跨周禁令'},{value:'revoked',label:'撤销／解除本批禁令'}]}
 const boolFields = ['active','allowed','holiday','enabled']
 const refs: Record<string, string> = {recipe_code:'recipes',from_recipe:'recipes',to_recipe:'recipes',model_code:'models',line_code:'lines'}
-function fieldName(field: string) { return field.split(',').map(f => fieldNames[f] ?? f).join('、') }
 function invalidate() { preview.value = null; status.value = ''; error.value = '' }
-function selectCategory(kind:string){selected.value=kind;showRows()}
+async function confirmDiscard() {
+  if (!principal.value) return true
+  if (busy.value) return false
+  if (!hasPendingChanges.value) return true
+  try {
+    await ElMessageBox.confirm('尚有未提交的资料编辑或预览。舍弃后无法恢复。', '舍弃未提交资料变更？', {
+      type: 'warning', confirmButtonText: '舍弃变更', cancelButtonText: '继续编辑',
+      autofocus: false, closeOnClickModal: false,
+    })
+    return true
+  } catch { return false }
+}
+async function selectCategory(kind: string) {
+  if (kind === selected.value || !await confirmDiscard()) return
+  selected.value = kind
+  showRows()
+}
+function changeCategory(event: Event) {
+  const select = event.target as HTMLSelectElement
+  const kind = select.value
+  select.value = selected.value
+  void selectCategory(kind)
+}
+async function reload() { if (await confirmDiscard()) await load() }
+function beforeUnload(event: BeforeUnloadEvent) {
+  if (principal.value && (hasPendingChanges.value || busy.value)) {
+    event.preventDefault()
+    event.returnValue = ''
+  }
+}
+watch([hasPendingChanges, busy], ([pending, processing]) => {
+  if (pending || processing) window.addEventListener('beforeunload', beforeUnload)
+  else window.removeEventListener('beforeunload', beforeUnload)
+}, { flush: 'sync' })
+usePageLeaveGuard(confirmDiscard)
+onUnmounted(() => window.removeEventListener('beforeunload', beforeUnload))
 function showRows() {
   rows.value = (snapshot.value?.[category.value.section][selected.value] ?? []).map(row => ({...row}))
   existing.value = rows.value.map(() => true)
+  changedRows.value.clear()
+  query.value = ''
+  page.value = 1
   paste.value = ''
   invalidate()
 }
@@ -47,16 +97,26 @@ async function load() {
   catch (e) { error.value = e instanceof Error ? e.message : '无法读取资料' }
   finally { busy.value = false }
 }
-function add() {
+async function add() {
+  query.value = ''
   rows.value.push(Object.fromEntries(category.value.fields.map(f => [f, boolFields.includes(f) ? true : ''])))
   existing.value.push(false); invalidate()
+  page.value = Math.ceil(rows.value.length / pageSize.value)
+  await nextTick()
+  table.value?.querySelector<HTMLInputElement | HTMLSelectElement>('tbody tr:last-child input, tbody tr:last-child select')?.focus()
 }
 function referenceOptions(field: string, current: CellValue) {
   const masterRows = snapshot.value?.masters[refs[field]!] ?? []
   return masterRows.filter(r => r.active === true || r.code === current)
 }
-function update(row: InputRow, field: string, value: string) {
+function update(index: number, field: string, value: string) {
+  const row = rows.value[index]!
   row[field] = boolFields.includes(field) ? value === 'true' : value
+  if (existing.value[index]) {
+    const original = snapshot.value![category.value.section][selected.value]![index]!
+    if (category.value.fields.every(key => String(row[key] ?? '') === String(original[key] ?? ''))) changedRows.value.delete(index)
+    else changedRows.value.add(index)
+  }
   invalidate()
 }
 async function previewTable() {
@@ -103,7 +163,7 @@ onMounted(load)
     <div class="input-toolbar">
       <a :href="`${basePath}/api/inputs/template.xlsx`">下载标准 Excel 模板</a>
       <a v-if="snapshot" :href="`${basePath}/api/inputs/export.xlsx?version=${snapshot.input_version}`">导出当前资料 Excel</a>
-      <el-button @click="load" :disabled="busy || !online">重新读取资料</el-button>
+      <el-button @click="reload" :disabled="busy || !online">重新读取资料</el-button>
     </div>
     <el-alert v-if="!editor" title="当前为查看权限，可查询和导出资料" type="info" :closable="false" />
     <el-alert v-if="shared.unknown.value" title="共享计划保存结果待核实，资料编辑当前只读。" type="warning" :closable="false" />
@@ -112,28 +172,30 @@ onMounted(load)
     <p v-if="status" role="status">{{ status }}</p>
     <div class="data-layout">
       <aside class="category-nav" aria-label="资料分类">
-        <label>资料类别 <select aria-label="资料类别" v-model="selected" @change="showRows" :disabled="busy"><option v-for="item in categories" :key="item.kind" :value="item.kind">{{ item.title }}</option></select></label>
-        <section v-for="section in categorySections" :key="section.key"><h3>{{ section.title }}</h3><button v-for="item in section.items" :key="item.kind" type="button" :class="{active:item.kind===selected}" @click="selectCategory(item.kind)">{{ item.title }}</button></section>
+        <label>资料类别 <select aria-label="资料类别" :value="selected" @change="changeCategory" :disabled="busy"><option v-for="item in categories" :key="item.kind" :value="item.kind">{{ item.title }}</option></select></label>
+        <section v-for="section in categorySections" :key="section.key"><h3>{{ section.title }}</h3><button v-for="item in section.items" :key="item.kind" type="button" :class="{active:item.kind===selected}" :disabled="busy" @click="selectCategory(item.kind)">{{ item.title }}</button></section>
       </aside>
       <div class="category-content">
     <div class="section-heading"><div><p class="eyebrow">当前资料类别</p><h2>{{ category.title }}</h2></div><div class="heading-actions"><el-input v-model="query" aria-label="搜索资料" placeholder="搜索资料" clearable /><el-button @click="add" :disabled="!editable">新增一行</el-button></div></div>
     <p class="category-note">{{ category.note }}</p>
+    <InputPagination v-model:page="page" v-model:page-size="pageSize" :total="filteredRows.length" label="基础资料上方分页" :disabled="busy" />
     <div class="input-table-scroll">
-      <table :aria-label="category.title" class="input-table">
+      <table ref="table" :aria-label="category.title" class="input-table">
         <thead><tr><th>行</th><th v-for="field in category.fields" :key="field">{{ fieldName(field) }}</th><th>操作</th></tr></thead>
-        <tbody><template v-for="(row,index) in rows" :key="index"><tr v-if="matchesRow(row)"><td>{{ index + 1 }}</td>
+        <tbody><tr v-for="{ row, index } in visibleRows" :key="index"><td>{{ index + 1 }}</td>
           <td v-for="field in category.fields" :key="field">
-            <select v-if="boolFields.includes(field)" :aria-label="`${fieldName(field)} 第${index+1}行`" :value="String(row[field])" @change="update(row,field,($event.target as HTMLSelectElement).value)" :disabled="!editable"><option value="true">是</option><option value="false">否</option></select>
-            <select v-else-if="refs[field]" :aria-label="`${fieldName(field)} 第${index+1}行`" :value="String(row[field] ?? '')" @change="update(row,field,($event.target as HTMLSelectElement).value)" :disabled="!editable || (existing[index] && category.keys.includes(field))"><option value="">请选择</option><option v-for="master in referenceOptions(field,row[field] ?? null)" :key="String(master.code)" :value="String(master.code)">{{ master.code }} · {{ master.name }}{{ master.active ? '' : ' (停用)' }}</option></select>
-            <select v-else-if="choices[field]" :aria-label="`${fieldName(field)} 第${index+1}行`" :value="String(row[field] ?? '')" @change="update(row,field,($event.target as HTMLSelectElement).value)" :disabled="!editable || (existing[index] && category.keys.includes(field))"><option value="">请选择</option><option v-for="choice in choices[field]" :key="choice.value" :value="choice.value">{{ choice.label }}</option></select>
-            <el-input v-else :aria-label="`${fieldName(field)} 第${index+1}行`" :model-value="String(row[field] ?? '')" @update:model-value="update(row,field,$event)" :disabled="!editable || (existing[index] && category.keys.includes(field))" :placeholder="field === 'percent' ? '95.50 表示 95.50%' : field === 'month' ? 'YYYY-MM' : ['date','week'].includes(field) ? 'YYYY-MM-DD' : ''" />
+            <select v-if="boolFields.includes(field)" :aria-label="`${fieldName(field)} 第${index+1}行`" :value="String(row[field])" @change="update(index,field,($event.target as HTMLSelectElement).value)" :disabled="!editable"><option value="true">是</option><option value="false">否</option></select>
+            <select v-else-if="refs[field]" :aria-label="`${fieldName(field)} 第${index+1}行`" :value="String(row[field] ?? '')" @change="update(index,field,($event.target as HTMLSelectElement).value)" :disabled="!editable || (existing[index] && category.keys.includes(field))"><option value="">请选择</option><option v-for="master in referenceOptions(field,row[field] ?? null)" :key="String(master.code)" :value="String(master.code)">{{ master.code }} · {{ master.name }}{{ master.active ? '' : ' (停用)' }}</option></select>
+            <select v-else-if="choices[field]" :aria-label="`${fieldName(field)} 第${index+1}行`" :value="String(row[field] ?? '')" @change="update(index,field,($event.target as HTMLSelectElement).value)" :disabled="!editable || (existing[index] && category.keys.includes(field))"><option value="">请选择</option><option v-for="choice in choices[field]" :key="choice.value" :value="choice.value">{{ choice.label }}</option></select>
+            <el-input v-else :aria-label="`${fieldName(field)} 第${index+1}行`" :model-value="String(row[field] ?? '')" @update:model-value="update(index,field,$event)" :disabled="!editable || (existing[index] && category.keys.includes(field))" :placeholder="field === 'percent' ? '95.50 表示 95.50%' : field === 'month' ? 'YYYY-MM' : ['date','week'].includes(field) ? 'YYYY-MM-DD' : ''" />
           </td>
           <td><el-button v-if="!existing[index]" @click="rows.splice(index,1); existing.splice(index,1); invalidate()" :disabled="!editable">撤回新增</el-button><span v-else>已存资料</span></td>
-        </tr></template></tbody>
+        </tr></tbody>
       </table>
     </div>
+    <InputPagination v-model:page="page" v-model:page-size="pageSize" :total="filteredRows.length" label="基础资料下方分页" :disabled="busy" />
     <p v-if="rows.length === 0">暂无资料。缺失值保持未知，请明确录入；零值不会由空白自动生成。</p>
-    <p v-else-if="visibleCount === 0" class="empty-inline">没有符合搜索条件的资料。</p>
+    <p v-else-if="filteredRows.length === 0" class="empty-inline">没有符合搜索条件的资料。</p>
     <el-button type="primary" @click="previewTable" :disabled="!editable">预览表格变更</el-button>
     <div v-if="editor" class="input-import">
       <label for="input-paste">粘贴表格</label><p>首行请使用标准模板列名，列之间使用制表符：</p><code>{{ category.fields.join('　') }}</code>
@@ -142,13 +204,7 @@ onMounted(load)
       <label class="excel-picker">选择 Excel 文件并预览 <input class="excel-file-input" type="file" aria-label="导入标准 Excel 并预览" accept=".xlsx" @change="importExcel" :disabled="!editable" /></label>
       <p>Excel 百分数列可填 95.50 或使用显示 95.50% 的百分比单元格。公式不接受。工作簿最多 10MB，整批最多 100000 行。</p>
     </div>
-    <div v-if="preview" class="input-preview">
-      <h2>整批预览</h2>
-      <p v-if="preview.valid">预览通过，尚未提交</p><p v-else>发现 {{ preview.errors.length }} 个错误，整批未提交。</p>
-      <table v-if="preview.errors.length" aria-label="导入错误" class="input-table"><thead><tr><th>工作表</th><th>源行</th><th>字段</th><th>原因</th></tr></thead><tbody><tr v-for="(item,index) in preview.errors" :key="index"><td>{{ categories.find(c=>c.kind === item.sheet)?.title ?? item.sheet }}</td><td>{{ item.row }}</td><td>{{ fieldName(item.field) }}</td><td>{{ item.reason }}</td></tr></tbody></table>
-      <p v-if="preview.valid && previewTables.length === 0">本批没有资料行，当前资料保持原值。</p>
-      <div v-for="[kind,changed] in previewTables" :key="kind"><h3>{{ categories.find(c=>c.kind === kind)?.title ?? kind }} ({{ changed.length }} 行)</h3><div class="input-table-scroll"><table :aria-label="`${kind} 预览`" class="input-table"><thead><tr><th v-for="field in categories.find(c=>c.kind === kind)?.fields" :key="field">{{ fieldName(field) }}</th></tr></thead><tbody><tr v-for="(row,index) in changed" :key="index"><td v-for="field in categories.find(c=>c.kind === kind)?.fields" :key="field">{{ typeof row[field] === 'boolean' ? (row[field] ? '是' : '否') : row[field] }}</td></tr></tbody></table></div></div>
-    </div>
+    <InputPreviewPanel v-if="preview" :preview="preview" />
     <el-button v-if="editor" type="success" @click="apply" :disabled="!editable || !preview?.valid">确认提交整批</el-button>
       </div>
     </div>
