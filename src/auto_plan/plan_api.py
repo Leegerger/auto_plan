@@ -1,27 +1,21 @@
 from fastapi import APIRouter, Depends, Request
-from pydantic import field_validator
 from .app import require_editor
-from .input_models import InputRow
+from .input_models import CurrentInputSnapshot, InputRow
 from .plan_models import (EvaluationSnapshot, EvaluationResult, EvaluationTime,
                           SourceEvaluationSnapshot, CertificatePreviewResult)
 from .rules import evaluate
 from .certificate import construct_hour_certificate, CertificateError
-from .stored_snapshots import evaluation_payload
 
 router = APIRouter()
 
 
 class PreviewSnapshot(EvaluationSnapshot):
+    inputs: CurrentInputSnapshot
     time: EvaluationTime | None = None
 
 
 class PlanPreview(InputRow):
     snapshot: PreviewSnapshot
-
-    @field_validator('snapshot', mode='before')
-    @classmethod
-    def decode_stored_snapshot(cls, value):
-        return evaluation_payload(value) if isinstance(value, dict) else value
 
 
 def frozen_snapshot(source, request, *, plan=None):
@@ -37,16 +31,12 @@ def preview_plan(payload: PlanPreview, request: Request, principal=Depends(requi
 
 
 class SourcePreviewSnapshot(SourceEvaluationSnapshot):
+    inputs: CurrentInputSnapshot
     time: EvaluationTime | None = None
 
 
 class CertificatePreview(InputRow):
     snapshot: SourcePreviewSnapshot
-
-    @field_validator('snapshot', mode='before')
-    @classmethod
-    def decode_stored_snapshot(cls, value):
-        return evaluation_payload(value) if isinstance(value, dict) else value
 
 
 @router.post('/plans/certificate/preview', response_model=CertificatePreviewResult)

@@ -3,7 +3,7 @@ from datetime import timedelta
 from typing import Any
 from pydantic import Field, ValidationError
 from .input_models import InputRow, Pieces, WeeklyDemand
-from .inputs import preview as preview_inputs, error
+from .inputs import preview as preview_inputs, error, expanded_legacy_line_yields
 from .plan_models import SourceSegment, InitialRecipeState, ExecutionCoverage, ExecutionContext, ResetContext, EvaluationSnapshot, EvaluationTime
 from .plans import PlanningContext, PlanProblem
 from .production_time import BEIJING, production_cutoff, week_label
@@ -42,7 +42,7 @@ def typed_rows(model, rows, sheet, errors):
 def prepare_initial(current, head, payload, now):
     if head['revision'] or head['latest_adoption'] or payload.base_revision or payload.latest_adoption:
         raise PlanProblem(409,'已有共享计划，不能重复首次接入')
-    maintained=preview_inputs(current,payload.input_version,payload.changes)
+    maintained=preview_inputs(expanded_legacy_line_yields(current),payload.input_version,payload.changes)
     errors=list(maintained['errors']); time=EvaluationTime.at(now)
     segments=typed_rows(SourceSegment,payload.segments,'segments',errors)
     demands=typed_rows(WeeklyDemand,payload.demands,'demands',errors)

@@ -105,6 +105,7 @@ def preview(current: InputSnapshot, base_version: int, changes: dict[str, list[d
 
 
 def apply_batch(current, base_version, changes):
+    current = expanded_legacy_line_yields(current)
     result = preview(current, base_version, changes)
     if result['errors']:
         raise InputErrors(result['errors'])
@@ -131,6 +132,13 @@ def _expand_legacy_line_yields(document):
     document['parameters']['line_yields'] = expanded
 
 
+def expanded_legacy_line_yields(current: InputSnapshot) -> InputSnapshot:
+    """Expand global rows for the models already present without advancing the version."""
+    document = current.model_dump(mode='json')
+    _expand_legacy_line_yields(document)
+    return current if document == current.model_dump(mode='json') else normalize_snapshot(document)
+
+
 def _advance_current_document(document, month):
     start_year, start_month = map(int, month.split('-'))
     start = start_year * 12 + start_month - 1
@@ -154,15 +162,6 @@ def _advance_current(current: InputSnapshot, month: str, *, expand_legacy: bool)
     if expand_legacy:
         _expand_legacy_line_yields(document)
     document = _advance_current_document(document, month)
-    if document == current.model_dump(mode='json'):
-        return current
-    document['input_version'] += 1
-    return normalize_snapshot(document)
-
-
-def convert_legacy_line_yields(current: InputSnapshot) -> InputSnapshot:
-    document = current.model_dump(mode='json')
-    _expand_legacy_line_yields(document)
     if document == current.model_dump(mode='json'):
         return current
     document['input_version'] += 1

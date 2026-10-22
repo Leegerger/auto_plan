@@ -9,6 +9,7 @@ from auto_plan.input_models import InputSnapshot
 from auto_plan.settings import Settings
 from auto_plan.oracle_access import OracleAccessStore
 from auto_plan.oracle_inputs import OracleInputStore
+from tests.oracle_legacy import seed_legacy_input_revision
 from tests.oracle_namespace import disposable_business_namespace
 from tests.support import CompanyAuthentication
 
@@ -70,8 +71,7 @@ def test_oracle_legacy_line_yields_convert_once_and_survive_reopen():
                 },
                 'parameters': {'line_yields': [{'month': '2026-10', 'percent': '95'}]},
             })
-            store.update('SYSTEM_MONTH_CONTINUATION', NOW,
-                         lambda current: legacy.model_copy(update={'input_version': current.input_version + 1}))
+            seed_legacy_input_revision(store, legacy, NOW)
 
             def app():
                 return create_app(settings, store=access, input_store=store,

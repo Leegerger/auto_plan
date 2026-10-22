@@ -229,5 +229,14 @@ class InputSnapshot(InputRow):
     business: BusinessInputs = Field(default_factory=BusinessInputs)
 
 
+class CurrentParameters(Parameters):
+    line_yields: list[LineYield] = Field(default_factory=list)
+
+
+class CurrentInputSnapshot(InputSnapshot):
+    """Inputs supplied by a current request; legacy global rows are not accepted."""
+    parameters: CurrentParameters = Field(default_factory=CurrentParameters)
+
+
 def normalize_snapshot(payload: dict) -> InputSnapshot:
     return InputSnapshot.model_validate(payload)

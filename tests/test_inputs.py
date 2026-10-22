@@ -203,7 +203,7 @@ def test_line_yield_errors_identify_duplicate_and_unknown_model_rows(inputs_clie
     assert client.get('/auto_plan/api/inputs?version=' + str(before['input_version'])).json() == before
 
 
-def test_direct_apply_cannot_add_a_model_before_legacy_conversion(inputs_client):
+def test_direct_apply_atomically_expands_legacy_yields_before_adding_a_model(inputs_client):
     client = inputs_client
     legacy = InputSnapshot.model_validate({
         'schema_version': 1,
@@ -219,15 +219,58 @@ def test_direct_apply_cannot_add_a_model_before_legacy_conversion(inputs_client)
     store.versions[1] = legacy
     store.version = 1
 
-    stale = client.post('/auto_plan/api/inputs/apply', json={
+    applied = client.post('/auto_plan/api/inputs/apply', json={
         'base_version': 1,
-        'changes': {'models': [{'code': 'D', 'name': '新机种', 'recipe_code': 'R', 'active': True}]},
+        'changes': {
+            'models': [{'code': 'D', 'name': '新机种', 'recipe_code': 'R', 'active': True}],
+            'line_yields': [{'month': '2026-10', 'model_code': 'A', 'percent': '96'}],
+        },
     })
-    assert stale.status_code == 409
-    converted = client.get('/auto_plan/api/inputs').json()
-    assert [row['code'] for row in converted['masters']['models']] == ['A']
-    assert [row for row in converted['parameters']['line_yields'] if row['month'] == '2026-10'] == [
+    assert applied.status_code == 200, applied.text
+    assert applied.json()['masters']['models'][-1]['code'] == 'D'
+    assert {(row['month'], row['model_code']): row['percent']
+            for row in applied.json()['parameters']['line_yields'] if row['month'] == '2026-10'} == {
+        ('2026-10', 'A'): '96'}
+    assert client.get('/auto_plan/api/inputs?version=1').json() == legacy.model_dump(mode='json')
+
+
+def test_legacy_preview_and_current_export_do_not_persist_conversion(inputs_client):
+    from io import BytesIO
+    from openpyxl import load_workbook
+
+    client = inputs_client
+    legacy = InputSnapshot.model_validate({
+        'schema_version': 1,
+        'input_version': 1,
+        'masters': {
+            'recipes': [{'code': 'R', 'name': '工艺', 'active': True}],
+            'models': [{'code': 'A', 'name': '机种 A', 'recipe_code': 'R', 'active': True}],
+        },
+        'parameters': {'line_yields': [{'month': '2026-10', 'percent': '95'}]},
+    })
+    store = client.app.state.input_store
+    store.versions[1] = legacy
+    store.version = 1
+
+    previewed = client.post('/auto_plan/api/inputs/preview', json={
+        'base_version': 1,
+        'changes': {'models': [
+            {'code': 'D', 'name': '新机种', 'recipe_code': 'R', 'active': True}]},
+    })
+    assert previewed.status_code == 200, previewed.text
+    assert previewed.json()['valid'] is True
+    assert previewed.json()['snapshot']['parameters']['line_yields'] == [
         {'month': '2026-10', 'model_code': 'A', 'percent': '95'}]
+    assert store.version == 1
+    assert store.read() == legacy
+
+    exported = load_workbook(BytesIO(
+        client.get('/auto_plan/api/inputs/export.xlsx').content))
+    assert [cell.value for cell in exported['line_yields'][1]] == ['month', 'model_code', 'percent']
+    assert [cell.value for cell in exported['line_yields'][2]] == ['2026-10', 'A', '95']
+    assert [cell.value for cell in exported['_version'][2]] == [1, 1]
+    assert store.version == 1
+    assert store.read() == legacy
 
 
 def test_line_yield_template_is_current_but_pinned_legacy_export_keeps_its_shape(inputs_client):

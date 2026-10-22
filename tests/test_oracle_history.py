@@ -12,6 +12,7 @@ from auto_plan.oracle_access import OracleAccessStore
 from auto_plan.oracle_inputs import OracleInputStore
 from auto_plan.oracle_plans import OraclePlanStore
 from auto_plan.input_models import InputSnapshot
+from tests.oracle_legacy import seed_legacy_input_revision
 from tests.oracle_namespace import disposable_business_namespace
 from tests.support import CompanyAuthentication
 from tests.test_plan_preview import snapshot
@@ -43,8 +44,7 @@ def test_real_legacy_history_edit_export_restart_and_restore_pin_original_input(
                     'cycle_times':[{'model_code':'M','days':'0'}],
                 },
             })
-            inputs.update('SYSTEM_MONTH_CONTINUATION',NOW,
-                          lambda current:legacy.model_copy(update={'input_version':current.input_version+1}))
+            seed_legacy_input_revision(inputs,legacy,NOW)
             with namespace.acquire() as connection:
                 with connection.cursor() as cursor:
                     cursor.execute('SELECT SNAPSHOT_BLOB,SHA256 FROM AP_INPUT_REVISION WHERE INPUT_VERSION=1')
@@ -79,9 +79,9 @@ def test_real_legacy_history_edit_export_restart_and_restore_pin_original_input(
             with TestClient(app(),base_url=settings.public_origin) as client:
                 client.headers.update(headers)
                 login(client,'T24ADMIN')
-                assert client.put('/auto_plan/api/admin/authorizations/T47EDITOR',
+                assert client.put('/auto_plan/api/admin/authorizations/T29EDITOR',
                                   json={'roles':['editor']},headers=headers).status_code==200
-                login(client,'T47EDITOR')
+                login(client,'T29EDITOR')
                 assert client.get('/auto_plan/api/inputs?version=1',headers=headers).json()==legacy.model_dump(mode='json')
                 assert legacy_input_export(client)==(('month','percent'),('2026-10','95'),(1,1))
                 segment={'id':'a','date':'2026-10-15','line_code':'L','model_code':'M',
@@ -128,7 +128,7 @@ def test_real_legacy_history_edit_export_restart_and_restore_pin_original_input(
 
             with TestClient(app(),base_url=settings.public_origin) as reopened:
                 reopened.headers.update(headers)
-                login(reopened,'T47EDITOR')
+                login(reopened,'T29EDITOR')
                 assert reopened.get('/auto_plan/api/inputs',headers=headers).json()==edited
                 assert reopened.get('/auto_plan/api/inputs',headers=headers).json()==edited
                 assert reopened.get('/auto_plan/api/inputs?version=1',headers=headers).json()==legacy.model_dump(mode='json')

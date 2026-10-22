@@ -29,6 +29,20 @@ def preview(client, data):
     return response.json()
 
 
+@pytest.mark.parametrize('path', [
+    '/auto_plan/api/plans/evaluate',
+    '/auto_plan/api/plans/certificate/preview',
+])
+def test_current_plan_previews_reject_legacy_line_yield_rows(path, inputs_client):
+    data = snapshot()
+    data['inputs']['parameters']['line_yields'] = [
+        {'month': '2026-10', 'percent': '95'}]
+
+    response = inputs_client.post(path, json={'snapshot': data})
+
+    assert response.status_code == 422, response.text
+
+
 def test_daily_recipe_capacity_rounds_once_across_models_and_splits_without_writes(inputs_client):
     client = inputs_client
     before = client.get('/auto_plan/api/inputs?version=0').json()
