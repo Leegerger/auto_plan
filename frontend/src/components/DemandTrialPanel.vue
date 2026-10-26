@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { api, principal } from '../api'
 import type { DemandTrialResult } from '../demandTrialTypes'
 import type { useSharedPlan } from '../useSharedPlan'
@@ -14,7 +14,7 @@ function pieces(value:number|null|undefined,unit='片合格产出'){return value
 const goal=computed(()=>props.shared.lineage.value.demand_goals?.[form.goalId])
 function payload(){
   const {operation_id:_,pending:__,...command}=props.shared.command()
-  return {...command,action_id:form.actionId,goal_id:form.goalId||null,model_code:form.modelCode,demand_week:form.demandWeek,target_output:form.targetOutput===''?null:Number(form.targetOutput),mode:'on_time',line_code:form.lineCode,start_date:form.startDate,end_date:form.endDate,scope:{start_date:scope.start_date,end_date:scope.end_date,line_codes:[...scope.line_codes],model_codes:[...scope.model_codes]}}
+  return {...command,action_id:form.actionId,goal_id:form.goalId||null,model_code:form.modelCode,demand_week:form.demandWeek,target_output:form.targetOutput===''?null:Number(form.targetOutput),mode:form.mode,line_code:form.lineCode,start_date:form.startDate,end_date:form.endDate,scope:{start_date:scope.start_date,end_date:scope.end_date,line_codes:[...scope.line_codes],model_codes:[...scope.model_codes]}}
 }
 const currentRequest=computed(()=>JSON.stringify({actor:principal.value?.user_id,request:props.shared.head.value ? payload() : null,head:props.shared.head.value ? {revision:props.shared.head.value.revision,input_version:props.shared.head.value.input_version,latest_adoption:props.shared.head.value.latest_adoption,as_of:props.shared.head.value.time.as_of}:null}))
 function invalidate(){request++;busy.value=false;if(form.result)form.notice='试算已失效，输入已保留，请重新试算。';form.result=null;form.requestKey=''}
@@ -24,8 +24,9 @@ onMounted(async()=>{
   try{options.value=await api('/inputs/options')}catch(e){error.value=e instanceof Error ? e.message : '无法读取可选线体'}
 })
 onBeforeUnmount(()=>{request++})
-async function calculate(){
+async function calculate(mode:'on_time'|'late'='on_time'){
   if(props.shared.readonly.value)return
+  if(form.mode!==mode){form.mode=mode;await nextTick()}
   if(!form.lineCode || !form.startDate || !form.endDate){error.value='请明确选择投入日期和一条线体';return}
   error.value='';form.notice='';busy.value=true
   const sequence=++request, key=currentRequest.value, body=payload()
@@ -48,10 +49,10 @@ async function accept(retain=false){
 </script>
 <template>
   <section aria-label="按需补排试算" class="demand-trial">
-    <div class="section-heading"><div><h3>按需补排</h3><p>{{form.modelCode}} · 需求周 {{form.demandWeek}} · 按时覆盖方案</p></div><el-button @click="form.open=false">收起按需补排</el-button></div>
+    <div class="section-heading"><div><h3>按需补排</h3><p>{{form.modelCode}} · 需求周 {{form.demandWeek}} · {{form.mode==='late'?'显式迟交方案':'按时覆盖方案'}}</p></div><el-button @click="form.open=false">收起按需补排</el-button></div>
     <p>覆盖目标按合格产出计算，建议投入另列。先查看单线试算，选用后再进入本机动作及共享预览。</p>
     <p v-if="form.goalId">继续原补排目标 {{goal?.requested_output ?? '待核对'}} 片合格产出，当前余额 {{shared.needsPreview.value ? '待重新预览' : pieces(goal?.remaining_output_target)}}。本次可只处理其中一部分，换线或改日后重新计算投入。</p>
-    <form v-if="shared.editor.value" @submit.prevent="calculate">
+    <form v-if="shared.editor.value" @submit.prevent="calculate('on_time')">
       <fieldset :disabled="shared.readonly.value || busy" class="demand-trial-form"><legend>目标与投入范围</legend>
         <label>覆盖目标，合格产出片数 <input v-model="form.targetOutput" type="number" min="1" step="1" aria-label="补排合格产出目标" placeholder="留空按当前尚无安排量试算"></label>
         <label>投入起日 <input v-model="form.startDate" type="date" aria-label="补排投入起日" required></label>
@@ -62,8 +63,10 @@ async function accept(retain=false){
         <label>授权线体 <select v-model="scope.line_codes" multiple aria-label="补排调整范围线体"><option v-for="row in options.lines" :key="row.code" :value="row.code">{{row.code}}</option></select></label>
         <label>授权机种，不选表示全部 <select v-model="scope.model_codes" multiple aria-label="补排调整范围机种"><option v-for="row in options.models" :key="row.code" :value="row.code">{{row.code}}</option></select></label>
         <el-button native-type="submit" type="primary">试算按时覆盖</el-button>
+        <el-button v-if="form.mode==='late' || result && (result.remaining_output_target ?? 0)>0" @click="calculate('late')">查看迟交方案</el-button>
       </fieldset>
     </form>
+    <p v-if="form.mode==='late'">迟交方案仅使用上方已选日期、线体和授权范围；请核对物料、出货确认及原需求截止点。</p>
     <p v-if="busy" role="status">正在按当前计划与资料试算…</p><p v-if="error" role="alert">{{error}}</p><p v-if="form.notice" role="status">{{form.notice}}</p>
     <DemandTrialDetails v-if="result" :result="result" :shared="shared" @accept="accept" />
   </section>
