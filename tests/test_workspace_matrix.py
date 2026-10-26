@@ -113,7 +113,8 @@ def test_current_recipe_confirmation_is_separate_from_original_monday_and_stales
     matrix = checked.json()['workspace_view']
     monday = next(row for row in matrix['line_weeks'] if row['week'] == '2026-10-12' and row['line_code'] == 'L')
     assert monday['recipe_code'] == 'R'
-    assert monday['current_confirmation'] == {'observed_at': '2026-10-14T08:00:00+08:00', 'recipe_code': 'S', 'valid': True}
+    assert monday['current_confirmation'] == {'observed_at': '2026-10-14T08:00:00+08:00', 'recipe_code': 'S', 'valid': True,
+        'state': 'retained_recipe', 'unfinished_switch': None}
     today = next(row for row in matrix['days'] if row['date'] == '2026-10-14' and row['line_code'] == 'L')
     assert (today['calendar_hours']['exact'], today['available_hours']['exact'], today['basis']) == ('24', '1', 'confirmed_remaining_day')
     saved = post(client, 'save', current_command(client, operation, confirmation))

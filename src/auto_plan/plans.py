@@ -136,8 +136,8 @@ def effect_keys(before, after, context):
     index=InputIndex(context.inputs)
     from .line_states import calculation_anchors
     anchors=calculation_anchors(context)
-    before_states=analyze_recipe_states(before,index,confirmed_states=anchors,window_start=context.time.window_start)
-    after_states=analyze_recipe_states(after,index,confirmed_states=anchors,window_start=context.time.window_start)
+    before_states=analyze_recipe_states(before,index,confirmed_states=anchors,window_start=context.time.window_start,as_of=context.time.as_of)
+    after_states=analyze_recipe_states(after,index,confirmed_states=anchors,window_start=context.time.window_start,as_of=context.time.as_of)
     def states(plan,analysis,line):
         initial=analysis.initial_states.get(line)
         events={day.isoformat():recipe for (day,event_line),recipe in analysis.endings.items() if event_line==line}
@@ -237,8 +237,9 @@ def context_effect_keys(context,updates,snapshot=None):
 
 
 def protect(before, after, snapshot, *, allow_past_input=False):
-    from .line_states import protect_initial_hints
+    from .line_states import protect_initial_hints, protect_unfinished_jobs
     protect_initial_hints(before,after,snapshot)
+    protect_unfinished_jobs(before,after,snapshot)
     from .execution_rules import executed_by_segment
     from .production_time import production_date
     old,new=cells(before),cells(after)

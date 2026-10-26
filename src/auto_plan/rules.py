@@ -99,6 +99,10 @@ def _evaluate_fields(snapshot, *, output_cache=None, json_mode=False):
         recipe = index.models[segment.model_code].recipe_code
         groups[(segment.date, segment.line_code)][recipe].append(segment)
     switch_results = []
+    from .line_states import active_unfinished_jobs, unfinished_job_history, matches_residual_job
+    unfinished = active_unfinished_jobs(snapshot)
+    actual_jobs = {identity for identity,(record,resolved) in unfinished_job_history(snapshot).items()
+                   if production_date(record.unfinished_switch.started_at)<=snapshot.time.window_end and (resolved is None or resolved>=snapshot.time.window_start)}
     for switch in capacity_plan.switches:
         if switch.id in identifiers:
             problem('duplicate_id', '生产段或切机标识重复', switch=switch)
@@ -107,11 +111,23 @@ def _evaluate_fields(snapshot, *, output_cache=None, json_mode=False):
             problem('unknown_master', '切机引用不存在的线体或 Recipe', switch=switch)
         duration = index.switch(switch.from_recipe, switch.to_recipe)
         total = Fraction(duration['hours'])
+        actual = unfinished.get(switch.line_code)
+        residual = switch.residual_record_id is not None
+        verified = residual and matches_residual_job(switch,actual)
+        if residual:
+            if not verified:
+                problem('residual_reference', '剩余切机须关联当前现场原作业，不能改变线体、原目标 Recipe 或使用过期依据', switch=switch)
+            else:
+                total = Fraction(actual.unfinished_switch.remaining_hours)
+                if any(row.date < max(production_date(snapshot.time.as_of),production_date(actual.effective_at)) for row in switch.allocations):
+                    problem('remaining_switch_elapsed', '现场实际剩余作业不能安排到观察时点之前或已经过去的生产日', switch=switch)
         allocated = sum((Fraction(a.hours) for a in switch.allocations), Fraction(0))
         idle = sum((Fraction(a.idle_hours) for a in switch.allocations), Fraction(0))
         if duration['state'] == 'same_recipe':
             problem('same_recipe_switch', '同 Recipe 无需切机，请移除切机事件', switch=switch)
-        if allocated != total:
+        if residual and verified and allocated > total:
+            problem('remaining_switch_total', '剩余切机分配不能超过现场确认的实际剩余工时', switch=switch, day=switch.allocations[0].date)
+        elif not residual and allocated != total:
             problem('switch_total', '切机日分配合计必须精确等于有向切机总时间', switch=switch, day=switch.allocations[0].date)
         if duration['state'] == 'default_missing':
             problem('missing_switch_duration', '已知不同 Recipe 缺切机参数，按12小时计算，待补充', switch=switch, severity='warning')
@@ -124,12 +140,18 @@ def _evaluate_fields(snapshot, *, output_cache=None, json_mode=False):
                 problem('idle_exceeds_allocation', '普通空闲抵扣不得超过该日实际切机占用', switch=switch, day=allocation.date)
         switch_results.append(SwitchEvaluation(id=switch.id, line_code=switch.line_code,
             from_recipe=switch.from_recipe, to_recipe=switch.to_recipe, duration_state=duration['state'],
-            total_hours=hours(total), allocated_hours=hours(allocated), idle_hours=hours(idle), extra_hours=hours(max(total - idle, 0))))
+            total_hours=hours(total), allocated_hours=hours(allocated), idle_hours=hours(idle), extra_hours=hours(max(total - idle, 0)),
+            kind='residual' if residual else 'planned',job_id=switch.id if residual else None,residual_record_id=switch.residual_record_id,
+            standard_hours=hours(actual.unfinished_switch.standard_hours) if verified and actual.unfinished_switch.standard_hours is not None else None,
+            completed_hours=hours(actual.unfinished_switch.completed_hours) if verified and actual.unfinished_switch.completed_hours is not None else None))
 
     from .line_states import calculation_anchors
-    confirmed = [row for row in calculation_anchors(snapshot) if row.effective_at <= snapshot.time.as_of
-                 and confirmed_day_capacity(snapshot,row.line_code) is None]
-    states = analyze_recipe_states(capacity_plan, index, problem, confirmed_states=confirmed, window_start=snapshot.time.window_start)
+    anchors = calculation_anchors(snapshot)
+    current_capacities = {line:confirmed_day_capacity(snapshot,line) for line in {row.line_code for row in anchors}}
+    confirmed = [row for row in anchors if row.effective_at <= snapshot.time.as_of and
+                 (current_capacities[row.line_code] is None or current_capacities[row.line_code].residual_record_id is not None
+                  and getattr(row,'unfinished_switch',None) is not None)]
+    states = analyze_recipe_states(capacity_plan, index, problem, confirmed_states=confirmed, window_start=snapshot.time.window_start, as_of=snapshot.time.as_of)
     initial_states = states.initial_states
     endings, all_lines = states.endings, states.lines
 
@@ -204,5 +226,6 @@ def _evaluate_fields(snapshot, *, output_cache=None, json_mode=False):
     from .demand_attention import demand_attention
     return dict(time=snapshot.time, capacity_valid=valid, computation_complete=complete, executable=not any(i.severity == 'error' for i in issues) and complete and not conditions, adoption_conditions=conditions,
         issues=issues, days=result_days, switches=switch_results, initial_states=initial,
-        switch_count=sum(s.from_recipe != s.to_recipe for s in snapshot.plan.switches), stability=stability,
+        switch_count=len({('actual',s.id) if s.residual_record_id else ('planned',s.id) for s in snapshot.plan.switches if s.from_recipe != s.to_recipe}
+                         | {('actual',identity) for identity in actual_jobs}), stability=stability,
         demand_attention=demand_attention(snapshot,output,issues,index), **output)

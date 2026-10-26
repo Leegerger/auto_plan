@@ -58,7 +58,10 @@ def confirmed_day_capacity(snapshot,line_code):
                 and r.confirmed_at<=snapshot.time.as_of]
     if not candidates: return None
     basis=capacity_basis(snapshot)
-    return next((r for r in candidates if r.basis_digest==basis),None)
+    from .line_states import active_unfinished_jobs
+    pending = active_unfinished_jobs(snapshot).get(line_code)
+    return next((r for r in candidates if r.basis_digest==basis and
+        (r.residual_record_id == pending.id and r.confirmed_at >= pending.effective_at if pending is not None else r.residual_record_id is None)),None)
 
 
 def active_plan(plan,time,inputs,execution=None,*,origin_start=None):
@@ -116,6 +119,8 @@ def _prior_switch_pairs(plan,snapshot,line,current_recipe):
     """An existential ordered path, not measured historical switch progress."""
     from fractions import Fraction
     from .input_lookup import InputIndex
+    if current_recipe is None:
+        return []
     index=InputIndex(snapshot.inputs);today=production_date(snapshot.time.as_of)
     assigned=executed_by_segment(plan,snapshot.execution)
     ordered=sorted(plan.segments,key=lambda r:(r.order,r.id))
@@ -176,7 +181,8 @@ def capacity_plan(snapshot,issues=None):
             if row.date==today and row.line_code==line and row.quantity>assigned.get(row.id,0):
                 expected.append(row.model_dump(include={'id','date','line_code','order','model_code'})|{'quantity':row.quantity-assigned.get(row.id,0)})
         if witness is None:
-            if expected or any(r.date==today and r.line_code==line and r.quantity for r in snapshot.execution.facts):
+            if expected or any(r.date==today and r.line_code==line and r.quantity for r in snapshot.execution.facts) or any(
+                    r.line_code==line and any(a.date==today for a in r.allocations) for r in snapshot.plan.switches):
                 errors.append('当日缺少明确的剩余工时依据，请重新确认并预览')
         else:
             if witness.basis_digest!=capacity_basis(snapshot) or witness.plan_digest!=day_plan_digest(snapshot.plan,today,line):
@@ -267,7 +273,7 @@ def execution_certificate(plan,context,scope):
     """Declare a joint exact whole-day and residual proof while preserving facts."""
     from fractions import Fraction
     from datetime import timedelta
-    from .manual_operations import _bounded_certificate, _authorize_change, CapacityWitnessError, derived_id, _state_before, _outgoing_compatible
+    from .manual_operations import _bounded_certificate, _authorize_change, CapacityWitnessError, derived_id, _state_before, _outgoing_compatible, _unfinished_jobs, _confirmed_states
     from .certificate import construct_hour_certificate, CertificateError
     from .plan_models import SourceSegment, InitialRecipeState, CurrentDayWitness, RecipeHours, RecipeSwitch, SwitchAllocation
     from .input_lookup import InputIndex
@@ -294,16 +300,18 @@ def execution_certificate(plan,context,scope):
             amount=row.quantity-(assigned.get(row.id,0) if row.date==today else 0)
             if amount: sources.append(SourceSegment.model_validate(row.model_dump(exclude={'hours'})|{'quantity':amount}))
         try:
+            unfinished = _unfinished_jobs(line_context,line,today,scope.end_date)
             witness=construct_hour_certificate(context.inputs,sources,[InitialRecipeState(line_code=line,recipe_code=confirmation.current_recipe)],window_start=today,
-                day_limits={(today,line):Fraction(confirmation.remaining_hours)})
+                day_limits={(today,line):Fraction(confirmation.remaining_hours)},unfinished_jobs=unfinished,
+                end_date=scope.end_date,unfinished_start=today)
         except CertificateError as error:
             raise CapacityWitnessError('；'.join(i.reason for i in error.issues)) from None
-        ending=_state_before(witness,index,line,scope.end_date+timedelta(days=1))
-        old_ending=_state_before(context.plan,index,line,scope.end_date+timedelta(days=1))
+        ending=_state_before(witness,index,line,scope.end_date+timedelta(days=1),confirmed_states=unfinished,window_start=today,as_of=context.time.as_of)
+        old_ending=_state_before(context.plan,index,line,scope.end_date+timedelta(days=1),confirmed_states=_confirmed_states(context),window_start=context.time.window_start,as_of=context.time.as_of)
         if not _outgoing_compatible(context.plan,index,line,scope.end_date,ending,old_ending):
             raise ValueError('调整会改变范围外 Recipe 衔接，请扩大范围')
         switches=[s for s in result.switches if not(s.line_code==line and all(today<=a.date<=scope.end_date for a in s.allocations))]
-        generated=[s.model_copy(update={'id':derived_id(context,f'residual:{s.id}:{line}')}) for s in witness.switches]
+        generated=[s if s.residual_record_id is not None else s.model_copy(update={'id':derived_id(context,f'residual:{s.id}:{line}')}) for s in witness.switches]
         switches.extend(generated)
         old={r.id:r for r in rows};new=[]
         for row in witness.segments:

@@ -5,15 +5,14 @@ import hashlib
 from typing import Literal
 from pydantic import Field, field_validator
 from .input_models import InputRow, Code
-from .plan_models import LineStateRecord, LineStateAudit, LineStateReview, RuleIssue
+from .plan_models import LineStateRecord, LineStateValue, LineStateAudit, LineStateReview, RuleIssue, UnfinishedSwitch
 from .plan_operations import register_operation, ReplayResult
 from .production_time import production_date
 
 
-class StateConfirmation(InputRow):
+class StateConfirmation(LineStateValue):
     line_code: Code
     effective_at: datetime
-    recipe_code: Code
     source: str = Field(min_length=1, max_length=500)
     expected_record_id: Code | None = None
 
@@ -38,6 +37,20 @@ class ConfirmLineStates(InputRow):
     reason: str | None = Field(default=None, max_length=2000)
 
 
+def _job_identity(job):
+    return (job.job_id,job.started_at,job.from_recipe,job.to_recipe) if job is not None else None
+
+
+def matches_residual_job(switch, record):
+    """Match only the protected job identity; callers own time, scope and state."""
+    job = getattr(record, 'unfinished_switch', None)
+    if job is None:
+        return False
+    record_id = getattr(record, 'origin_record_id', None) or record.id
+    return (switch.id, switch.line_code, switch.from_recipe, switch.to_recipe, switch.residual_record_id) == (
+        job.job_id, record.line_code, job.from_recipe, job.to_recipe, record_id)
+
+
 def confirm_line_states(plan, command, context):
     lines = {row.code for row in context.inputs.masters.lines if row.active}
     recipes = {row.code for row in context.inputs.masters.recipes if row.active}
@@ -47,18 +60,35 @@ def confirm_line_states(plan, command, context):
         raise ValueError('线体状态确认包含重复线体和对应时点')
     changes = []
     for row in command.rows:
-        if row.line_code not in lines or row.recipe_code not in recipes:
+        endpoints = [row.recipe_code] if row.state == 'retained_recipe' else [row.unfinished_switch.from_recipe, row.unfinished_switch.to_recipe]
+        if row.line_code not in lines or any(recipe not in recipes for recipe in endpoints):
             raise ValueError('请选择有效线体和 Recipe')
         if row.effective_at > context.time.as_of:
             raise ValueError('不能确认未来时点的现场状态')
+        if row.unfinished_switch is not None and row.unfinished_switch.started_at > row.effective_at:
+            raise ValueError('原切机开始时点不能晚于状态对应时点')
+        if row.unfinished_switch is not None and any(record.line_code != row.line_code and record.unfinished_switch is not None
+                and record.unfinished_switch.job_id == row.unfinished_switch.job_id for record in records.values()):
+            raise ValueError('原切机作业不能改到另一线体，请核对实际作业关联')
         key = row.line_code, row.effective_at
         old = records.get(key)
-        if old and (old.recipe_code, old.source) == (row.recipe_code, row.source):
+        if old and (old.state, old.recipe_code, old.unfinished_switch, old.source) == (row.state, row.recipe_code, row.unfinished_switch, row.source):
             continue
         prior_capacity = next((value for value in context.execution.day_capacities
             if value.line_code == row.line_code and value.confirmed_at == row.effective_at and value.current_recipe != row.recipe_code), None)
         if prior_capacity is not None and (not command.reason or not command.reason.strip()):
             raise ValueError('更正同一时点已确认的剩余工时 Recipe 必须填写现场状态更正原因')
+        previous = max((record for record in records.values() if record.line_code == row.line_code and record.effective_at <= row.effective_at),
+                       key=lambda record: (record.effective_at, record.recorded_at), default=None)
+        previous_job = previous.unfinished_switch if previous is not None else None
+        next_job = row.unfinished_switch
+        reconcile = previous_job is not None and _job_identity(previous_job) != _job_identity(next_job)
+        if reconcile and (not command.reason or not command.reason.strip()):
+            raise ValueError('已经开始的实际切机不能自动取消或改目标，请填写现场核对及更正原因')
+        previous_states = [record for record in records.values() if next_job is not None and record.line_code == row.line_code
+            and next_job.started_at <= record.effective_at < row.effective_at and _job_identity(record.unfinished_switch) != _job_identity(next_job)]
+        if previous_states and (not command.reason or not command.reason.strip()):
+            raise ValueError('原切机实际开始时点与已有现场状态矛盾，请填写核对及更正原因')
         if old:
             if row.expected_record_id != old.id:
                 raise ValueError('已确认状态已变化，请重新读取并核对更正基准')
@@ -68,10 +98,15 @@ def confirm_line_states(plan, command, context):
             raise ValueError('更正来源状态不存在，请重新核对')
         identity = 'state-' + hashlib.sha256(f'{context.action_id}:{row.line_code}:{row.effective_at.isoformat()}'.encode()).hexdigest()[:40]
         record = LineStateRecord(id=identity, line_code=row.line_code, effective_at=row.effective_at,
-            recipe_code=row.recipe_code, source=row.source, actor=context.actor, recorded_at=context.time.as_of)
+            state=row.state, recipe_code=row.recipe_code, unfinished_switch=row.unfinished_switch,
+            source=row.source, actor=context.actor, recorded_at=context.time.as_of)
         change = {'before': old.model_dump(mode='json') if old else None, 'after': record.model_dump(mode='json')}
         if prior_capacity is not None:
             change['previous_capacity'] = prior_capacity.model_dump(mode='json')
+        if reconcile:
+            change['previous_unfinished'] = previous.model_dump(mode='json')
+        if previous_states:
+            change['previous_states'] = [record.model_dump(mode='json') for record in previous_states]
         changes.append(change)
         records[key] = record
     resolved=resolved_reviews(records.values(),context.issues)
@@ -91,6 +126,48 @@ class RecipeAnchor:
     recipe_code: str | None
     recorded_at: datetime
     priority: int = 0
+    unfinished_switch: UnfinishedSwitch | None = None
+    origin_record_id: str | None = None
+
+
+def unfinished_job_history(snapshot):
+    """Observed jobs and the day by which later actual evidence resolves them."""
+    from .production_time import production_cutoff
+    jobs = {}
+    records = sorted((row for row in snapshot.line_states.records if row.effective_at <= snapshot.time.as_of),
+                     key=lambda row: (row.effective_at, row.recorded_at, row.id))
+    for record in records:
+        if record.unfinished_switch is not None:
+            jobs[record.unfinished_switch.job_id] = record
+    result = {}
+    cutoff = snapshot.execution.cutoff
+    models = {row.code: row.recipe_code for row in snapshot.inputs.masters.models}
+    today = production_date(snapshot.time.as_of)
+    for identity, record in jobs.items():
+        job = record.unfinished_switch
+        resolved = [production_date(row.effective_at) for row in records if row.line_code == record.line_code
+                    and row.effective_at >= record.effective_at and row.id != record.id
+                    and (row.unfinished_switch is None or row.unfinished_switch.job_id != identity)]
+        if cutoff is not None and cutoff <= snapshot.time.as_of:
+            first = production_date(record.effective_at)
+            days = {fact.date for fact in snapshot.execution.facts if fact.line_code == record.line_code and fact.quantity
+                    and (fact.date > first or fact.date == first and record.effective_at == production_cutoff(first))
+                    and fact.date < today and fact.date <= production_date(cutoff)}
+            resolved.extend(day for day in days if {models.get(fact.model_code) for fact in snapshot.execution.facts
+                if fact.line_code == record.line_code and fact.date == day and fact.quantity} == {job.to_recipe})
+        result[identity] = record, min(resolved) if resolved else None
+    return result
+
+
+def active_unfinished_jobs(snapshot):
+    """Resolve current actual prerequisites without treating elapsed plans as facts."""
+    latest = {}
+    for record in sorted(snapshot.line_states.records, key=lambda row: (row.effective_at, row.recorded_at, row.id)):
+        if record.effective_at <= snapshot.time.as_of:
+            latest[record.line_code] = record
+    history = unfinished_job_history(snapshot)
+    return {line:record for line,record in latest.items() if record.unfinished_switch is not None
+            and history[record.unfinished_switch.job_id][1] is None}
 
 
 def _known_anchors(snapshot):
@@ -98,6 +175,7 @@ def _known_anchors(snapshot):
     from collections import defaultdict
     from .production_time import production_cutoff
     records = [record for record in snapshot.line_states.records if record.effective_at <= snapshot.time.as_of]
+    pending = active_unfinished_jobs(snapshot)
     cutoff = snapshot.execution.cutoff
     if cutoff is None or cutoff > snapshot.time.as_of:
         return records
@@ -114,6 +192,8 @@ def _known_anchors(snapshot):
     intraday={(production_date(record.effective_at),record.line_code) for record in records
               if record.effective_at>production_cutoff(production_date(record.effective_at))}
     for (day, line), recipes in actual.items():
+        if line in pending and day >= production_date(pending[line].effective_at):
+            continue
         if (day,line) in intraday:
             continue
         if len(recipes) == 1 and None not in recipes:
@@ -157,7 +237,19 @@ def active_state_reviews(snapshot):
 def calculation_anchors(snapshot):
     from .production_time import production_cutoff
     anchors=_known_anchors(snapshot)
+    observed_jobs=[record for record in anchors if getattr(record,'unfinished_switch',None) is not None]
+    anchors=[record for record in anchors if not isinstance(record,LineStateRecord) or not any(
+        job.line_code==record.line_code and job.unfinished_switch.started_at<=record.effective_at<job.effective_at
+        and _job_identity(record.unfinished_switch)!=_job_identity(job.unfinished_switch) for job in observed_jobs)]
+    pending=active_unfinished_jobs(snapshot)
+    for record in list(anchors):
+        job=getattr(record,'unfinished_switch',None)
+        if job is not None and job.started_at<record.effective_at:
+            anchors.append(RecipeAnchor('start-'+record.id,record.line_code,job.started_at,None,record.recorded_at,
+                priority=2,unfinished_switch=job,origin_record_id=record.id))
     for review in active_state_reviews(snapshot):
+        if review.line_code in pending:
+            continue
         point=max(review.review_after,production_cutoff(production_date(snapshot.time.as_of)))
         anchors.append(RecipeAnchor(review.id,review.line_code,point,None,snapshot.time.as_of,priority=2))
     return anchors
@@ -221,10 +313,17 @@ def adoption_conditions(snapshot):
     reviews={review.line_code:review for review in active_state_reviews(snapshot)}
     conditions=[]
     anchors=calculation_anchors(snapshot)
+    pending=active_unfinished_jobs(snapshot)
     for line,(day,segment) in sorted(affected.items()):
         if line in reviews:
             conditions.append(RuleIssue(code='line_state_review',severity='warning',line_code=line,date=day,
                 segment_id=segment,reason=reviews[line].reason+' 当前起点待核对，首次切机尚未计入。'))
+            if line not in pending:
+                continue
+        if line in pending:
+            job=pending[line].unfinished_switch
+            conditions.append(RuleIssue(code='remaining_switch_continuity',severity='warning',line_code=line,date=day,
+                segment_id=segment,reason=f'原切机 {job.job_id} 尚余 {job.remaining_hours} 小时，日级容量不能证明连续条件，须核对后才能采用。'))
             continue
         records=[record for record in anchors if record.line_code==line]
         latest=max(records,key=lambda record:(record.effective_at,getattr(record,'priority',1),record.recorded_at)) if records else None
@@ -254,6 +353,20 @@ def protect_initial_hints(before, after, snapshot):
         if records and max(records, key=lambda record: (record.effective_at,getattr(record,'priority',1),record.recorded_at)).recipe_code != row.recipe_code:
             from .plans import PlanProblem
             raise PlanProblem(409, '普通计划修改不能覆盖线体现场依据，请通过状态更正并预览影响', line_code=row.line_code)
+
+
+def protect_unfinished_jobs(before, after, snapshot):
+    originals = {row.id: row for row in before.switches}
+    for record in active_unfinished_jobs(snapshot).values():
+        job = record.unfinished_switch
+        for switch in after.switches:
+            if originals.get(switch.id) == switch:
+                continue
+            if switch.id != job.job_id and switch.residual_record_id != record.id:
+                continue
+            if not matches_residual_job(switch, record):
+                from .plans import PlanProblem
+                raise PlanProblem(409, '普通计划修改不能重写原切机作业及目标，请通过现场状态更正并预览影响', line_code=record.line_code)
 
 
 def resolved_reviews(records, issues):

@@ -1,3 +1,4 @@
+import type { ObservedUnfinishedSwitch, UnfinishedSwitch } from './lineStateTypes'
 import type { ExactHoursValue } from './outputTypes'
 
 export interface WorkspaceDay {
@@ -16,16 +17,22 @@ export interface WorkspaceDay {
   basis: 'calendar' | 'confirmed_remaining_day'
   locks: { model_code: string; quantity: number }[]
   issues: string[]
+  unfinished_switch?: (ObservedUnfinishedSwitch & {record_id:string}) | null
+  residual_switches?: {id:string;job_id:string;residual_record_id:string;from_recipe:string;to_recipe:string;allocated_hours:ExactHoursValue}[]
 }
 
 export interface WorkspaceLineWeek {
   week: string
   line_code: string
   recipe_code: string | null
-  state: 'retained_recipe' | 'unknown' | 'planned_switch'
-  source: 'window_plan_start' | 'plan_projection' | 'confirmed_state'
+  state: 'retained_recipe' | 'unknown' | 'planned_switch' | 'unfinished_switch'
+  source: 'window_plan_start' | 'plan_projection' | 'confirmed_state' | 'confirmed_job_start'
+  unfinished_switch?: (ObservedUnfinishedSwitch & {record_id:string}) | null
+  new_switch_count?: number
+  carried_switch_count?: number
+  switch_hours?: ExactHoursValue
   planned_switch: { id: string; from_recipe: string; to_recipe: string } | null
-  current_confirmation: { observed_at: string; recipe_code: string; valid: boolean; effective_at?:string;source?:string;actor?:string;recorded_at?:string;record_id?:string } | null
+  current_confirmation: { observed_at: string; recipe_code: string|null; state?:'retained_recipe'|'unfinished_switch';unfinished_switch?:UnfinishedSwitch|null; valid: boolean; effective_at?:string;source?:string;actor?:string;recorded_at?:string;record_id?:string } | null
   first_production: {
     segment_id: string
     date: string

@@ -29,8 +29,19 @@ export function operationDescription(operation:BusinessOperation):string{
   const parts=[value.model_code,value.quantity===undefined?'':`${value.quantity}片`,value.line_code,value.date,value.start_date,value.end_date,value.target_date]
   if(Array.isArray(value.segment_ids))parts.push(`所选 ${value.segment_ids.length} 段`)
   if(value.segment_id)parts.push('所选生产段')
-  if(operation.kind==='confirm_line_states' && Array.isArray(value.rows))parts.push(value.rows.map((row:Record<string,unknown>)=>`${row.line_code} / ${row.effective_at} / Recipe ${row.recipe_code}`).join('；'))
+  if(operation.kind==='confirm_line_states' && Array.isArray(value.rows))parts.push(value.rows.map((row:Record<string,unknown>)=>`${row.line_code} / ${row.effective_at} / ${lineStateDescription(row)}`).join('；'))
+  if(operation.kind==='patch_plan' && Array.isArray(value.switches))parts.push(value.switches.filter((row:Record<string,unknown>)=>row.residual_record_id).map((row:Record<string,unknown>)=>`剩余作业 ${row.id} / ${row.from_recipe} → ${row.to_recipe}`).join('；'))
   return parts.filter(Boolean).join(' / ')
+}
+
+export function lineStateDescription(value:unknown):string{
+  if(!value || typeof value!=='object')return '尚未确认'
+  const row=value as Record<string,unknown>
+  if(row.unfinished_switch && typeof row.unfinished_switch==='object'){
+    const job=row.unfinished_switch as Record<string,unknown>
+    return [`未完成切机 ${job.from_recipe} → ${job.to_recipe}`,`原作业 ${job.job_id}`,`实际开始 ${job.started_at}`,`现场剩余 ${job.remaining_hours} 小时`,job.standard_hours==null?'':`整次标准 ${job.standard_hours} 小时`,job.completed_hours==null?'':`现场已完成 ${job.completed_hours} 小时`].filter(Boolean).join('；')
+  }
+  return row.recipe_code ? `保留 Recipe ${row.recipe_code}` : '尚未确认'
 }
 
 export function displayPlanValue(value:unknown):string{

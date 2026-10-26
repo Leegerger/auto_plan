@@ -3,7 +3,7 @@ from collections import defaultdict
 from copy import deepcopy
 from datetime import datetime
 from typing import Literal
-from pydantic import Field
+from pydantic import Field, model_validator
 from .input_models import InputRow, Code
 from .exact import Exact
 from .plan_models import PlanCell, ExecutionCoverage, ExecutionAssociation, ExecutionAudit
@@ -140,7 +140,14 @@ register_operation('record_execution',RecordExecution,record_execution)
 class CapacityConfirmation(InputRow):
     line_code: Code
     remaining_hours: Exact
-    current_recipe: Code
+    current_recipe: Code | None = None
+    residual_record_id: Code | None = None
+
+    @model_validator(mode='after')
+    def one_state_basis(self):
+        if (self.current_recipe is None) == (self.residual_record_id is None):
+            raise ValueError('剩余工时须关联当前 Recipe 或未完成切机现场记录，二者不可同时提供')
+        return self
 
 
 class ConfirmDayCapacity(InputRow):
@@ -158,21 +165,33 @@ def confirm_capacity(plan,command,context):
         raise ValueError('剩余工时确认必须属于当前生产日且不晚于计算时点')
     if len({r.line_code for r in command.confirmations})!=len(command.confirmations): raise ValueError('同一线体剩余工时不能重复确认')
     execution=context.execution
+    from .line_states import active_unfinished_jobs
+    pending = active_unfinished_jobs(context.snapshot)
     capacities={r.line_code:r for r in execution.day_capacities if r.date==production_date(context.time.as_of)}
     for row in command.confirmations:
-        if row.line_code not in lines or row.current_recipe not in recipes: raise ValueError('请确认有效线体和当前 Recipe')
-        if any(r.line_code==row.line_code and r.effective_at>=command.observed_at and r.recipe_code!=row.current_recipe for r in context.line_states.records):
+        if row.line_code not in lines or row.current_recipe is not None and row.current_recipe not in recipes: raise ValueError('请确认有效线体和当前 Recipe')
+        record = pending.get(row.line_code)
+        if row.residual_record_id is not None:
+            if record is None or record.id != row.residual_record_id:
+                raise ValueError('剩余工时须关联当前未完成切机现场记录，请重新预览')
+            if command.observed_at < record.effective_at:
+                raise ValueError('剩余工时观察时点不能早于所关联的切机进度现场时点')
+        elif record is not None:
+            raise ValueError('线体仍有未完成切机，不能确认目标 Recipe 已就绪；请关联剩余作业或带原因更正现场状态')
+        if row.current_recipe is not None and any(r.line_code==row.line_code and r.effective_at>=command.observed_at and
+                (getattr(r,'state','retained_recipe')!='retained_recipe' or r.recipe_code!=row.current_recipe) for r in context.line_states.records):
             raise ValueError('剩余工时确认的 Recipe 与同一或更晚时点的现场记录矛盾，请先带原因更正现场状态')
         prior=capacities.get(row.line_code)
-        if prior is not None and prior.confirmed_at>=command.observed_at and prior.current_recipe!=row.current_recipe:
-            corrected=prior.confirmed_at==command.observed_at and any(r.line_code==row.line_code and r.effective_at==command.observed_at and r.recipe_code==row.current_recipe for r in context.line_states.records)
+        if prior is not None and prior.confirmed_at>=command.observed_at and (prior.current_recipe,prior.residual_record_id)!=(row.current_recipe,row.residual_record_id):
+            corrected=prior.confirmed_at==command.observed_at and any(r.line_code==row.line_code and r.effective_at==command.observed_at and
+                (r.id==row.residual_record_id if row.residual_record_id is not None else r.recipe_code==row.current_recipe) for r in context.line_states.records)
             if not corrected:
                 raise ValueError('更正已确认剩余工时的 Recipe 须先带原因更正同一时点的现场状态')
         try: hours=Fraction(row.remaining_hours)
         except (ValueError,ZeroDivisionError): raise ValueError('剩余工时必须为精确非负数') from None
         if not 0<=hours<=24: raise ValueError('剩余可用工时必须在零到24小时之间')
         capacities[row.line_code]=CurrentDayCapacity(date=production_date(context.time.as_of),line_code=row.line_code,remaining_hours=str(hours),
-            current_recipe=row.current_recipe,confirmed_at=command.observed_at,basis_digest=capacity_basis(context))
+            current_recipe=row.current_recipe,residual_record_id=row.residual_record_id,confirmed_at=command.observed_at,basis_digest=capacity_basis(context))
     updated=execution.model_copy(update={'day_capacities':list(capacities.values())})
     from dataclasses import replace
     from .execution_rules import execution_certificate
