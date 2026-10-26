@@ -1,0 +1,372 @@
+{
+  "base_revision": 1,
+  "input_version": 1,
+  "latest_adoption": 0,
+  "operations": [
+    {
+      "kind": "patch_plan",
+      "segments": [
+        {
+          "id": "S04160",
+          "date": "2027-01-24",
+          "line_code": "L00",
+          "order": 1,
+          "model_code": "M00",
+          "quantity": 99,
+          "hours": "1"
+        },
+        {
+          "id": "S04161",
+          "date": "2027-01-24",
+          "line_code": "L00",
+          "order": 3,
+          "model_code": "M18",
+          "quantity": 99,
+          "hours": "1"
+        },
+        {
+          "id": "S04162",
+          "date": "2027-01-24",
+          "line_code": "L00",
+          "order": 5,
+          "model_code": "M36",
+          "quantity": 99,
+          "hours": "1"
+        },
+        {
+          "id": "S04163",
+          "date": "2027-01-24",
+          "line_code": "L01",
+          "order": 1,
+          "model_code": "M01",
+          "quantity": 99,
+          "hours": "1"
+        },
+        {
+          "id": "S04164",
+          "date": "2027-01-24",
+          "line_code": "L01",
+          "order": 3,
+          "model_code": "M19",
+          "quantity": 99,
+          "hours": "1"
+        },
+        {
+          "id": "S04165",
+          "date": "2027-01-24",
+          "line_code": "L01",
+          "order": 5,
+          "model_code": "M37",
+          "quantity": 99,
+          "hours": "1"
+        },
+        {
+          "id": "S04166",
+          "date": "2027-01-24",
+          "line_code": "L02",
+          "order": 1,
+          "model_code": "M02",
+          "quantity": 99,
+          "hours": "1"
+        },
+        {
+          "id": "S04167",
+          "date": "2027-01-24",
+          "line_code": "L02",
+          "order": 3,
+          "model_code": "M20",
+          "quantity": 99,
+          "hours": "1"
+        },
+        {
+          "id": "S04168",
+          "date": "2027-01-24",
+          "line_code": "L02",
+          "order": 5,
+          "model_code": "M38",
+          "quantity": 99,
+          "hours": "1"
+        },
+        {
+          "id": "S04169",
+          "date": "2027-01-24",
+          "line_code": "L03",
+          "order": 1,
+          "model_code": "M03",
+          "quantity": 99,
+          "hours": "1"
+        },
+        {
+          "id": "S04170",
+          "date": "2027-01-24",
+          "line_code": "L03",
+          "order": 3,
+          "model_code": "M21",
+          "quantity": 99,
+          "hours": "1"
+        },
+        {
+          "id": "S04171",
+          "date": "2027-01-24",
+          "line_code": "L03",
+          "order": 5,
+          "model_code": "M39",
+          "quantity": 99,
+          "hours": "1"
+        },
+        {
+          "id": "S04172",
+          "date": "2027-01-24",
+          "line_code": "L04",
+          "order": 1,
+          "model_code": "M04",
+          "quantity": 99,
+          "hours": "1"
+        },
+        {
+          "id": "S04173",
+          "date": "2027-01-24",
+          "line_code": "L04",
+          "order": 3,
+          "model_code": "M22",
+          "quantity": 99,
+          "hours": "1"
+        },
+        {
+          "id": "S04174",
+          "date": "2027-01-24",
+          "line_code": "L05",
+          "order": 1,
+          "model_code": "M05",
+          "quantity": 99,
+          "hours": "1"
+        },
+        {
+          "id": "S04175",
+          "date": "2027-01-24",
+          "line_code": "L05",
+          "order": 3,
+          "model_code": "M23",
+          "quantity": 99,
+          "hours": "1"
+        },
+        {
+          "id": "S04176",
+          "date": "2027-01-24",
+          "line_code": "L06",
+          "order": 1,
+          "model_code": "M06",
+          "quantity": 99,
+          "hours": "1"
+        },
+        {
+          "id": "S04177",
+          "date": "2027-01-24",
+          "line_code": "L06",
+          "order": 3,
+          "model_code": "M24",
+          "quantity": 99,
+          "hours": "1"
+        },
+        {
+          "id": "S04178",
+          "date": "2027-01-24",
+          "line_code": "L07",
+          "order": 1,
+          "model_code": "M07",
+          "quantity": 99,
+          "hours": "1"
+        },
+        {
+          "id": "S04179",
+          "date": "2027-01-24",
+          "line_code": "L07",
+          "order": 3,
+          "model_code": "M25",
+          "quantity": 99,
+          "hours": "1"
+        },
+        {
+          "id": "S04180",
+          "date": "2027-01-24",
+          "line_code": "L08",
+          "order": 1,
+          "model_code": "M08",
+          "quantity": 99,
+          "hours": "1"
+        },
+        {
+          "id": "S04181",
+          "date": "2027-01-24",
+          "line_code": "L08",
+          "order": 3,
+          "model_code": "M26",
+          "quantity": 99,
+          "hours": "1"
+        },
+        {
+          "id": "S04182",
+          "date": "2027-01-24",
+          "line_code": "L09",
+          "order": 1,
+          "model_code": "M09",
+          "quantity": 99,
+          "hours": "1"
+        },
+        {
+          "id": "S04183",
+          "date": "2027-01-24",
+          "line_code": "L09",
+          "order": 3,
+          "model_code": "M27",
+          "quantity": 99,
+          "hours": "1"
+        },
+        {
+          "id": "S04184",
+          "date": "2027-01-24",
+          "line_code": "L10",
+          "order": 1,
+          "model_code": "M10",
+          "quantity": 99,
+          "hours": "1"
+        },
+        {
+          "id": "S04185",
+          "date": "2027-01-24",
+          "line_code": "L10",
+          "order": 3,
+          "model_code": "M28",
+          "quantity": 99,
+          "hours": "1"
+        },
+        {
+          "id": "S04186",
+          "date": "2027-01-24",
+          "line_code": "L11",
+          "order": 1,
+          "model_code": "M11",
+          "quantity": 99,
+          "hours": "1"
+        },
+        {
+          "id": "S04187",
+          "date": "2027-01-24",
+          "line_code": "L11",
+          "order": 3,
+          "model_code": "M29",
+          "quantity": 99,
+          "hours": "1"
+        },
+        {
+          "id": "S04188",
+          "date": "2027-01-24",
+          "line_code": "L12",
+          "order": 1,
+          "model_code": "M12",
+          "quantity": 99,
+          "hours": "1"
+        },
+        {
+          "id": "S04189",
+          "date": "2027-01-24",
+          "line_code": "L12",
+          "order": 3,
+          "model_code": "M30",
+          "quantity": 99,
+          "hours": "1"
+        },
+        {
+          "id": "S04190",
+          "date": "2027-01-24",
+          "line_code": "L13",
+          "order": 1,
+          "model_code": "M13",
+          "quantity": 99,
+          "hours": "1"
+        },
+        {
+          "id": "S04191",
+          "date": "2027-01-24",
+          "line_code": "L13",
+          "order": 3,
+          "model_code": "M31",
+          "quantity": 99,
+          "hours": "1"
+        },
+        {
+          "id": "S04192",
+          "date": "2027-01-24",
+          "line_code": "L14",
+          "order": 1,
+          "model_code": "M14",
+          "quantity": 99,
+          "hours": "1"
+        },
+        {
+          "id": "S04193",
+          "date": "2027-01-24",
+          "line_code": "L14",
+          "order": 3,
+          "model_code": "M32",
+          "quantity": 99,
+          "hours": "1"
+        },
+        {
+          "id": "S04194",
+          "date": "2027-01-24",
+          "line_code": "L15",
+          "order": 1,
+          "model_code": "M15",
+          "quantity": 99,
+          "hours": "1"
+        },
+        {
+          "id": "S04195",
+          "date": "2027-01-24",
+          "line_code": "L15",
+          "order": 3,
+          "model_code": "M33",
+          "quantity": 99,
+          "hours": "1"
+        },
+        {
+          "id": "S04196",
+          "date": "2027-01-24",
+          "line_code": "L16",
+          "order": 1,
+          "model_code": "M16",
+          "quantity": 99,
+          "hours": "1"
+        },
+        {
+          "id": "S04197",
+          "date": "2027-01-24",
+          "line_code": "L16",
+          "order": 3,
+          "model_code": "M34",
+          "quantity": 99,
+          "hours": "1"
+        },
+        {
+          "id": "S04198",
+          "date": "2027-01-24",
+          "line_code": "L17",
+          "order": 1,
+          "model_code": "M17",
+          "quantity": 99,
+          "hours": "1"
+        },
+        {
+          "id": "S04199",
+          "date": "2027-01-24",
+          "line_code": "L17",
+          "order": 3,
+          "model_code": "M35",
+          "quantity": 99,
+          "hours": "1"
+        }
+      ]
+    }
+  ]
+}
