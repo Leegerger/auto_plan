@@ -35,8 +35,9 @@ def workspace_view(snapshot, evaluation):
     zero = _hours(0)
     days = []
     weeks = []
-    from .line_states import calculation_anchors, active_state_reviews, active_unfinished_jobs
+    from .line_states import calculation_anchors, active_state_reviews, active_unfinished_jobs, unfinished_job_history
     unfinished = active_unfinished_jobs(snapshot)
+    history = unfinished_job_history(snapshot)
     uncertain={review.line_code for review in active_state_reviews(snapshot)}
     analysis = analyze_recipe_states(plan, index, include_transitions=True, confirmed_states=calculation_anchors(snapshot),window_start=snapshot.time.window_start,as_of=snapshot.time.as_of)
     today = production_date(snapshot.time.as_of)
@@ -45,7 +46,12 @@ def workspace_view(snapshot, evaluation):
         observations = [row for row in snapshot.execution.day_capacities if row.line_code == line and row.date == today]
         observed = max(observations, key=lambda row: row.confirmed_at) if observations else None
         current = {'observed_at': observed.confirmed_at.isoformat(), 'recipe_code': observed.current_recipe,
-                   'valid': observed == confirmation} if observed else None
+                   'valid': observed == confirmation,'state':'unfinished_switch' if observed.residual_record_id else 'retained_recipe',
+                   'unfinished_switch':None} if observed else None
+        if observed is not None and observed.residual_record_id is not None and line in unfinished:
+            record=unfinished[line]
+            current=current|{'unfinished_switch':record.unfinished_switch.model_dump(mode='json'),'record_id':record.id,
+                'effective_at':record.effective_at.isoformat(),'source':record.source,'actor':record.actor,'recorded_at':record.recorded_at.isoformat()}
         records=[record for record in snapshot.line_states.records if record.line_code==line and record.effective_at<=snapshot.time.as_of]
         latest=max(records,key=lambda record:(record.effective_at,record.recorded_at)) if records else None
         if latest is not None and (confirmation is None or latest.effective_at>=confirmation.confirmed_at):
@@ -56,7 +62,9 @@ def workspace_view(snapshot, evaluation):
                      'state':latest.state,'unfinished_switch':latest.unfinished_switch.model_dump(mode='json') if latest.unfinished_switch else None}
         if current is not None and line in uncertain:
             current=current|{'valid':False}
-        weeks.extend(_line_weeks(snapshot, index, evaluation, line, analysis, current, unfinished.get(line)))
+        if current is not None and current.get('state')=='unfinished_switch' and line not in unfinished:
+            current=current|{'valid':False}
+        weeks.extend(_line_weeks(snapshot, index, evaluation, line, analysis, current, history))
         for offset in range(105):
             day = snapshot.time.window_start + timedelta(days=offset)
             row = sparse.get((day.isoformat(), line))
@@ -87,22 +95,24 @@ def workspace_view(snapshot, evaluation):
     return {'days': days, 'line_weeks': weeks, 'capacities': capacities}
 
 
-def _line_weeks(snapshot, index, evaluation, line, analysis, current, actual):
+def _line_weeks(snapshot, index, evaluation, line, analysis, current, history):
     events = analysis.transitions.get(line, [])
     switches = {row.id: row for row in snapshot.plan.switches}
     segments = {row.id: row for row in snapshot.plan.segments}
     state = analysis.initial_states.get(line)
     pending = analysis.initial_pending.get(line)
     jobs = {}
-    if actual is not None:
-        job = actual.unfinished_switch
-        jobs[job.job_id] = {'start':production_date(job.started_at),'end':snapshot.time.window_end}
+    known = {identity:record for identity,(record,_) in history.items() if record.line_code==line}
+    for identity,record in known.items():
+        jobs[identity] = {'start':production_date(record.unfinished_switch.started_at),'end':history[identity][1] or snapshot.time.window_end}
     for switch in switches.values():
         if switch.line_code != line:
             continue
         start = jobs.get(switch.id,{}).get('start',min(row.date for row in switch.allocations))
-        complete = actual is None or switch.id != actual.unfinished_switch.job_id or sum((Fraction(row.hours) for row in switch.allocations),Fraction(0)) == Fraction(actual.unfinished_switch.remaining_hours)
-        jobs[switch.id] = {'start':start,'end':max(row.date for row in switch.allocations) if complete else snapshot.time.window_end}
+        record = known.get(switch.id)
+        complete = record is None or sum((Fraction(row.hours) for row in switch.allocations if row.date>=production_date(snapshot.time.as_of)),Fraction(0)) == Fraction(record.unfinished_switch.remaining_hours)
+        if record is None or history[switch.id][1] is None:
+            jobs[switch.id] = {'start':start,'end':max(row.date for row in switch.allocations) if complete else snapshot.time.window_end}
     evaluated = {row['id']:row for row in evaluation['switches']}
     uncertain = False
     invalid_switches = {issue['switch_id'] for issue in evaluation['issues']
@@ -120,23 +130,26 @@ def _line_weeks(snapshot, index, evaluation, line, analysis, current, actual):
         first = next((event for event in events[position:] if event.date < end and event.kind == 'production'
                       and (segments[event.identity].quantity or Fraction(segments[event.identity].hours))), None)
         link = None
+        actual = known.get(pending)
         if first:
             segment = segments[first.identity]
             recipe = index.models[segment.model_code].recipe_code
             before = [event for event in events[position:] if (event.date, event.order) < (first.date, first.order)]
-            origin=actual.unfinished_switch.from_recipe if actual is not None and pending==actual.unfinished_switch.job_id else state
+            origin_job=actual
+            origin=actual.unfinished_switch.from_recipe if actual is not None else state
             completed=[]
             for event in before:
                 if event.kind=='confirmation':
-                    origin=event.ending_recipe
+                    origin_job=known.get(event.pending_switch)
+                    origin=origin_job.unfinished_switch.from_recipe if origin_job is not None else event.ending_recipe
                     completed=[]
                 elif event.kind=='switch' and event.pending_switch is None and event.identity not in completed:
                     completed.append(event.identity)
             duration = index.switch(origin, recipe)
             duration_state = duration['state']
             required = Fraction(duration['hours'])
-            if actual is not None and pending==actual.unfinished_switch.job_id:
-                required=Fraction(actual.unfinished_switch.remaining_hours)
+            if origin_job is not None:
+                required=Fraction(origin_job.unfinished_switch.remaining_hours)
                 duration_state='known'
             if completed:
                 durations = [index.switch(switches[identity].from_recipe, switches[identity].to_recipe) for identity in completed]

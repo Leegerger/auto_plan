@@ -99,8 +99,10 @@ def _evaluate_fields(snapshot, *, output_cache=None, json_mode=False):
         recipe = index.models[segment.model_code].recipe_code
         groups[(segment.date, segment.line_code)][recipe].append(segment)
     switch_results = []
-    from .line_states import active_unfinished_jobs
+    from .line_states import active_unfinished_jobs, unfinished_job_history
     unfinished = active_unfinished_jobs(snapshot)
+    actual_jobs = {identity for identity,(record,resolved) in unfinished_job_history(snapshot).items()
+                   if production_date(record.unfinished_switch.started_at)<=snapshot.time.window_end and (resolved is None or resolved>=snapshot.time.window_start)}
     for switch in capacity_plan.switches:
         if switch.id in identifiers:
             problem('duplicate_id', '生产段或切机标识重复', switch=switch)
@@ -220,5 +222,5 @@ def _evaluate_fields(snapshot, *, output_cache=None, json_mode=False):
     return dict(time=snapshot.time, capacity_valid=valid, computation_complete=complete, executable=not any(i.severity == 'error' for i in issues) and complete and not conditions, adoption_conditions=conditions,
         issues=issues, days=result_days, switches=switch_results, initial_states=initial,
         switch_count=len({('actual',s.id) if s.residual_record_id else ('planned',s.id) for s in snapshot.plan.switches if s.from_recipe != s.to_recipe}
-                         | {('actual',record.unfinished_switch.job_id) for record in unfinished.values()}), stability=stability,
+                         | {('actual',identity) for identity in actual_jobs}), stability=stability,
         demand_attention=demand_attention(snapshot,output,issues,index), **output)

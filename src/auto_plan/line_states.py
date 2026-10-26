@@ -110,25 +110,44 @@ class RecipeAnchor:
     priority: int = 0
 
 
+def unfinished_job_history(snapshot):
+    """Observed jobs and the day by which later actual evidence resolves them."""
+    from .production_time import production_cutoff
+    jobs = {}
+    records = sorted((row for row in snapshot.line_states.records if row.effective_at <= snapshot.time.as_of),
+                     key=lambda row: (row.effective_at, row.recorded_at, row.id))
+    for record in records:
+        if record.unfinished_switch is not None:
+            jobs[record.unfinished_switch.job_id] = record
+    result = {}
+    cutoff = snapshot.execution.cutoff
+    models = {row.code: row.recipe_code for row in snapshot.inputs.masters.models}
+    today = production_date(snapshot.time.as_of)
+    for identity, record in jobs.items():
+        job = record.unfinished_switch
+        resolved = [production_date(row.effective_at) for row in records if row.line_code == record.line_code
+                    and row.effective_at >= record.effective_at and row.id != record.id
+                    and (row.unfinished_switch is None or row.unfinished_switch.job_id != identity)]
+        if cutoff is not None and cutoff <= snapshot.time.as_of:
+            first = production_date(record.effective_at)
+            days = {fact.date for fact in snapshot.execution.facts if fact.line_code == record.line_code and fact.quantity
+                    and (fact.date > first or fact.date == first and record.effective_at == production_cutoff(first))
+                    and fact.date < today and fact.date <= production_date(cutoff)}
+            resolved.extend(day for day in days if {models.get(fact.model_code) for fact in snapshot.execution.facts
+                if fact.line_code == record.line_code and fact.date == day and fact.quantity} == {job.to_recipe})
+        result[identity] = record, min(resolved) if resolved else None
+    return result
+
+
 def active_unfinished_jobs(snapshot):
     """Resolve current actual prerequisites without treating elapsed plans as facts."""
     latest = {}
     for record in sorted(snapshot.line_states.records, key=lambda row: (row.effective_at, row.recorded_at, row.id)):
         if record.effective_at <= snapshot.time.as_of:
             latest[record.line_code] = record
-    jobs = {line: record for line, record in latest.items() if record.state == 'unfinished_switch'}
-    cutoff = snapshot.execution.cutoff
-    if cutoff is None or cutoff > snapshot.time.as_of:
-        return jobs
-    models = {row.code: row.recipe_code for row in snapshot.inputs.masters.models}
-    today = production_date(snapshot.time.as_of)
-    for line, record in list(jobs.items()):
-        actual_days = {fact.date for fact in snapshot.execution.facts if fact.line_code == line and fact.quantity
-                       and production_date(record.effective_at) < fact.date < today and fact.date <= production_date(cutoff)}
-        if any({models.get(fact.model_code) for fact in snapshot.execution.facts
-                if fact.line_code == line and fact.date == day and fact.quantity} == {record.unfinished_switch.to_recipe} for day in actual_days):
-            del jobs[line]
-    return jobs
+    history = unfinished_job_history(snapshot)
+    return {line:record for line,record in latest.items() if record.unfinished_switch is not None
+            and history[record.unfinished_switch.job_id][1] is None}
 
 
 def _known_anchors(snapshot):
