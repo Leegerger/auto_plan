@@ -27,7 +27,9 @@ export async function api<T>(path: string, options: RequestInit = {}): Promise<T
     try { const body = await response.json(); data = body; if (typeof body.detail === 'string') message = body.detail } catch { /* Preserve the useful fallback. */ }
     throw new ApiError(message, response.status, data)
   }
-  return response.json() as Promise<T>
+  const result=await response.json() as T
+  if(options.method && options.method!=='GET' && ['/inputs/apply','/demands/apply','/initialization/apply'].includes(path))window.dispatchEvent(new Event('auto-plan-inputs-changed'))
+  return result
 }
 export async function refreshPrincipal() {
   try { principal.value = await api<Principal>('/auth/me') }

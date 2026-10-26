@@ -208,3 +208,34 @@ def test_saved_unallocated_input_and_operation_results_carry_until_explicitly_re
     resolved=post(client,'save',command({'kind':'test_resolve_input','result_id':first[0]['id']},base=3))
     assert resolved.status_code==200,resolved.text
     assert client.get('/auto_plan/api/plans/current').json()['unallocated']==[]
+
+
+def test_input_maintenance_invalidates_adoption_and_repreview_uses_current_yields(shared_client):
+    client, _, _ = shared_client
+    operation = {'kind':'patch_plan','segments':[row()],
+                 'initial_states':[{'line_code':'L','recipe_code':'R'}]}
+    body = command(operation)
+    preview_body = {key:value for key,value in body.items() if key not in ('operation_id','pending')}
+    preview = post(client, 'preview', preview_body)
+    assert preview.status_code == 200, preview.text
+    assert preview.json()['evaluation']['output_totals']['expected'] == 100
+    assert client.get('/auto_plan/api/plans/current').json()['revision'] == 0
+
+    applied = client.post('/auto_plan/api/inputs/apply', json={
+        'base_version':1,
+        'changes':{'line_yields':[{'month':'2026-10','model_code':'M','percent':'50'}]},
+    })
+    assert applied.status_code == 200, applied.text
+    current_version = applied.json()['input_version']
+    rejected = post(client, 'adopt', body)
+    assert rejected.status_code == 409
+    assert rejected.json()['input_version'] == current_version
+    assert client.get('/auto_plan/api/plans/current').json()['latest_adoption'] == 0
+
+    current_preview = post(client, 'preview', preview_body | {'input_version':current_version})
+    assert current_preview.status_code == 200, current_preview.text
+    assert current_preview.json()['evaluation']['output_totals']['expected'] == 50
+    assert client.get('/auto_plan/api/plans/current').json()['revision'] == 0
+    adopted = post(client, 'adopt', body | {'input_version':current_version,'operation_id':str(uuid4())})
+    assert adopted.status_code == 200, adopted.text
+    assert adopted.json()['latest_adoption'] == 1

@@ -6,8 +6,8 @@ import StabilityPanel from '../components/StabilityPanel.vue'
 import { useSharedPlan } from '../useSharedPlan'
 
 const shared=useSharedPlan()
-const {head,preview,operations,editor}=shared
-const totals=computed(()=>preview.value?.output_totals??head.value?.evaluation.output_totals??null)
+const {head,evaluation,operations,editor}=shared
+const totals=computed(()=>evaluation.value?.output_totals??null)
 const week=computed(()=>head.value?.weeks[0])
 const ready=ref(false)
 onMounted(async()=>{await shared.refresh();ready.value=true})
@@ -28,9 +28,10 @@ onMounted(async()=>{await shared.refresh();ready.value=true})
       <div><span>本机动作</span><strong>{{ operations.length }}</strong></div>
       <div><span>未补足缺口</span><strong>{{ totals?.gap??'—' }}</strong></div>
       <div><span>待确认产出</span><strong>{{ totals?.pending??'—' }}</strong></div>
-      <div><span>切机次数</span><strong>{{ head?.evaluation.switch_count??'—' }}</strong></div>
+      <div><span>切机次数</span><strong>{{ evaluation?.switch_count??'—' }}</strong></div>
     </section>
 
+    <p role="status">{{ shared.evaluationState.value }}<span v-if="shared.needsPreview.value">。当前生产段保留共享基准，指标待重新计算。</span></p>
     <ManualEditor :shared="shared" />
 
     <details class="content-band schedule-details">

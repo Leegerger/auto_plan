@@ -42,7 +42,12 @@ if __name__ == '__main__':
             from tests.plan_support import MemoryPlanStore
             from tests.test_plan_preview import snapshot
             from uuid import uuid4
-            inputs.versions[1] = InputSnapshot.model_validate(snapshot()['inputs'] | {'input_version':1})
+            data = snapshot()['inputs'] | {'input_version':1}
+            if os.getenv('AUTO_PLAN_BROWSER_EFFECTIVE_PREVIEW_FIXTURE') == '1':
+                data['business'] = {'demands': [
+                    {'model_code':'M','week':'2026-10-12','quantity':1000},
+                    {'model_code':'P','week':'2026-10-12','quantity':500}]}
+            inputs.versions[1] = InputSnapshot.model_validate(data)
             inputs.version = 1
             plans = MemoryPlanStore(inputs)
             plan = snapshot()['plan']

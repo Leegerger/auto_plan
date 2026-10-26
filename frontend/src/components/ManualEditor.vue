@@ -17,8 +17,8 @@ const currentWeek=computed(()=>head.value?.weeks?.find(value=>value.number===wee
 const displayLines=computed(()=>[...options.value.lines,...[...new Set(rows.value.map(row=>row.line_code))].filter(code=>!options.value.lines.some(row=>row.code===code)).map(code=>({code,name:'历史引用'}))])
 const filteredLines=computed(()=>lineFilter.value?displayLines.value.filter(value=>value.code===lineFilter.value):displayLines.value)
 const weekItems=computed(()=>head.value?.weeks.map(value=>{
-  const outputs=head.value!.evaluation.weekly_results.filter(row=>row.week===value.start_date)
-  return {...value,gap:outputs.reduce((sum,row)=>sum+row.gap,0),pending:outputs.reduce((sum,row)=>sum+row.pending,0),hasPlan:rows.value.some(row=>value.dates.includes(row.date))}
+  const outputs=props.shared.evaluation.value?.weekly_results.filter(row=>row.week===value.start_date) ?? []
+  return {...value,incomplete:outputs.some(row=>!row.computation_complete),gap:outputs.reduce((sum,row)=>sum+row.gap,0),pending:outputs.reduce((sum,row)=>sum+row.pending,0),hasPlan:rows.value.some(row=>value.dates.includes(row.date))}
 })??[])
 const cells=computed(()=>{
   const grouped=new Map<string,typeof rows.value>()
@@ -36,7 +36,7 @@ const daily=computed(()=>visibleCellRows(day.value,line.value))
 const chosen=computed(()=>rows.value.filter(row=>selected.value.includes(row.id)))
 watch(chosen,value=>{exactHours.value=value.length===1?value[0]!.hours:''},{immediate:true})
 const sourceLines=computed(()=>[...new Set(chosen.value.map(row=>row.line_code))])
-const evaluation=computed(()=>props.shared.preview.value ?? head.value?.evaluation)
+const evaluation=props.shared.evaluation
 const capacity=computed(()=>evaluation.value?.days?.find(value=>value.date===day.value && value.line_code===line.value))
 const dailySwitches=computed(()=>plan.value?.switches.filter(value=>value.line_code===line.value && value.allocations.some(part=>part.date===day.value)) ?? [])
 const dailyIssues=computed(()=>evaluation.value?.issues?.filter(value=>(!value.date||value.date===day.value)&&(!value.line_code||value.line_code===line.value)&&(!modelFilter.value||!value.model_code||value.model_code===modelFilter.value))??[])
@@ -60,6 +60,7 @@ async function capacities(){
     if (form.line_code && !result.lines.some(value=>value.code===form.line_code)) form.line_code=''
   }catch(e){optionError.value=e instanceof Error ? e.message : '无法试算容量'}finally{capacityBusy.value=false}
 }
+watch([()=>props.shared.operations.value,()=>props.shared.sourceNotice.value,()=>form.start_date,()=>form.end_date,()=>form.model_code,()=>form.line_code,scope],()=>{fillDays.value=[]},{deep:true,flush:'sync'})
 function operationScope(){return {start_date:scope.start_date,end_date:scope.end_date,line_codes:[...scope.line_codes],model_codes:[...scope.model_codes]}}
 async function stage(){
   optionError.value=''
@@ -87,7 +88,7 @@ async function stageExactHours(){
     <h2>十五周计划</h2>
     <nav class="week-strip" aria-label="十五周导航">
       <button v-for="item in weekItems" :key="item.number" type="button" class="week-jump" :class="{active:item.number===week, 'has-plan':item.hasPlan, 'has-gap':item.gap>0}" :aria-label="`第 ${item.number} 周 ${item.label}`" @click="week=item.number">
-        <span>第 {{item.number}} 周</span><strong>{{item.label}}</strong><small>{{item.gap?'缺口 '+item.gap:item.hasPlan?'已有安排':'待排程'}}</small>
+        <span>第 {{item.number}} 周</span><strong>{{item.label}}</strong><small>{{shared.needsPreview.value?'待重新预览':item.incomplete?'核算未完成':item.gap?'缺口 '+item.gap:item.hasPlan?'已有安排':'待排程'}}</small>
       </button>
     </nav>
     <div class="schedule-frame">
@@ -99,10 +100,10 @@ async function stageExactHours(){
     <h3>{{day}} · {{line}} 日内详情</h3>
     <table class="input-table" aria-label="日内生产顺序"><thead><tr><th>选择</th><th>顺序 / 机种</th><th>投入量</th><th>精确工时</th><th>排序</th></tr></thead><tbody><tr v-for="(row,index) in daily" :key="row.id"><td><input type="checkbox" :checked="selected.includes(row.id)" :disabled="readonly" :aria-label="`选择生产段 ${row.id}`" @change="choose(row.id)"></td><td>{{row.order}} · {{row.model_code}}</td><td>{{row.quantity}}片</td><td><ExactHours v-if="hourDisplay?.segments[row.id]" :value="hourDisplay!.segments[row.id]!" /></td><td><el-button size="small" :disabled="readonly || index===0" :aria-label="`${row.id}上移`" @click="order(row.id,-1)">上移</el-button><el-button size="small" :disabled="readonly || index===daily.length-1" :aria-label="`${row.id}下移`" @click="order(row.id,1)">下移</el-button></td></tr></tbody></table>
     <p v-if="!daily.length">当日尚无生产段。</p>
-    <div v-if="capacity" aria-label="每日容量依据"><p>日可用 {{capacity.available_hours}} 小时；日末 Recipe {{capacity.ending_recipe ?? '未知'}}。完整计划切机 {{evaluation?.switch_count}} 次。</p><div class="hour-summary"><p>生产 <ExactHours :value="capacity.production_hours" /></p><p>切机 <ExactHours :value="capacity.switch_hours" /></p><p>总占用 <ExactHours :value="capacity.occupied_hours" /></p></div><table class="input-table" aria-label="所选日Recipe容量"><thead><tr><th>Recipe</th><th>汇总投入</th><th>生产工时</th><th>全日产能</th><th>精确投入上限</th><th>状态</th></tr></thead><tbody><tr v-for="value in capacity.recipes" :key="value.recipe_code"><td>{{value.recipe_code}}</td><td>{{value.quantity}}</td><td><ExactHours :value="value.hours" /></td><td>{{value.full_day_capacity}}</td><td>{{value.limit}}</td><td>{{({known:'已知',zero:'已知为零',missing:'缺失',forbidden:'明确不能生产'} as Record<string,string>)[value.capacity_state]}}</td></tr></tbody></table></div>
+    <div v-if="capacity" role="region" aria-label="每日容量依据"><p>日可用 {{capacity.available_hours}} 小时；日末 Recipe {{capacity.ending_recipe ?? '未知'}}。完整计划切机 {{evaluation?.switch_count}} 次。</p><div class="hour-summary"><p>生产 <ExactHours :value="capacity.production_hours" /></p><p>切机 <ExactHours :value="capacity.switch_hours" /></p><p>总占用 <ExactHours :value="capacity.occupied_hours" /></p></div><table class="input-table" aria-label="所选日Recipe容量"><thead><tr><th>Recipe</th><th>汇总投入</th><th>生产工时</th><th>全日产能</th><th>精确投入上限</th><th>状态</th></tr></thead><tbody><tr v-for="value in capacity.recipes" :key="value.recipe_code"><td>{{value.recipe_code}}</td><td>{{value.quantity}}</td><td><ExactHours :value="value.hours" /></td><td>{{value.full_day_capacity}}</td><td>{{value.limit}}</td><td>{{({known:'已知',zero:'已知为零',missing:'缺失',forbidden:'明确不能生产'} as Record<string,string>)[value.capacity_state]}}</td></tr></tbody></table></div>
     <p v-for="value in dailySwitches" :key="value.id">切机 {{value.from_recipe}} → {{value.to_recipe}}：<span v-for="(part,index) in value.allocations" :key="index">{{part.date}} 顺序{{part.order}}，<ExactHours v-if="hourDisplay?.switches[value.id]?.[index]?.hours" :value="hourDisplay!.switches[value.id]![index]!.hours" />；</span></p>
     <section v-if="dailyIssues.length" aria-label="所选日问题" class="inspector-issues"><h4>所选日问题</h4><p v-for="(issue,index) in dailyIssues" :key="index"><strong>{{issue.model_code||'计划'}}</strong> · {{issue.reason}}</p></section>
-    <p v-if="head?.context.locks.length">数量锁：<span v-for="(value,index) in head.context.locks" :key="index">{{value.date}} / {{value.line_code}} / {{value.model_code}} = {{value.quantity}}片；</span></p>
+    <p v-if="shared.context.value?.locks.length">数量锁：<span v-for="(value,index) in shared.context.value?.locks" :key="index">{{value.date}} / {{value.line_code}} / {{value.model_code}} = {{value.quantity}}片；</span></p>
     <template v-if="shared.editor.value">
       <fieldset :disabled="readonly" class="edit-scope"><legend>本次授权调整范围</legend><label>范围起日 <input type="date" v-model="scope.start_date" aria-label="调整范围起日"></label><label>范围终日 <input type="date" v-model="scope.end_date" aria-label="调整范围终日"></label><label>可修改线体 <select multiple v-model="scope.line_codes" aria-label="调整范围线体"><option v-for="value in options.lines" :key="value.code" :value="value.code">{{value.code}}</option></select></label><label>可修改机种（不选表示全部）<select multiple v-model="scope.model_codes" aria-label="调整范围机种"><option v-for="value in options.models" :key="value.code" :value="value.code">{{value.code}}</option></select></label></fieldset>
       <form @submit.prevent="stage" class="manual-form">

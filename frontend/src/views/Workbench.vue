@@ -12,7 +12,7 @@ const jobs=ref<Job[]>([]),jobsError=ref(''),jobsBusy=ref(false)
 const roles=computed(()=>principal.value?.roles??[])
 const business=computed(()=>roles.value.some(role=>role==='viewer'||role==='editor'))
 const administrator=computed(()=>roles.value.includes('administrator'))
-const totals=computed(()=>head.value?.evaluation.output_totals??null)
+const totals=computed(()=>shared.evaluation.value?.output_totals??null)
 const windowLabel=computed(()=>{
   const weeks=head.value?.weeks
   if(!weeks?.length)return '尚未读取排程窗口'
