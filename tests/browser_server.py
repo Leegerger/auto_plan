@@ -60,6 +60,20 @@ if __name__ == '__main__':
             if os.getenv('AUTO_PLAN_BROWSER_LINE_STATES_FIXTURE') == '1':
                 data['masters']['lines'].append({'code':'B','name':'二线','active':True})
                 data['parameters']['capacities'] += [row|{'line_code':'B'} for row in list(data['parameters']['capacities'])]
+            if os.getenv('AUTO_PLAN_BROWSER_DEMAND_FIXTURE') == '1':
+                for category in ('line_yields','model_yields','capacities'):
+                    initial_rows = list(data['parameters'][category])
+                    data['parameters'][category] += [row | {'month':month} for month in ('2026-11','2026-12','2027-01') for row in initial_rows]
+                data['parameters']['cycle_times'] = [row for row in data['parameters']['cycle_times'] if row['model_code'] != 'P']
+                data['parameters']['line_yields'] = [row for row in data['parameters']['line_yields'] if row['model_code'] != 'P']
+                data['business'] = {'demands': [
+                    {'model_code':'N','week':'2026-10-12','quantity':100},
+                    {'model_code':'M','week':'2026-10-19','quantity':1000},
+                    {'model_code':'M','week':'2026-10-26','quantity':300},
+                    {'model_code':'P','week':'2026-10-26','quantity':500}],
+                    'confirmations': [
+                        {'model_code':'M','week':'2026-10-19','kind':'material','batch_id':'SOME','status':'allowed','date':'2026-10-15','quantity':400},
+                        {'model_code':'N','week':'2026-10-12','kind':'shipping','batch_id':'LATE-OK','status':'allowed','date':'2026-10-30','quantity':100}]}
             if os.getenv('AUTO_PLAN_BROWSER_MATRIX_FIXTURE') == '1':
                 data['masters']['lines'] += [{'code':code,'name':name,'active':True} for code,name in [('B','空白线'),('C','零产能线'),('D','缺产能线'),('E','禁排线'),('F','续做线'),('G','未知试排线')]]
                 data['masters']['capabilities']=[{'recipe_code':'R','line_code':'E','allowed':False}]
@@ -77,6 +91,10 @@ if __name__ == '__main__':
                 models=[model['code'] for model in data['masters']['models'] if model['recipe_code']=='R']
                 plan={'initial_states':[{'line_code':line['code'],'recipe_code':'R'} for line in data['masters']['lines']],
                       'segments':[{'id':f'workspace-{week}-{n}','date':(date(2026,10,12)+timedelta(weeks=week,days=3 if week==0 else 0)).isoformat(),'line_code':line['code'],'model_code':models[(week*18+n)%len(models)],'quantity':20,'hours':'1','order':0} for week in range(15) for n,line in enumerate(data['masters']['lines'])]}
+            if os.getenv('AUTO_PLAN_BROWSER_DEMAND_FIXTURE') == '1':
+                plan = {'initial_states':[{'line_code':'L','recipe_code':'R'}], 'segments':[
+                    {'id':'pending-demand','date':'2026-10-15','line_code':'L','order':0,'model_code':'M','quantity':1000,'hours':'24'},
+                    {'id':'confirmed-late','date':'2026-10-20','line_code':'L','order':0,'model_code':'N','quantity':100,'hours':'3'}]}
             initial_operations=[]
             if os.getenv('AUTO_PLAN_BROWSER_MATRIX_FIXTURE') == '1':
                 plan={'initial_states':[{'line_code':'L','recipe_code':'R'},{'line_code':'F','recipe_code':'R'}],

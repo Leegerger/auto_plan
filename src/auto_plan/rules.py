@@ -194,6 +194,8 @@ def _evaluate_fields(snapshot, *, output_cache=None, json_mode=False):
         elif week.state=='zero_baseline':
             issues.append(RuleIssue(code='stability_zero_addition',reason=f'原计划为零，新增 {week.added} 片，请核对',severity='warning',demand_week=week.week))
     complete = not any(i.severity == 'incomplete' for i in issues)
+    from .demand_attention import demand_attention
     return dict(time=snapshot.time, capacity_valid=valid, computation_complete=complete, executable=not any(i.severity == 'error' for i in issues) and complete,
         issues=issues, days=result_days, switches=switch_results, initial_states=initial,
-        switch_count=sum(s.from_recipe != s.to_recipe for s in snapshot.plan.switches), stability=stability, **output)
+        switch_count=sum(s.from_recipe != s.to_recipe for s in snapshot.plan.switches), stability=stability,
+        demand_attention=demand_attention(snapshot,output,issues,index), **output)

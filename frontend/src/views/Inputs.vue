@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { ElMessageBox } from 'element-plus'
+import { onBeforeRouteUpdate, useRoute, type LocationQuery } from 'vue-router'
 import { api, basePath, online, principal } from '../api'
 import { categories, fieldName, type CellValue, type InputRow, type InputSnapshot, type InputPreview } from '../inputFields'
 import { useSharedPlan } from '../useSharedPlan'
@@ -8,8 +9,15 @@ import { usePageLeaveGuard } from '../usePageLeaveGuard'
 import InputPagination from '../components/InputPagination.vue'
 import InputPreviewPanel from '../components/InputPreview.vue'
 const shared=useSharedPlan()
+const route=useRoute()
 const snapshot = ref<InputSnapshot | null>(null)
 const selected = ref('recipes')
+interface DemandInputContext {model:string;week:string;month:string;confirmation:string;recipe:string;fromSchedule:boolean}
+const demandContext=ref<DemandInputContext|null>(null)
+const contextSummary=computed(()=>{
+  const value=demandContext.value
+  return value ? [value.model,value.week ? `需求周 ${value.week}` : '',value.month,value.confirmation==='material'?'物料确认':value.confirmation==='shipping'?'出货确认':''].filter(Boolean).join(' · ') : ''
+})
 const category = computed(() => categories.find(c => c.kind === selected.value)!)
 const categorySections = computed(() => [
   {key:'masters',title:'主资料'},
@@ -35,7 +43,7 @@ const hasPendingChanges = computed(() => changedRows.value.size > 0 || existing.
 const filteredRows = computed(() => {
   const needle=query.value.trim().toLocaleLowerCase()
   return rows.value.map((row, index) => ({ row, index })).filter(({ row }) =>
-    !needle || Object.values(row).some(value => String(value ?? '').toLocaleLowerCase().includes(needle)))
+    matchesContext(row) && (!needle || Object.values(row).some(value => String(value ?? '').toLocaleLowerCase().includes(needle))))
 })
 const visibleRows = computed(() => filteredRows.value.slice((page.value - 1) * pageSize.value, page.value * pageSize.value))
 watch([query, pageSize], () => { page.value = 1 }, { flush: 'sync' })
@@ -45,6 +53,30 @@ watch(() => filteredRows.value.length, total => {
 const choices: Record<string, {value:string;label:string}[]> = {kind:[{value:'material',label:'物料确认'},{value:'shipping',label:'出货确认'}],status:[{value:'allowed',label:'允许'},{value:'pending',label:'待确认'},{value:'forbidden',label:'整周跨周禁令'},{value:'revoked',label:'撤销／解除本批禁令'}]}
 const boolFields = ['active','allowed','holiday','enabled']
 const refs: Record<string, string> = {recipe_code:'recipes',from_recipe:'recipes',to_recipe:'recipes',model_code:'models',line_code:'lines'}
+function applyRouteContext(query:LocationQuery) {
+  const text=(key:string)=>typeof query[key]==='string' ? query[key] as string : ''
+  const kind=text('category')
+  if(categories.some(category=>category.kind===kind))selected.value=kind
+  const model=snapshot.value?.masters.models?.find(row=>row.code===text('model'))
+  const week=text('week'), date=new Date(`${week}T00:00:00Z`)
+  const validWeek=Number.isFinite(date.getTime()) && date.toISOString().slice(0,10)===week && date.getUTCDay()===1
+  const month=text('month')
+  demandContext.value = text('from')==='schedule' ? {
+    model: model ? String(model.code) : '', recipe:model ? String(model.recipe_code) : '',
+    week:validWeek ? week : '',month:/^\d{4}-(0[1-9]|1[0-2])$/.test(month)?month:'',
+    confirmation:kind==='confirmations' && ['material','shipping'].includes(text('confirmation'))?text('confirmation'):'',fromSchedule:true,
+  } : null
+}
+function matchesContext(row:InputRow) {
+  const value=demandContext.value
+  if(!value)return true
+  return ![['model_code',value.model],['week',value.week],['month',value.month],['kind',value.confirmation],['recipe_code',value.recipe]].some(([field,expected])=>
+    expected && category.value.fields.includes(field!) && String(row[field!]??'')!==expected)
+}
+onBeforeRouteUpdate(async to=>{
+  if(!await confirmDiscard())return false
+  applyRouteContext(to.query);showRows()
+})
 function invalidate() { preview.value = null; status.value = ''; error.value = '' }
 async function confirmDiscard() {
   if (!principal.value) return true
@@ -61,6 +93,7 @@ async function confirmDiscard() {
 async function selectCategory(kind: string) {
   if (kind === selected.value || !await confirmDiscard()) return
   selected.value = kind
+  demandContext.value=null
   showRows()
 }
 function changeCategory(event: Event) {
@@ -93,15 +126,16 @@ function showRows() {
 }
 async function load() {
   busy.value = true; error.value = ''
-  try { snapshot.value = await api<InputSnapshot>('/inputs'); showRows() }
+  try { snapshot.value = await api<InputSnapshot>('/inputs'); applyRouteContext(route.query); showRows() }
   catch (e) { error.value = e instanceof Error ? e.message : '无法读取资料' }
   finally { busy.value = false }
 }
 async function add() {
   query.value = ''
-  rows.value.push(Object.fromEntries(category.value.fields.map(f => [f, boolFields.includes(f) ? true : ''])))
+  const defaults:Record<string,string>={model_code:demandContext.value?.model??'',week:demandContext.value?.week??'',kind:demandContext.value?.confirmation??'',month:demandContext.value?.month??'',recipe_code:demandContext.value?.recipe??''}
+  rows.value.push(Object.fromEntries(category.value.fields.map(f => [f, boolFields.includes(f) ? true : defaults[f]??''])))
   existing.value.push(false); invalidate()
-  page.value = Math.ceil(rows.value.length / pageSize.value)
+  page.value = Math.max(1,Math.ceil(filteredRows.value.length / pageSize.value))
   await nextTick()
   table.value?.querySelector<HTMLInputElement | HTMLSelectElement>('tbody tr:last-child input, tbody tr:last-child select')?.focus()
 }
@@ -160,6 +194,12 @@ onMounted(load)
       <div><p class="eyebrow">主资料、参数、日历与确认</p><h1>基础资料</h1><p class="page-subtitle">编辑、粘贴或导入后先预览整批，再确认提交。任何错误都不会部分提交。</p></div>
       <span v-if="snapshot" class="section-count">资料版本 {{ snapshot.input_version }}</span>
     </header>
+    <section v-if="demandContext" aria-label="需求资料定位" class="demand-input-context">
+      <span>{{contextSummary}}</span>
+      <span>定位仅筛选显示，整批预览仍包含其他已存资料。</span>
+      <button type="button" @click="demandContext=null">取消定位筛选</button>
+      <router-link v-if="demandContext.fromSchedule" to="/schedule">返回计划工作区</router-link>
+    </section>
     <div class="input-toolbar">
       <a :href="`${basePath}/api/inputs/template.xlsx`">下载标准 Excel 模板</a>
       <a v-if="snapshot" :href="`${basePath}/api/inputs/export.xlsx?version=${snapshot.input_version}`">导出当前资料 Excel</a>
@@ -210,3 +250,9 @@ onMounted(load)
     </div>
   </section>
 </template>
+
+<style scoped>
+.demand-input-context{display:flex;flex-wrap:wrap;align-items:center;gap:8px 16px;padding:10px 12px;margin-bottom:12px;border:1px solid var(--hairline);border-radius:6px;font-size:12px;background:var(--canvas)}
+.demand-input-context>span:first-child{font-weight:600}.demand-input-context>span:nth-child(2){color:var(--muted)}
+.demand-input-context>a{margin-left:auto}
+</style>
