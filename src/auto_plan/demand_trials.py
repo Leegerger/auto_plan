@@ -236,12 +236,13 @@ def trial_in_unit(planner, unit, request, actor, now, *, prepared=None):
     gain = physical(after, model, request.demand_week) - baseline_on_time
     remaining = max(target - gain, 0)
     final_selected = weekly(after, model, request.demand_week)
-    changed_weeks = []
+    week_effects = []
     for old in before['weekly_results']:
         new = weekly(after, old['model_code'], date.fromisoformat(old['week']))
-        if old != new:
+        fifo_context = old['model_code'] == model and old['week'] <= str(request.demand_week) and old['demand'] > 0
+        if old != new or fifo_context:
             week = date.fromisoformat(old['week'])
-            changed_weeks.append({'model_code': old['model_code'], 'week': old['week'], 'before': old, 'after': new,
+            week_effects.append({'model_code': old['model_code'], 'week': old['week'], 'before': old, 'after': new,
                 'physical_on_time_before': physical(before, old['model_code'], week), 'physical_on_time_after': physical(after, old['model_code'], week),
                 'physical_late_before': physical(before, old['model_code'], week, late=True), 'physical_late_after': physical(after, old['model_code'], week, late=True)})
     new_ids = {row.id for row in snapshot.plan.segments}
@@ -252,8 +253,8 @@ def trial_in_unit(planner, unit, request, actor, now, *, prepared=None):
         'remaining_output_target': None if incomplete else remaining,
         'goal_remaining_output_target': preview.get('lineage', {}).get('demand_goals', {}).get(goal['id'], {}).get('remaining_output_target', None if incomplete else remaining),
         'placements': actual,
-        'switch_effects': {'before': before['switches'], 'after': after['switches']}, 'week_effects': changed_weeks,
-        'required_confirmations': confirmation_requirements(after, model, {str(request.demand_week)} | {row['week'] for row in changed_weeks}),
+        'switch_effects': {'before': before['switches'], 'after': after['switches']}, 'week_effects': week_effects,
+        'required_confirmations': confirmation_requirements(after, model, {str(request.demand_week)} | {row['week'] for row in week_effects}),
         'blockers': blockers + after['adoption_conditions'] + [issue for issue in after['issues']
             if issue['severity'] in ('error', 'incomplete') and (issue.get('model_code') == model or issue.get('line_code') == line)],
         'operation': accepted, 'retain_operation': retain, 'preview': preview}
