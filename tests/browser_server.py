@@ -84,6 +84,8 @@ if __name__ == '__main__':
                     'experiments':[{'date':'2026-10-16','line_code':'L','hours':3}]}
             if os.getenv('AUTO_PLAN_BROWSER_UNFINISHED_SWITCH_FIXTURE') == '1':
                 data['parameters']['switch_durations'][0]['hours'] = '12'
+                data['masters']['lines'].append({'code':'B','name':'周三观测线','active':True})
+                data['parameters']['capacities'] += [row|{'line_code':'B'} for row in list(data['parameters']['capacities']) if row['line_code']=='L']
             inputs.versions[1] = InputSnapshot.model_validate(data)
             inputs.version = 1
             plans = MemoryPlanStore(inputs)

@@ -1,4 +1,4 @@
-import type { UnfinishedSwitch } from './lineStateTypes'
+import type { ObservedUnfinishedSwitch, UnfinishedSwitch } from './lineStateTypes'
 import type { ExactHoursValue } from './outputTypes'
 
 export interface WorkspaceDay {
@@ -17,7 +17,7 @@ export interface WorkspaceDay {
   basis: 'calendar' | 'confirmed_remaining_day'
   locks: { model_code: string; quantity: number }[]
   issues: string[]
-  unfinished_switch?: (UnfinishedSwitch & {record_id:string}) | null
+  unfinished_switch?: (ObservedUnfinishedSwitch & {record_id:string}) | null
   residual_switches?: {id:string;job_id:string;residual_record_id:string;from_recipe:string;to_recipe:string;allocated_hours:ExactHoursValue}[]
 }
 
@@ -26,8 +26,8 @@ export interface WorkspaceLineWeek {
   line_code: string
   recipe_code: string | null
   state: 'retained_recipe' | 'unknown' | 'planned_switch' | 'unfinished_switch'
-  source: 'window_plan_start' | 'plan_projection' | 'confirmed_state'
-  unfinished_switch?: (UnfinishedSwitch & {record_id:string}) | null
+  source: 'window_plan_start' | 'plan_projection' | 'confirmed_state' | 'confirmed_job_start'
+  unfinished_switch?: (ObservedUnfinishedSwitch & {record_id:string}) | null
   new_switch_count?: number
   carried_switch_count?: number
   switch_hours?: ExactHoursValue

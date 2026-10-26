@@ -7,6 +7,14 @@ export interface UnfinishedSwitch {
   standard_hours?: string | null
   completed_hours?: string | null
 }
+export interface ObservedUnfinishedSwitch extends UnfinishedSwitch {
+  record_id?: string
+  effective_at?: string
+  source?: string
+  actor?: string
+  recorded_at?: string
+  remaining_at_week_start_known?: boolean
+}
 export interface LineStateRecord {
   id: string
   line_code: string
