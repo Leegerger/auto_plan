@@ -32,3 +32,27 @@ def test_unfinished_actual_job_records_observed_progress_without_a_ready_target(
     assert current['context']['line_states']['records'][0]['unfinished_switch']['remaining_hours'] == '4'
     assert len(current['context']['line_states']['audit']) == 1
     assert current['context']['line_states']['records'][0]['actor'] == 'EDITOR'
+
+
+def test_verified_remainder_reserves_only_observed_hours_and_stays_conditional(shared_client):
+    client, _, _ = shared_client
+    assert post(client, 'save', current_command(client, unfinished())).status_code == 200
+    record = head(client)['context']['line_states']['records'][0]
+    plan = patch(row('target', model='P', quantity=834) | {'hours': '20'})
+    plan['segments'][0]['order'] = 1
+    plan['switches'] = [residual(record['id'])]
+    checked = preview(client, plan)
+    assert checked.status_code == 200, checked.text
+    evaluation = checked.json()['evaluation']
+    assert evaluation['capacity_valid'] is True, evaluation['issues']
+    assert evaluation['computation_complete'] is True
+    assert evaluation['executable'] is False
+    assert [condition['code'] for condition in evaluation['adoption_conditions']] == ['remaining_switch_continuity']
+    day = next(value for value in evaluation['days'] if value['date'] == '2026-10-15' and value['line_code'] == 'L')
+    assert day['switch_hours']['exact'] == '4'
+    assert day['occupied_hours']['exact'] == '24'
+    switch = evaluation['switches'][0]
+    assert (switch['kind'], switch['total_hours']['exact'], switch['completed_hours']['exact']) == ('residual', '4', '8')
+    assert evaluation['switch_count'] == 1
+    assert post(client, 'save', current_command(client, plan)).status_code == 200
+    assert post(client, 'adopt', current_command(client)).status_code == 422

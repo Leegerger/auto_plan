@@ -122,6 +122,7 @@ def _known_anchors(snapshot):
     from collections import defaultdict
     from .production_time import production_cutoff
     records = [record for record in snapshot.line_states.records if record.effective_at <= snapshot.time.as_of]
+    pending = active_unfinished_jobs(snapshot)
     cutoff = snapshot.execution.cutoff
     if cutoff is None or cutoff > snapshot.time.as_of:
         return records
@@ -138,6 +139,8 @@ def _known_anchors(snapshot):
     intraday={(production_date(record.effective_at),record.line_code) for record in records
               if record.effective_at>production_cutoff(production_date(record.effective_at))}
     for (day, line), recipes in actual.items():
+        if line in pending and day >= production_date(pending[line].effective_at):
+            continue
         if (day,line) in intraday:
             continue
         if len(recipes) == 1 and None not in recipes:
@@ -181,7 +184,10 @@ def active_state_reviews(snapshot):
 def calculation_anchors(snapshot):
     from .production_time import production_cutoff
     anchors=_known_anchors(snapshot)
+    pending=active_unfinished_jobs(snapshot)
     for review in active_state_reviews(snapshot):
+        if review.line_code in pending:
+            continue
         point=max(review.review_after,production_cutoff(production_date(snapshot.time.as_of)))
         anchors.append(RecipeAnchor(review.id,review.line_code,point,None,snapshot.time.as_of,priority=2))
     return anchors
@@ -245,7 +251,13 @@ def adoption_conditions(snapshot):
     reviews={review.line_code:review for review in active_state_reviews(snapshot)}
     conditions=[]
     anchors=calculation_anchors(snapshot)
+    pending=active_unfinished_jobs(snapshot)
     for line,(day,segment) in sorted(affected.items()):
+        if line in pending:
+            job=pending[line].unfinished_switch
+            conditions.append(RuleIssue(code='remaining_switch_continuity',severity='warning',line_code=line,date=day,
+                segment_id=segment,reason=f'原切机 {job.job_id} 尚余 {job.remaining_hours} 小时，日级容量不能证明连续条件，须核对后才能采用。'))
+            continue
         if line in reviews:
             conditions.append(RuleIssue(code='line_state_review',severity='warning',line_code=line,date=day,
                 segment_id=segment,reason=reviews[line].reason+' 当前起点待核对，首次切机尚未计入。'))
