@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+import UnfinishedSwitchState from './UnfinishedSwitchState.vue'
 import type { WorkspaceCapacity, WorkspaceDay } from '../workspaceTypes'
 const props=defineProps<{day?:WorkspaceDay;capacities:WorkspaceCapacity[];recipeCode?:string;stale?:boolean}>()
 const shownCapacities=computed(()=>props.capacities.filter(value=>props.recipeCode ? value.recipe_code===props.recipeCode : value.state!=='known'))
@@ -13,6 +14,8 @@ const shownCapacities=computed(()=>props.capacities.filter(value=>props.recipeCo
       <span :title="`精确值 ${day.remaining_hours.exact} 小时`">剩余 {{day.remaining_hours.display}} 小时</span>
       <span v-if="day.occupied_hours.exact!=='0'" :title="`精确值 ${day.occupied_hours.exact} 小时`">已占用 {{day.occupied_hours.display}} 小时</span>
       <span v-if="day.switch_hours.exact!=='0'" :title="`精确值 ${day.switch_hours.exact} 小时`">切机 {{day.switch_hours.display}} 小时</span>
+      <UnfinishedSwitchState v-if="day.unfinished_switch" :job="day.unfinished_switch" />
+      <span v-for="job in day.residual_switches ?? []" :key="job.id">剩余作业 {{job.job_id}} · 本日安排 {{job.allocated_hours.display}} 小时</span>
       <span v-if="day.holiday">Holiday<span v-if="day.opening_exception"> · 开工例外</span></span>
       <span v-else-if="day.opening_exception">开工例外</span>
       <span v-if="day.maintenance_hours">保养 {{day.maintenance_hours}} 小时</span>

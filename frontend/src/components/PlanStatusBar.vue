@@ -4,7 +4,7 @@ import { ElMessageBox } from 'element-plus'
 import { BadgeCheck, CircleAlert, ListChecks, PanelRightOpen, RefreshCw, Save, Undo2 } from '@lucide/vue'
 import { useRoute } from 'vue-router'
 import { principal } from '../api'
-import { displayPlanValue as display, operationDescription, operationNames } from '../planPresentation'
+import { displayPlanValue as display, lineStateDescription, operationDescription, operationNames } from '../planPresentation'
 import { useSharedPlan } from '../useSharedPlan'
 import LocalRecovery from './LocalRecovery.vue'
 import OutputResults from './OutputResults.vue'
@@ -180,7 +180,7 @@ watch(conflict,value=>{if(value){tab.value='actions';drawer.value=true}})
           </div>
           <el-alert v-if="adoptionBlocked" title="当前预览存在阻断正式采用的事项。可保存为待处理共享草稿并继续核对。" type="warning" :closable="false" />
           <section v-if="preview?.adoption_conditions?.length" aria-label="正式采用所需现场依据"><h2>正式采用所需现场依据</h2><el-table :data="preview.adoption_conditions"><el-table-column prop="line_code" label="线体"/><el-table-column prop="date" label="受影响日期"/><el-table-column prop="reason" label="待处理依据"/></el-table></section>
-          <section v-if="lineStateChanges.length" aria-label="线体状态确认影响"><h2>线体状态确认影响</h2><el-table :data="lineStateChanges"><el-table-column label="线体"><template #default="{row}">{{row.after.line_code}}</template></el-table-column><el-table-column label="状态对应时点"><template #default="{row}">{{row.after.effective_at}}</template></el-table-column><el-table-column label="原 Recipe"><template #default="{row}">{{row.before?.recipe_code ?? '尚未确认'}}</template></el-table-column><el-table-column label="新 Recipe"><template #default="{row}">{{row.after.recipe_code}}</template></el-table-column><el-table-column label="来源"><template #default="{row}">{{row.after.source}}</template></el-table-column><el-table-column prop="reason" label="更正原因"/></el-table></section>
+          <section v-if="lineStateChanges.length" aria-label="线体状态确认影响"><h2>线体状态确认影响</h2><el-table :data="lineStateChanges"><el-table-column label="线体"><template #default="{row}">{{row.after.line_code}}</template></el-table-column><el-table-column label="状态对应时点"><template #default="{row}">{{row.after.effective_at}}</template></el-table-column><el-table-column label="原状态"><template #default="{row}">{{lineStateDescription(row.before)}}</template></el-table-column><el-table-column label="新状态"><template #default="{row}">{{lineStateDescription(row.after)}}</template></el-table-column><el-table-column label="来源"><template #default="{row}">{{row.after.source}}</template></el-table-column><el-table-column prop="reason" label="更正原因"/></el-table></section>
           <section aria-label="完整动作影响预览">
             <h2>计划变更</h2>
             <div role="table" aria-label="本次完整计划变更">

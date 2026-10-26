@@ -1,8 +1,19 @@
+export interface UnfinishedSwitch {
+  job_id: string
+  started_at: string
+  from_recipe: string
+  to_recipe: string
+  remaining_hours: string
+  standard_hours?: string | null
+  completed_hours?: string | null
+}
 export interface LineStateRecord {
   id: string
   line_code: string
   effective_at: string
-  recipe_code: string
+  state?: 'retained_recipe' | 'unfinished_switch'
+  recipe_code: string | null
+  unfinished_switch?: UnfinishedSwitch | null
   source: string
   actor: string
   recorded_at: string
