@@ -6,7 +6,7 @@ from uuid import UUID
 from pydantic import Field
 from .input_models import InputRow, Pieces, InputSnapshot
 from .plan_models import (Plan, EvaluationSnapshot, EvaluationTime, ExecutionContext, ResetContext,
-                          EvaluationPreferences, ExecutionCoverage, PlanCell, AdoptedBaseline, LineStateContext)
+                          EvaluationPreferences, ExecutionCoverage, PlanCell, AdoptedBaseline, LineStateContext, SwitchContinuityContext)
 from .plan_operations import replay_result, OperationContext
 from .exact import hours
 from .production_time import week_label
@@ -20,6 +20,7 @@ def plan_hour_display(plan):
 
 
 class PlanningContext(InputRow):
+    switch_continuity: SwitchContinuityContext = Field(default_factory=SwitchContinuityContext)
     line_states: LineStateContext = Field(default_factory=LineStateContext)
     execution: ExecutionContext = Field(default_factory=ExecutionContext)
     locks: list[PlanCell] = Field(default_factory=list)
@@ -187,6 +188,12 @@ def result_effect_keys(before, after, snapshot):
 
 def context_effect_keys(context,updates,snapshot=None):
     keys=set()
+    if 'switch_continuity' in updates and snapshot is not None:
+        prior={(r.line_code,r.job_id):r for r in context.switch_continuity.records}
+        after={(r.line_code,r.job_id):r for r in updates['switch_continuity'].records}
+        for identity in prior.keys()|after.keys():
+            if prior.get(identity)==after.get(identity): continue
+            keys.update(('CAP',identity[0],(snapshot.time.window_start+timedelta(days=n)).isoformat()) for n in range(105))
     if 'line_states' in updates and snapshot is not None:
         prior={(r.line_code,r.effective_at):r for r in context.line_states.records}
         after={(r.line_code,r.effective_at):r for r in updates['line_states'].records}
@@ -317,7 +324,7 @@ class PlanService:
         from .line_states import review_records
         reviews=review_records(unit.get_planning_revision(unit.revision).get('operation_issues',[]))
         return EvaluationSnapshot(state_reviews=reviews,time=EvaluationTime.at(now),inputs=unit.inputs,plan=plan,
-            line_states=context.line_states,execution=freeze_associations(unit.plan,context.execution),reset=context.reset,locks=context.locks,baseline=baseline,preferences=context.preferences)
+            switch_continuity=context.switch_continuity,line_states=context.line_states,execution=freeze_associations(unit.plan,context.execution),reset=context.reset,locks=context.locks,baseline=baseline,preferences=context.preferences)
 
     def _reset_participants(self,unit,snapshot,lineage):
         from .reset_operations import participating_models
