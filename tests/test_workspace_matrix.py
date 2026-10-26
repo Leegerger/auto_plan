@@ -159,3 +159,47 @@ def test_invalid_switch_total_does_not_present_a_ready_future_recipe(shared_clie
     assert any(issue['code'] == 'switch_total' for issue in result['evaluation']['issues'])
     following = next(row for row in result['workspace_view']['line_weeks'] if row['week'] == '2026-10-19' and row['line_code'] == 'L')
     assert (following['state'], following['recipe_code']) == ('unknown', None)
+
+
+def test_residual_day_totals_keep_exact_split_work_and_line_identity_in_invalid_drafts(shared_client):
+    from copy import deepcopy
+    from tests.test_unfinished_switches import unfinished, residual
+
+    client, _, _ = shared_client
+    state = unfinished()
+    other = deepcopy(state['rows'][0])
+    other['line_code'] = 'B'
+    other['unfinished_switch']['job_id'] = 'actual-b-r-s'
+    state['rows'].append(other)
+    observed = preview(client, state)
+    assert observed.status_code == 200, observed.text
+    records = {row['line_code']: row for row in observed.json()['context']['line_states']['records']}
+    left = residual(records['L']['id'])
+    left['allocations'] = [
+        {'date': '2026-10-15', 'order': 4, 'hours': '1/3'},
+        {'date': '2026-10-15', 'order': 0, 'hours': '2/3'},
+        {'date': '2026-10-16', 'order': 0, 'hours': '3'}]
+    right = residual(records['B']['id'], line_code='B', id='actual-b-r-s')
+    ordinary = {'id': 'ordinary-return', 'line_code': 'L', 'from_recipe': 'S', 'to_recipe': 'R',
+                'allocations': [{'date': '2026-10-16', 'order': 1, 'hours': '2'}]}
+    before = head(client)
+    for invalid in (False, True):
+        switches = deepcopy([right, ordinary, left])
+        if invalid:
+            switches[-1]['allocations'][0]['order'] = 0
+        checked = preview(client, state, {'kind': 'patch_plan', 'switches': switches})
+        assert checked.status_code == 200, checked.text
+        result = checked.json()
+        assert result['evaluation']['capacity_valid'] is (not invalid)
+        assert ('duplicate_order' in {row['code'] for row in result['evaluation']['issues']}) is invalid
+        days = {(row['date'], row['line_code']): row for row in result['workspace_view']['days']}
+        expected = {('2026-10-15', 'L'): [('actual-r-s', '1')],
+                    ('2026-10-16', 'L'): [('actual-r-s', '3')],
+                    ('2026-10-15', 'B'): [('actual-b-r-s', '4')],
+                    ('2026-10-16', 'B'): []}
+        for key, entries in expected.items():
+            assert [(row['id'], row['allocated_hours']['exact'])
+                    for row in days[key]['residual_switches']] == entries
+        assert result['plan']['switches'][0]['id'] == 'actual-b-r-s'
+        assert result['context']['line_states']['records'] == observed.json()['context']['line_states']['records']
+        assert head(client) == before
