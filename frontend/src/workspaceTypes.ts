@@ -23,9 +23,9 @@ export interface WorkspaceLineWeek {
   line_code: string
   recipe_code: string | null
   state: 'retained_recipe' | 'unknown' | 'planned_switch'
-  source: 'window_plan_start' | 'plan_projection'
+  source: 'window_plan_start' | 'plan_projection' | 'confirmed_state'
   planned_switch: { id: string; from_recipe: string; to_recipe: string } | null
-  current_confirmation: { observed_at: string; recipe_code: string; valid: boolean } | null
+  current_confirmation: { observed_at: string; recipe_code: string; valid: boolean; effective_at?:string;source?:string;actor?:string;recorded_at?:string;record_id?:string } | null
   first_production: {
     segment_id: string
     date: string

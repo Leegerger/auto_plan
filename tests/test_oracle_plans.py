@@ -1,4 +1,5 @@
 """Real PLAN_TEST public API transaction and connection-fault evidence."""
+from tests.line_state_support import confirm_states
 import os
 from contextlib import contextmanager
 from concurrent.futures import ThreadPoolExecutor
@@ -112,7 +113,8 @@ def seg(identity,model,line,day='2026-10-15',quantity=100):
     return {'id':identity,'date':day,'line_code':line,'order':0,'model_code':model,'quantity':quantity,'hours':'3'}
 def seed(real_app):
     client,_,_,_,model,_,line,_=real_app
-    response=post(client,'save',body(client,[{'kind':'replace_plan','plan':{'segments':[seg('initial',model,line)]}}]))
+    recipe=next(row['recipe_code'] for row in client.get('/auto_plan/api/inputs/options').json()['models'] if row['code']==model)
+    response=post(client,'save',body(client,[confirm_states((line,recipe)),{'kind':'replace_plan','plan':{'segments':[seg('initial',model,line)]}}]))
     assert response.status_code==200,response.text
     return current(client)
 
@@ -327,7 +329,7 @@ def test_real_fresh_namespace_initialization_is_one_atomic_input_context_draft_c
         assert service.revision(1,'T29EDITOR')['coverage']==context.model_dump(mode='json')['coverage']
         assert service.revision(1,'T29EDITOR')['lineage']==context.lineage
         assert service.current('T29EDITOR',NOW)['revision']==1
-        adopted=service.submit(SubmitPlan(base_revision=1,input_version=1,latest_adoption=0,operation_id=uuid4(),pending=True), 'T29EDITOR',NOW,'adopt')
+        adopted=service.submit(SubmitPlan(base_revision=1,input_version=1,latest_adoption=0,operations=[confirm_states()],operation_id=uuid4(),pending=True), 'T29EDITOR',NOW,'adopt')
         assert adopted['latest_adoption']==1 and adopted['pending'] is False
         assert len(service.adoption(1,'T29EDITOR')['plan']['segments'])==2
         assert store.check_consistency() is True

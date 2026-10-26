@@ -1,4 +1,5 @@
 """Aggregate locking and preferences use the same public operation queue and guard."""
+from tests.line_state_support import confirm_states
 from tests.test_plan_transactions import shared_client, post, command, patch, row
 
 
@@ -60,12 +61,12 @@ def test_explicit_adoption_establishes_named_blank_zero_cells_in_a_new_positive_
     client,plans,_=shared_client
     from auto_plan.plan_models import ExecutionCoverage
     plans.context=plans.context.model_copy(update={'coverage':[ExecutionCoverage(start_date='2026-10-12',end_date='2026-10-18',line_codes=['L'],model_codes=['M','N','P'],blanks_are_zero=True)]})
-    assert post(client,'adopt',command(patch(row()))).status_code==200
+    assert post(client,'adopt',command(confirm_states(), patch(row()))).status_code==200
     original=client.get('/auto_plan/api/plans/adoptions/1').json()
     imported=[{'start_date':'2026-10-12','end_date':'2026-10-18','line_codes':['L'],'model_codes':['M','N','P'],'blanks_are_zero':True}]
     assert original['coverage']==imported
     tail=row('tail',day='2026-10-20')
-    payload=command(patch(tail),base=1,adoption=1)
+    payload=command(patch(tail),base=1,adoption=1, version=2)
     preview=post(client,'preview',{k:v for k,v in payload.items() if k not in ('operation_id','pending')})
     assert preview.json()['evaluation']['stability']['weeks'][1]['state']=='new_plan'
     saved=post(client,'save',payload)
@@ -73,14 +74,14 @@ def test_explicit_adoption_establishes_named_blank_zero_cells_in_a_new_positive_
     shared=client.get('/auto_plan/api/plans/current').json()
     assert shared['latest_adoption']==1
     assert shared['evaluation']['stability']['weeks'][1]['state']=='new_plan'
-    adopted=post(client,'adopt',command(base=2,adoption=1))
+    adopted=post(client,'adopt',command(base=2,adoption=1, version=2))
     assert adopted.status_code==200,adopted.text
     baseline=client.get('/auto_plan/api/plans/adoptions/2').json()
     assert baseline['coverage']==imported+[{'start_date':'2026-10-19','end_date':'2026-10-25',
         'line_codes':['B','L'],'model_codes':['M','N','P'],'blanks_are_zero':True}]
     source=client.get('/auto_plan/api/plans/current').json()
     assert source['context']['coverage']==imported
-    changed=command(patch(tail|{'quantity':90}),patch(row('blank','N',day='2026-10-21',quantity=20)),base=3,adoption=2)
+    changed=command(patch(tail|{'quantity':90}),patch(row('blank','N',day='2026-10-21',quantity=20)),base=3,adoption=2, version=2)
     probe=post(client,'preview',{k:v for k,v in changed.items() if k not in ('operation_id','pending')})
     assert probe.status_code==200,probe.text
     stability=probe.json()['evaluation']['stability']
@@ -99,8 +100,8 @@ def test_soft_tolerance_warning_does_not_block_adoption(shared_client):
     client,plans,_=shared_client
     from auto_plan.plan_models import ExecutionCoverage
     plans.context=plans.context.model_copy(update={'coverage':[ExecutionCoverage(start_date='2026-10-12',end_date='2026-10-18',line_codes=['L'],model_codes=['M','N','P'],blanks_are_zero=True)]})
-    assert post(client,'adopt',command(patch(row()))).status_code==200
-    payload=command(patch(row(quantity=200)|{'hours':'6'}),base=1,adoption=1)
+    assert post(client,'adopt',command(confirm_states(), patch(row()))).status_code==200
+    payload=command(patch(row(quantity=200)|{'hours':'6'}),base=1,adoption=1, version=2)
     preview=post(client,'preview',{k:v for k,v in payload.items() if k not in ('operation_id','pending')})
     assert preview.json()['evaluation']['stability']['weeks'][0]['exceeds_tolerance'] is True
     assert preview.json()['evaluation']['executable'] is True

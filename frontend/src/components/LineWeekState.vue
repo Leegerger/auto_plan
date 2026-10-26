@@ -11,7 +11,7 @@ defineProps<{ state?: WorkspaceLineWeek; stale?: boolean; switchPaths?:string[] 
       <strong v-if="state.state==='planned_switch' && state.planned_switch">计划切机 {{state.planned_switch.from_recipe}} → {{state.planned_switch.to_recipe}} 尚未完成</strong>
       <strong v-else-if="state.recipe_code">保留 {{state.recipe_code}}</strong>
       <strong v-else>起点未知</strong>
-      <span class="state-provenance">{{state.source==='plan_projection' ? '计划推算，未作现场确认' : '窗口起点，旧记录未含现场确认来源'}}</span>
+      <span class="state-provenance">{{state.source==='confirmed_state' ? '现场确认起点' : state.source==='plan_projection' ? '计划推算，未作现场确认' : '窗口起点，旧记录未含现场确认来源'}}</span>
       <template v-if="state.first_production">
         <span v-if="state.first_production.duration_state==='unknown_initial'" class="state-attention">起点未知，首次切机尚未计入</span>
         <span v-else-if="state.first_production.duration_state==='same_recipe'">首段 {{state.first_production.recipe_code}} · 同 Recipe 续做</span>

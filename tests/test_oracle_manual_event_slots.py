@@ -1,4 +1,5 @@
 """Actual Oracle public manual recertification in fresh disposable business tables."""
+from tests.line_state_support import confirm_states
 import hashlib
 import json
 import os
@@ -90,7 +91,7 @@ def test_actual_oracle_manual_quantity_slots_switches_and_protection(oracle_manu
             'allocations':[{'date':'2026-10-15','order':3,'hours':'0.95'}]}]
     saved=post('save',command({'kind':'replace_plan','plan':initial}))
     assert saved.status_code==200,saved.text
-    adopted=post('adopt',command())
+    adopted=post('adopt',command(confirm_states()))
     assert adopted.status_code==200,adopted.text
     source=current()
     adoption=client.get('/auto_plan/api/plans/adoptions/1').json()

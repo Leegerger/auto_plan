@@ -1,4 +1,5 @@
 """Selected immutable history in a disposable real PLAN_TEST namespace."""
+from tests.line_state_support import confirm_states
 import os
 import json
 from datetime import datetime, timedelta, timezone
@@ -181,7 +182,7 @@ def test_real_selected_history_recovery_boundary_export_restart_and_immutable_au
                     return client.post('/auto_plan/api/plans/'+kind,json=body)
                 row={'id':'a','date':'2026-10-15','line_code':'L','model_code':'M','quantity':100,'order':0,'hours':'60001/20000'}
                 assert post('save',command({'kind':'patch_plan','segments':[row]})).status_code==200
-                adopted=post('adopt',command())
+                adopted=post('adopt',command(confirm_states(effective_at='2026-09-14T08:00:00+08:00')))
                 assert adopted.status_code==200,adopted.text
                 original=client.get('/auto_plan/api/plans/adoptions/1').json()
                 assert post('save',command({'kind':'patch_plan','segments':[row|{'quantity':125}]})).status_code==200
@@ -202,7 +203,7 @@ def test_real_selected_history_recovery_boundary_export_restart_and_immutable_au
                 assert expired.status_code==410,expired.text
                 permanent={'kind':'restore_history','source':{'kind':'adoption','id':1}}
                 assert post('preview',command(permanent)).status_code==200
-                changed=client.post('/auto_plan/api/inputs/apply',json={'base_version':1,'changes':{'capacities':[{'month':'2026-10','recipe_code':'R','line_code':'L','pieces':2000}],'line_yields':[{'month':'2026-10','model_code':'M','percent':'94'}]}})
+                changed=client.post('/auto_plan/api/inputs/apply',json={'base_version':head()['input_version'],'changes':{'capacities':[{'month':'2026-10','recipe_code':'R','line_code':'L','pieces':2000}],'line_yields':[{'month':'2026-10','model_code':'M','percent':'94'}]}})
                 assert changed.status_code==200,changed.text
                 assert client.get('/auto_plan/api/inputs?version=1').json()==seeded_input
                 assert client.get('/auto_plan/api/plans/adoptions/1').json()==original

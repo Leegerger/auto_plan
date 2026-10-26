@@ -1,3 +1,4 @@
+from tests.line_state_support import confirm_states
 from uuid import uuid4
 from fastapi.testclient import TestClient
 from auto_plan.app import create_app
@@ -34,7 +35,7 @@ def test_shared_preview_does_not_write_save_keeps_baseline_and_explicit_adoption
         assert saved.status_code == 200, saved.text
         assert saved.json()['revision'] == 1
         assert saved.json()['latest_adoption'] == 0
-        adopted = client.post('/auto_plan/api/plans/adopt',json=command|{'base_revision':1,'operations':[],'operation_id':str(uuid4())})
+        adopted = client.post('/auto_plan/api/plans/adopt',json=command|{'base_revision':1,'operations':[confirm_states()],'operation_id':str(uuid4())})
         assert adopted.status_code == 200, adopted.text
         assert adopted.json()['latest_adoption'] == 1
 
@@ -135,12 +136,12 @@ def test_pending_draft_does_not_bypass_executed_segment_or_zero_lock_protection(
 
 def test_adoption_competition_uses_latest_adoption_and_baseline_is_immutable(shared_client):
     client,_,_=shared_client
-    first=post(client,'adopt',command(patch(row())))
+    first=post(client,'adopt',command(confirm_states(),patch(row())))
     assert first.status_code==200,first.text
     loser=post(client,'adopt',command(base=1))
     assert loser.status_code==409
     history=client.get('/auto_plan/api/plans/adoptions/1').json()
-    assert post(client,'save',command(patch(row(quantity=200)),base=1,adoption=1)).status_code==200
+    assert post(client,'save',command(patch(row(quantity=200)),base=1,version=2,adoption=1)).status_code==200
     assert client.get('/auto_plan/api/plans/current').json()['latest_adoption']==1
     assert client.get('/auto_plan/api/plans/adoptions/1').json()==history
 
@@ -236,6 +237,6 @@ def test_input_maintenance_invalidates_adoption_and_repreview_uses_current_yield
     assert current_preview.status_code == 200, current_preview.text
     assert current_preview.json()['evaluation']['output_totals']['expected'] == 50
     assert client.get('/auto_plan/api/plans/current').json()['revision'] == 0
-    adopted = post(client, 'adopt', body | {'input_version':current_version,'operation_id':str(uuid4())})
+    adopted = post(client, 'adopt', body | {'input_version':current_version,'operation_id':str(uuid4()),'operations':[confirm_states(),operation]})
     assert adopted.status_code == 200, adopted.text
     assert adopted.json()['latest_adoption'] == 1

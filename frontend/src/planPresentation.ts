@@ -6,6 +6,7 @@ export const operationNames:Record<string,string>={
   restore_history:'恢复历史为新草稿',
   record_execution:'记录执行事实',
   confirm_day_capacity:'确认当日剩余容量',
+  confirm_line_states:'确认线体状态',
   weekly_reset:'每周重置',
   lock_cells:'批量锁定',
   unlock_cells:'显式解锁',
@@ -28,6 +29,7 @@ export function operationDescription(operation:BusinessOperation):string{
   const parts=[value.model_code,value.quantity===undefined?'':`${value.quantity}片`,value.line_code,value.date,value.start_date,value.end_date,value.target_date]
   if(Array.isArray(value.segment_ids))parts.push(`所选 ${value.segment_ids.length} 段`)
   if(value.segment_id)parts.push('所选生产段')
+  if(operation.kind==='confirm_line_states' && Array.isArray(value.rows))parts.push(value.rows.map((row:Record<string,unknown>)=>`${row.line_code} / ${row.effective_at} / Recipe ${row.recipe_code}`).join('；'))
   return parts.filter(Boolean).join(' / ')
 }
 

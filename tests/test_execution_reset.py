@@ -1,4 +1,5 @@
 """Facts and original-source weekly resets through the agreed business API."""
+from tests.line_state_support import confirm_states
 from copy import deepcopy
 from datetime import date
 import pytest
@@ -32,7 +33,7 @@ def test_adopting_a_new_planned_week_establishes_blank_zero_cells_and_survives_l
     operation=patch(row('new',day='2026-10-20'))
     assert post(client,'save',current_command(client,operation)).status_code==200
     assert head(client)['coverage']==[original]
-    assert post(client,'adopt',current_command(client)).status_code==200
+    assert post(client,'adopt',current_command(client, confirm_states())).status_code==200
     adopted=client.get('/auto_plan/api/plans/adoptions/1').json()
     assert original in adopted['coverage']
     added=patch(row('blank','N','2026-10-21','B'))
@@ -53,7 +54,17 @@ def test_rollover_retains_known_recipe_through_unchanged_expired_work_but_never_
     source={'initial_states':[{'line_code':'L','recipe_code':'R'},{'line_code':'B','recipe_code':None}],
         'segments':[row('past-known',day='2026-10-15'),row('past-unknown',day='2026-10-15',line='B'),
                     row('future-known',day='2026-10-20'),row('future-unknown',day='2026-10-20',line='B')]}
-    assert post(client,'adopt',current_command(client,{'kind':'replace_plan','plan':source})).status_code==200
+    assert post(client,'save',current_command(client,{'kind':'replace_plan','plan':source})).status_code==200
+    # This external-storage fixture is an adoption created under the old rule.
+    # A new unknown plan cannot be adopted to manufacture this historical source.
+    legacy=deepcopy(plans.revisions[1])
+    legacy.update(kind='adopt',pending=False,latest_adoption=1)
+    legacy['snapshot'].pop('line_states',None)
+    legacy['context'].pop('line_states',None)
+    legacy['evaluation'].pop('adoption_conditions',None)
+    legacy['evaluation']['issues']=[issue for issue in legacy['evaluation']['issues'] if issue['code']!='initial_state_unknown']
+    legacy['evaluation']['executable']=True
+    plans.revisions[1]=deepcopy(legacy);plans.adoptions[1]=legacy;plans.adoption=1
     client.app.state.clock=lambda:datetime(2026,10,19,tzinfo=timezone.utc)
     assert client.post('/auto_plan/api/auth/login',json={'username':'EDITOR','password':'company-secret'}).status_code==200
     execution={'kind':'record_execution','rows':[],'coverage':[{'start_date':'2026-10-19','end_date':'2026-10-19','line_codes':['L','B'],'model_codes':['M','N','P'],'blanks_are_zero':True}],'cutoff':'2026-10-19T08:00:00+08:00'}
@@ -67,7 +78,7 @@ def test_rollover_retains_known_recipe_through_unchanged_expired_work_but_never_
 
 def test_reset_participants_exclude_retired_unused_models_and_include_source_and_fact_models(shared_client):
     client,_,_=shared_client
-    assert post(client,'adopt',current_command(client,patch(row()))).status_code==200
+    assert post(client,'adopt',current_command(client, confirm_states(),patch(row()))).status_code==200
     inputs=client.get('/auto_plan/api/inputs').json()
     models=[r|{'active':False} for r in inputs['masters']['models']]
     models.append({'code':'RETIRED','name':'Unused retired model','recipe_code':'R','active':False})
@@ -97,7 +108,7 @@ def test_rollover_keeps_unambiguous_actual_last_recipe_after_a_historical_switch
         source['switches'] += [
             {'id':'unconfirmed-s-r','line_code':'L','from_recipe':'S','to_recipe':'R','allocations':[{'date':'2026-10-18','order':0,'hours':'2'}]},
             {'id':'next-r-s','line_code':'L','from_recipe':'R','to_recipe':'S','allocations':[{'date':'2026-10-19','order':0,'hours':'0.95'}]}]
-    assert post(client,'adopt',current_command(client,{'kind':'replace_plan','plan':source})).status_code==200
+    assert post(client,'adopt',current_command(client, confirm_states(),{'kind':'replace_plan','plan':source})).status_code==200
     client.app.state.clock=lambda:datetime(2026,10,19,tzinfo=timezone.utc)
     assert client.post('/auto_plan/api/auth/login',json={'username':'EDITOR','password':'company-secret'}).status_code==200
     execution={'kind':'record_execution','rows':[fact(100,'P',actual_day)],
@@ -200,7 +211,7 @@ def seed_reset_source(client,plans):
     from auto_plan.plan_models import ExecutionCoverage
     plans.context=plans.context.model_copy(update={'coverage':[ExecutionCoverage(start_date='2026-10-12',end_date='2026-10-18',line_codes=['L','B'],model_codes=['M','N','P'],blanks_are_zero=True)]})
     rows=[row('early',day='2026-10-15',quantity=1000)|{'hours':'24'},row('late',day='2026-10-16',quantity=1000)|{'hours':'24'}]
-    response=post(client,'adopt',current_command(client,{'kind':'patch_plan','segments':rows},{'kind':'record_execution','rows':[],'coverage':[{'start_date':'2026-10-12','end_date':'2026-10-14','line_codes':['L','B'],'model_codes':['M','N','P'],'blanks_are_zero':True}],'cutoff':'2026-10-14T08:00:00+08:00'}))
+    response=post(client,'adopt',current_command(client, confirm_states(),{'kind':'patch_plan','segments':rows},{'kind':'record_execution','rows':[],'coverage':[{'start_date':'2026-10-12','end_date':'2026-10-14','line_codes':['L','B'],'model_codes':['M','N','P'],'blanks_are_zero':True}],'cutoff':'2026-10-14T08:00:00+08:00'}))
     assert response.status_code==200,response.text
 
 
@@ -255,7 +266,7 @@ def test_target_includes_actual_once_and_wip_is_output_only(shared_client):
     from auto_plan.plan_models import ExecutionCoverage
     plans.context=plans.context.model_copy(update={'coverage':[ExecutionCoverage(start_date='2026-10-05',end_date='2026-10-25',line_codes=['L','B'],model_codes=['M','N','P'],blanks_are_zero=True)]})
     rows=[row('today',day='2026-10-14',quantity=1000)|{'hours':'24'},row('future',day='2026-10-15',quantity=1000)|{'hours':'24'}]
-    assert post(client,'adopt',current_command(client,{'kind':'patch_plan','segments':rows})).status_code==200
+    assert post(client,'adopt',current_command(client, confirm_states(effective_at='2026-10-05T08:00:00+08:00'),{'kind':'patch_plan','segments':rows})).status_code==200
     client.app.state.clock=lambda:datetime(2026,10,14,tzinfo=timezone.utc)
     assert client.post('/auto_plan/api/auth/login',json={'username':'EDITOR','password':'company-secret'}).status_code==200
     assert post(client,'save',current_command(client,{'kind':'record_execution','rows':[fact(600)],'coverage':[{'start_date':'2026-10-12','end_date':'2026-10-14','line_codes':['L','B'],'model_codes':['M','N','P'],'blanks_are_zero':True}],'cutoff':'2026-10-14T08:00:00+08:00'})).status_code==200
@@ -406,7 +417,7 @@ def test_expired_input_stays_in_original_target_and_produces_nothing_until_valid
     assert client.post('/auto_plan/api/auth/login',json={'username':'EDITOR','password':'company-secret'}).status_code==200
     plans.context=plans.context.model_copy(update={'coverage':[ExecutionCoverage(start_date='2026-10-12',end_date='2026-10-18',line_codes=['L','B'],model_codes=['M','N','P'],blanks_are_zero=True)]})
     rows=[row('monday',day='2026-10-12',quantity=500)|{'hours':'12'},row('future',day='2026-10-15',quantity=1000)|{'hours':'24'}]
-    assert post(client,'adopt',current_command(client,{'kind':'patch_plan','segments':rows},
+    assert post(client,'adopt',current_command(client, confirm_states(),{'kind':'patch_plan','segments':rows},
         {'kind':'record_execution','rows':[fact(300,day='2026-10-12')],'cutoff':'2026-10-12T08:00:00+08:00'})).status_code==200
     client.app.state.clock=lambda:datetime(2026,10,14,tzinfo=timezone.utc)
     assert client.post('/auto_plan/api/auth/login',json={'username':'EDITOR','password':'company-secret'}).status_code==200
@@ -463,7 +474,7 @@ def test_external_first_week_reset_is_unavailable_and_later_rollover_keeps_histo
     plans.context=plans.context.model_copy(update={'coverage':[ExecutionCoverage(start_date='2026-10-12',end_date='2026-10-25',line_codes=['L','B'],model_codes=['M','N','P'],blanks_are_zero=True)],
         'lineage':{'external_reset':{'production_week':'2026-10-12','batch_id':'external','already_applied':True,'system_correction_available':False}}})
     rows=[row('old',day='2026-10-15',quantity=1000)|{'hours':'24'},row('new',day='2026-10-20',quantity=900)|{'hours':'22'}]
-    assert post(client,'adopt',current_command(client,{'kind':'patch_plan','segments':rows})).status_code==200
+    assert post(client,'adopt',current_command(client, confirm_states(),{'kind':'patch_plan','segments':rows})).status_code==200
     for correction in (False,True):
         rejected=preview(client,reset_operation(correction=correction))
         assert rejected.status_code==422 and '外部' in rejected.json()['detail']
@@ -491,7 +502,7 @@ def test_cross_window_switch_progress_is_not_assumed_executed_or_repaired(shared
     source={'initial_states':[{'line_code':'L','recipe_code':'R'}],
         'segments':[row('r',day='2026-10-15'),row('s','P','2026-10-20')],
         'switches':[{'id':'cross','line_code':'L','from_recipe':'R','to_recipe':'S','allocations':[{'date':'2026-10-18','order':0,'hours':'0.4'},{'date':'2026-10-19','order':0,'hours':'0.55'}]}]}
-    assert post(client,'adopt',current_command(client,{'kind':'replace_plan','plan':source})).status_code==200
+    assert post(client,'adopt',current_command(client, confirm_states(),{'kind':'replace_plan','plan':source})).status_code==200
     original=client.get('/auto_plan/api/plans/adoptions/1').json()
     client.app.state.clock=lambda:datetime(2026,10,19,tzinfo=timezone.utc)
     assert client.post('/auto_plan/api/auth/login',json={'username':'EDITOR','password':'company-secret'}).status_code==200
@@ -514,7 +525,7 @@ def test_negative_balance_uses_only_original_week_gaps_and_keeps_unmet_separate_
     coverage=ExecutionCoverage(start_date='2026-10-12',end_date='2026-10-25',line_codes=['L','B'],model_codes=['M','N','P'],blanks_are_zero=True)
     plans.context=plans.context.model_copy(update={'coverage':[coverage], 'execution':ExecutionContext(coverage=[coverage.model_copy(update={'end_date':date(2026,10,14)})],cutoff='2026-10-14T08:00:00+08:00')})
     rows=[row('one',day='2026-10-15',quantity=800)|{'hours':'20'},row('two',day='2026-10-16',quantity=800)|{'hours':'20'},row('next',day='2026-10-20',quantity=1000)|{'hours':'24'}]
-    assert post(client,'adopt',current_command(client,{'kind':'patch_plan','segments':rows})).status_code==200
+    assert post(client,'adopt',current_command(client, confirm_states(),{'kind':'patch_plan','segments':rows})).status_code==200
     scope={'start_date':'2026-10-15','end_date':'2026-10-16','line_codes':['L'],'model_codes':['M']}
     checked=preview(client,reset_operation(-600,scope=scope))
     assert checked.status_code==200,checked.text
@@ -578,7 +589,7 @@ def test_stability_does_not_consume_new_unexecuted_ids_with_old_surplus_actual(s
     client,_,_=shared_client
     zero={'kind':'record_execution','rows':[fact(0)],'cutoff':'2026-10-14T08:00:00+08:00'}
     initial=patch(row(day='2026-10-14',quantity=1000)|{'hours':'24'})
-    assert post(client,'adopt',current_command(client,initial,zero)).status_code==200
+    assert post(client,'adopt',current_command(client, confirm_states(),initial,zero)).status_code==200
     assert post(client,'save',current_command(client,{'kind':'record_execution','rows':[fact(1200)],'reason':'累计报工更新'})).status_code==200
     checked=preview(client,patch(row('new',day='2026-10-14',quantity=100)|{'order':2}))
     assert checked.status_code==200,checked.text

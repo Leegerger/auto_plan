@@ -1,4 +1,5 @@
 """Unrun public guards. Encoded Oracle units are not actual Oracle evidence."""
+from tests.line_state_support import confirm_states
 from copy import deepcopy
 import json
 from uuid import uuid4
@@ -36,7 +37,7 @@ def closure_client(shared_client,monkeypatch):
     initial={'segments':[row('m'),row('n','N','2026-10-16')],
         'initial_states':[{'line_code':'L','recipe_code':'R'}]}
     assert post(client,'save',command({'kind':'replace_plan','plan':initial})).status_code==200
-    assert post(client,'adopt',command(base=1)).status_code==200
+    assert post(client,'adopt',command(confirm_states(), base=1)).status_code==200
     mode=['owned']
     memory_read=plans.read
     snapshot=PlanService._snapshot
@@ -126,9 +127,9 @@ def test_current_base_preserves_complete_effects_context_evaluation_and_ownershi
 
 def test_stale_replay_and_conflict_keep_original_failures_and_complete_merged_effects(closure_client):
     client,plans,mode=closure_client
-    assert post(client,'save',command(quantity('n','N','2026-10-16',90),base=2,adoption=1)).status_code==200
+    assert post(client,'save',command(quantity('n','N','2026-10-16',90),base=2,version=2,adoption=1)).status_code==200
     source=client.get('/auto_plan/api/plans/current').json()
-    payload={'base_revision':2,'input_version':1,'latest_adoption':1,'operations':[quantity()]}
+    payload={'base_revision':2,'input_version':2,'latest_adoption':1,'operations':[quantity()]}
     merged=compare_modes(client,mode,payload)
     assert merged['merged'] is True and merged['evaluation']['output_totals']['expected']==189
     assert {row['id']:row['quantity'] for row in merged['plan']['segments']}=={'m':99,'n':90}

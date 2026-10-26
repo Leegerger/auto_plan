@@ -1,5 +1,6 @@
 """Fixed 18-line, 40-model, 105-day example with independently known totals."""
 from datetime import date, datetime, timedelta
+from tests.line_state_support import assert_unconfirmed_trial
 
 START = date(2026, 10, 12)
 NOW = datetime.fromisoformat('2026-10-12T08:00:00+08:00')
@@ -79,8 +80,9 @@ def final_day_command(payload):
 
 
 def check_final_day(result):
-    assert result['capacity_valid'] and result['computation_complete'] and result['executable']
-    assert result['issues'] == []
+    assert_unconfirmed_trial(result, lines=[f'L{i:02d}' for i in range(18)])
+    assert len(result['issues']) == 18
+    assert {row['code'] for row in result['issues']} == {'initial_state_unknown'}
     totals = result['output_totals']
     assert totals['expected'] == totals['on_time'] == 419960
     assert totals['gap'] == 40
@@ -93,8 +95,9 @@ def check_final_day(result):
 
 
 def check_full_window(result):
-    assert result['capacity_valid'] and result['computation_complete'] and result['executable']
-    assert result['issues'] == []
+    assert_unconfirmed_trial(result, lines=[f'L{i:02d}' for i in range(18)])
+    assert len(result['issues']) == 18
+    assert {row['code'] for row in result['issues']} == {'initial_state_unknown'}
     assert result['switch_count'] == 4182
     assert len(result['output_sources']) == len(result['attributions']) == 4200
     assert len(result['days']) == 1890
