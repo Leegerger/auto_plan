@@ -8,7 +8,7 @@ from .plans import PlanCommand, PlanProblem, protect
 from .plan_models import EvaluationSnapshot
 from .editing_scope import EditingScope
 from .input_lookup import InputIndex
-from .demand_operations import place_input, on_time_violation, output_tail_crosses_deadline, model_accounting_complete
+from .demand_operations import place_input, on_time_violation, output_tail_crosses_deadline, model_accounting_complete, active_goal_matches
 
 
 class DemandTrial(PlanCommand):
@@ -83,7 +83,7 @@ def trial_in_unit(planner, unit, request, actor, now):
     if selected is None:
         raise PlanProblem(422, '所选机种需求周不存在')
     for goal in prepared.get('lineage', {}).get('demand_goals', {}).values():
-        if (goal['model_code'], goal['demand_week']) == (model, str(request.demand_week)) and goal.get('remaining_output_target') != 0:
+        if active_goal_matches(goal, model, request.demand_week):
             raise PlanProblem(422, '此机种需求周已有补排目标，请保留原目标处理', goal_id=goal['id'])
     unarranged = max(selected['demand'] - selected['attributed'], 0)
     target = unarranged if request.target_output is None else request.target_output

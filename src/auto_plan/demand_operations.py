@@ -63,6 +63,10 @@ def model_accounting_complete(evaluation, model):
     return not any(issue['severity'] == 'incomplete' and issue.get('model_code') in (None, model) for issue in evaluation['issues'])
 
 
+def active_goal_matches(goal, model, week):
+    return (goal['model_code'], goal['demand_week']) == (model, str(week)) and goal.get('remaining_output_target') != 0
+
+
 def refresh_demand_goals(lineage, evaluation, time):
     """Refresh output balances from the final ledger, never accepted deltas."""
     if 'demand_goals' not in lineage:
@@ -109,7 +113,7 @@ def supplement_demand(plan, command, context):
     if existing is not None and context.action_id in existing.get('accepted_actions', {}):
         raise ValueError('此补排动作已经接受，请勿重复安排')
     for identity, goal in goals.items():
-        if identity != command.goal.id and (goal['model_code'], goal['demand_week']) == (command.model_code, command.demand_week.isoformat()) and goal.get('remaining_output_target', 1) != 0:
+        if identity != command.goal.id and active_goal_matches(goal, command.model_code, command.demand_week):
             raise ValueError('此机种需求周已有补排目标，请保留原目标处理')
     result = plan
     actual = []
