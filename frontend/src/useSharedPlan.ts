@@ -12,7 +12,7 @@ export interface Plan {current_day_witnesses?:Record<string,unknown>[];segments:
 export interface Unallocated {id:string;model_code:string;quantity:number;reason:string; [key:string]:unknown}
 interface HourDisplay {segments:Record<string,{exact:string;display:string}>;switches:Record<string,{hours:{exact:string;display:string};idle_hours:{exact:string;display:string}}[]>}
 interface Head {time:{as_of:string;window_start:string};reset_preview:ResetPreview|null;execution_segments:{segment_id:string;executed:number;remaining:number}[];execution_surplus:ExecutionCell[];hour_display:HourDisplay; pending: boolean; kind: string; revision: number; input_version: number; latest_adoption: number; plan: Plan; evaluation: OutputEvaluation; unallocated:Unallocated[]; operation_issues:Record<string,unknown>[]; weeks:{number:number;label:string;start_date:string;dates:string[]}[];context:PlanningContext }
-interface PreviewResult {reset_reference?:{effective_adoption:number;effective_revision:number}|null;adoption_blocked:boolean;reset_preview:ResetPreview|null;execution_segments:{segment_id:string;executed:number;remaining:number}[];execution_surplus:ExecutionCell[];context:PlanningContext;context_changes:Record<string,unknown>[];hour_display:HourDisplay;plan:Plan;evaluation:OutputEvaluation;changes:Record<string,unknown>[];effects:unknown[][];unallocated:Unallocated[];operation_issues:Record<string,unknown>[]}
+interface PreviewResult {revision:number;input_version:number;latest_adoption:number;reset_reference?:{effective_adoption:number;effective_revision:number}|null;adoption_blocked:boolean;reset_preview:ResetPreview|null;execution_segments:{segment_id:string;executed:number;remaining:number}[];execution_surplus:ExecutionCell[];context:PlanningContext;context_changes:Record<string,unknown>[];hour_display:HourDisplay;plan:Plan;evaluation:OutputEvaluation;changes:Record<string,unknown>[];effects:unknown[][];unallocated:Unallocated[];operation_issues:Record<string,unknown>[]}
 export interface Draft {data_version:number;base_revision:number;input_version:number;latest_adoption:number;operations:BusinessOperation[];selected_actions?:string[]}
 export interface ResetParticipation {source_adoption:number;model_codes:string[]}
 interface Head {reset_participants:{current:ResetParticipation;correction:ResetParticipation|null}}
@@ -30,9 +30,17 @@ export function useSharedPlan() {
 
 function createSharedPlan() {
 const head = ref<Head | null>(null), proposal=ref<PreviewResult|null>(null)
-const preview=computed(()=>proposal.value?.evaluation ?? null), plan=computed(()=>proposal.value?.plan ?? head.value?.plan), rows=computed(()=>plan.value?.segments ?? [])
-const hourDisplay=computed(()=>proposal.value?.hour_display ?? head.value?.hour_display)
-const unallocated=computed(()=>proposal.value?.unallocated ?? head.value?.unallocated ?? [])
+const previewInvalidated=ref(false), sourceNotice=ref('')
+const previewBasis=ref<{base_revision:number;input_version:number;latest_adoption:number}|null>(null)
+const effective=computed(()=>proposal.value ?? head.value)
+const needsPreview=computed(()=>!proposal.value && (previewInvalidated.value || operations.value.length>0))
+const evaluation=computed(()=>needsPreview.value ? null : effective.value?.evaluation ?? null)
+const context=computed(()=>effective.value?.context)
+const preview=computed(()=>proposal.value?.evaluation ?? null), plan=computed(()=>effective.value?.plan), rows=computed(()=>plan.value?.segments ?? [])
+const hourDisplay=computed(()=>effective.value?.hour_display)
+const unallocated=computed(()=>effective.value?.unallocated ?? [])
+const effectiveBasis=computed(()=>proposal.value ? previewBasis.value : head.value ? {base_revision:head.value.revision,input_version:head.value.input_version,latest_adoption:head.value.latest_adoption} : null)
+const evaluationState=computed(()=>needsPreview.value ? '待重新预览' : evaluation.value?.output_totals?.computation_complete===false ? '计算未完成' : proposal.value ? '本机预览' : head.value ? '共享计划' : '尚未读取')
 const draftBase=ref<{base_revision:number;input_version:number;latest_adoption:number}|null>(null)
 const busy = ref(false), unknown = ref(false), pending = ref(false), message = ref(''), error = ref('')
 const differences = ref<Record<string, unknown>[]>([]), conflict = ref<Record<string, unknown> | null>(null)
@@ -73,7 +81,7 @@ function persistLocal(){
     return false
   }
 }
-function changed() { proposal.value = null; message.value = '本机修改尚未共享，请重新预览'; persistLocal() }
+function changed() { proposal.value = null; previewInvalidated.value=true; message.value = '本机修改尚未共享，请重新预览'; persistLocal() }
 function takeOver(){
   if(busy.value)return
   refreshRecords()
@@ -125,7 +133,7 @@ async function discardLocal(id=localDraftId.value){
 function selectLocalDraft(id:string){
   if(busy.value || unknown.value || id===localDraftId.value)return
   if(operations.value.length && !recoveryCandidate.value && !persistLocal()){error.value='当前页面修改尚未暂存，请先重试或共享保存后再切换';return}
-  localDraftId.value=id;operations.value=[];selectedActions.value=[];proposal.value=null;resetComparison()
+  localDraftId.value=id;operations.value=[];selectedActions.value=[];proposal.value=null;previewInvalidated.value=false;sourceNotice.value='';resetComparison()
   draftBase.value=head.value ? {base_revision:head.value.revision,input_version:head.value.input_version,latest_adoption:head.value.latest_adoption}:null
   refreshRecords();recoveryCandidate.value=recoveryRecords.value.find(value=>value.id===id) ?? null;openLease()
 }
@@ -137,6 +145,7 @@ async function load(replace = true) {
   head.value = current
   if (replace) { operations.value = []; selectedActions.value=[]; draftBase.value={base_revision:current.revision,input_version:current.input_version,latest_adoption:current.latest_adoption} }
   proposal.value = null
+  if(replace){previewInvalidated.value=false;sourceNotice.value='';previewBasis.value=null}
 }
 function command(): Command {
   if (!head.value) throw new Error('请先读取共享计划')
@@ -149,7 +158,7 @@ function showError(e: unknown) {
   if (e instanceof ApiError) {
     differences.value = Array.isArray(e.data.input_diff) ? e.data.input_diff : []
     conflict.value = e.status === 409 ? e.data : null
-    if (e.status===409) proposal.value=null
+    if (e.status===409){proposal.value=null;previewInvalidated.value=true;message.value='旧试算已失效，请重新预览'}
   }
 }
 async function check(latest = false) {
@@ -164,13 +173,13 @@ async function check(latest = false) {
     }
     const {operation_id: _, pending: __, ...payload} = command()
     const result = await api<PreviewResult>('/plans/preview', {method: 'POST', body: JSON.stringify(payload)})
-    proposal.value = result; message.value = '预览完成，尚未共享'
+    proposal.value = result; previewBasis.value={base_revision:result.revision,input_version:result.input_version,latest_adoption:result.latest_adoption};previewInvalidated.value=false;sourceNotice.value=''; message.value = '预览完成，尚未共享'
   } catch (e) { showError(e) } finally { busy.value = false }
 }
 function remember(value: Stored) { outstanding.value = value; persistLocal() }
 function clearOutstanding() { outstanding.value = null; unknown.value = false; persistLocal() }
 async function submit(kind: 'save' | 'adopt') {
-  if (readonly.value) return
+  if (readonly.value || !proposal.value) return
   busy.value = true; error.value = ''; voided.value = false; conflict.value = null; differences.value = []
   try {
     const request: Stored = {command: command(), kind,remaining_operations:operations.value.filter(operation=>!selectedActions.value.includes(operation.action_id!))}
@@ -226,17 +235,39 @@ async function startInternal() {
   } catch (e) { showError(e) } finally { initialized=true;busy.value = false }
 }
 
+let refreshing:Promise<void>|null=null, refreshRequested=false
+watch(busy,value=>{if(!value&&refreshRequested){refreshRequested=false;void refresh()}})
 async function refresh() {
   if(startPromise)await startPromise
-  if(!started||busy.value||!online.value||unknown.value||proposal.value||operations.value.length||recoveryCandidate.value)return
-  try{await load(true)}catch(e){showError(e)}
+  if(!started||!online.value||unknown.value||recoveryCandidate.value)return
+  if(busy.value){refreshRequested=true;return}
+  if(refreshing)return refreshing
+  refreshing=(async()=>{
+    try{
+      const current=await api<Head>('/plans/current'), previous=head.value
+      const changedSource=!!previous && (previous.revision!==current.revision || previous.input_version!==current.input_version || previous.latest_adoption!==current.latest_adoption || previous.time.window_start!==current.time.window_start || JSON.stringify(previous.context)!==JSON.stringify(current.context))
+      if(changedSource){
+        const hadLocal=!!proposal.value || operations.value.length>0 || previewInvalidated.value
+        if(hadLocal){
+          proposal.value=null;previewInvalidated.value=true
+          sourceNotice.value=`计划或资料依据已变化。输入版本 ${previous!.input_version} → ${current.input_version}，共享修订 ${previous!.revision} → ${current.revision}。本机动作及原基准已保留，请按最新资料重新预览。`
+          message.value='旧试算已失效，请重新预览'
+        }
+        head.value=current
+        if(!hadLocal)draftBase.value={base_revision:current.revision,input_version:current.input_version,latest_adoption:current.latest_adoption}
+      }else if(!previous){head.value=current}
+    }catch(e){showError(e)}
+  })().finally(()=>{refreshing=null})
+  return refreshing
 }
+window.addEventListener('auto-plan-inputs-changed',()=>{void refresh()})
+window.addEventListener('focus',()=>{void refresh()})
 
 function stop() {
   stopLease?.();lease?.close();stopLease=undefined;lease=null
   ownsDraft.value=false
-  started=false;initialized=false;busy.value=false
-  head.value=null;proposal.value=null;operations.value=[];selectedActions.value=[]
+  started=false;initialized=false;refreshRequested=false;busy.value=false
+  head.value=null;proposal.value=null;operations.value=[];selectedActions.value=[];previewInvalidated.value=false;sourceNotice.value='';previewBasis.value=null
   outstanding.value=null;unknown.value=false;pending.value=false
   error.value='';message.value='';conflict.value=null;differences.value=[]
   recoveryCandidate.value=null;recoveryRecords.value=[];recoveryChanges.value=[];recoveryInputChanges.value=[];recoveryCompareError.value=''
@@ -260,14 +291,14 @@ function restoreDraft(draft:Draft) {
   selectedActions.value=draft.selected_actions ?? operations.value.map(operation=>operation.action_id!); changed()
 }
 function retainUnselected(values:BusinessOperation[]|undefined) {
-  operations.value=values ?? []; selectedActions.value=[]
+  operations.value=values ?? []; selectedActions.value=[];previewInvalidated.value=operations.value.length>0
 }
 function localDraft() {
   const {operation_id: _, pending: __, ...draft}=command()
   if (operations.value.some(operation=>operation.kind==='replace_plan')) throw new Error('本机临时稿须保存操作，不可保存整份计划')
   return {data_version:1,...draft,operations:JSON.parse(JSON.stringify(operations.value)) as BusinessOperation[],selected_actions:[...selectedActions.value]}
 }
-return {head,rows,plan,hourDisplay,proposal,unallocated,selectedActions,draftBase,undo,restoreDraft,preview,busy,unknown,pending,message,error,differences,conflict,outstanding,voided,
+return {head,effective,evaluation,context,effectiveBasis,evaluationState,needsPreview,sourceNotice,rows,plan,hourDisplay,proposal,unallocated,selectedActions,draftBase,undo,restoreDraft,preview,busy,unknown,pending,message,error,differences,conflict,outstanding,voided,
   editor,readonly,load,command,changed,check,submit,verify,appendOperation,operations,localDraft,
   localDraftId,localState,localWarning,localBytes,recoveryRecords,recoveryCandidate,recoveryDifferences,ownsDraft,leaseIssue,
   recoverLocal,discardLocal,retryLocal,newLocalDraft,selectLocalDraft,exportLocal,takeOver,retryComparison,recoveryChanges,recoveryInputChanges,recoveryCompareError,

@@ -7,8 +7,8 @@ import type { ExecutionCell, ResetSnapshot } from '../executionTypes'
 const props=defineProps<{shared:ReturnType<typeof useSharedPlan>}>()
 const router=useRouter()
 const head=computed(()=>props.shared.head.value)
-const context=computed(()=>props.shared.proposal.value?.context ?? head.value?.context)
-const reset=computed(()=>props.shared.proposal.value?.reset_preview ?? head.value?.reset_preview)
+const context=props.shared.context
+const reset=computed(()=>props.shared.effective.value?.reset_preview)
 const editable=computed(()=>props.shared.editor.value), readonly=computed(()=>props.shared.readonly.value)
 const error=ref(''),lines=ref<{code:string;name:string}[]>([]),models=ref<{code:string;name:string}[]>([]),recipes=ref<{code:string;name:string}[]>([])
 const today=computed(()=>head.value ? new Date(head.value.time.as_of).toISOString().slice(0,10) : '')
@@ -25,7 +25,7 @@ const external=computed(()=>{
   const marker=context.value?.lineage.external_reset as {production_week:string;already_applied:boolean}|undefined
   return marker?.already_applied && marker.production_week===week.value
 })
-const participants=computed(()=>(props.shared.proposal.value?.reset_participants ?? head.value?.reset_participants)?.[correction.value ? 'correction' : 'current'])
+const participants=computed(()=>(props.shared.effective.value?.reset_participants)?.[correction.value ? 'correction' : 'current'])
 const source=computed(()=>participants.value?.source_adoption ?? 0)
 const associationRows=computed(()=>{
   const facts=context.value?.execution.facts ?? []
@@ -44,9 +44,9 @@ function auditDetail(change:Record<string,unknown>){
   if(change.family==='cutoff')return `执行截止由 ${change.before ?? '未确认'} 改为 ${change.after}`
   return '执行事实覆盖范围已更新'
 }
-const segments=computed(()=>props.shared.proposal.value?.execution_segments ?? head.value?.execution_segments ?? [])
-const surplus=computed(()=>props.shared.proposal.value?.execution_surplus ?? head.value?.execution_surplus ?? [])
-const evaluation=computed(()=>props.shared.proposal.value?.evaluation ?? head.value?.evaluation)
+const segments=computed(()=>props.shared.effective.value?.execution_segments ?? [])
+const surplus=computed(()=>props.shared.effective.value?.execution_surplus ?? [])
+const evaluation=props.shared.evaluation
 watch(segments,value=>{for(const row of value)associationAmounts.value[row.segment_id]=String(row.executed)},{immediate:true})
 watch(head,async value=>{
   if(!value)return

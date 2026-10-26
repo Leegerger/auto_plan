@@ -4,8 +4,8 @@ import { api } from '../api'
 import type { useSharedPlan } from '../useSharedPlan'
 import type { LockedCell, PlanningPreferences } from '../stabilityTypes'
 const props=defineProps<{shared:ReturnType<typeof useSharedPlan>}>()
-const context=computed(()=>props.shared.proposal.value?.context ?? props.shared.head.value?.context)
-const result=computed(()=>props.shared.proposal.value?.evaluation.stability ?? props.shared.head.value?.evaluation.stability)
+const context=props.shared.context
+const result=computed(()=>props.shared.evaluation.value?.stability)
 const editor=computed(()=>props.shared.editor.value), readonly=computed(()=>props.shared.readonly.value)
 const selected=ref<LockedCell[]>([]), error=ref('')
 const dates=computed(()=>props.shared.head.value?.weeks.flatMap(week=>week.dates) ?? [])

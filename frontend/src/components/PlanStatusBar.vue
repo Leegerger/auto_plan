@@ -21,6 +21,8 @@ const canAdopt=computed(()=>canSave.value&&!proposal.value?.adoption_blocked&&!!
 const selectedHighRisk=computed(()=>operations.value.filter(operation=>selectedActions.value.includes(operation.action_id!)&&['clear_segments','overwrite_copy_segments','discard_unallocated','weekly_reset'].includes(operation.kind)))
 const stateLabel=computed(()=>{
   if(unknown.value)return '保存结果未知'
+  if(shared.needsPreview.value)return '待重新预览'
+  if(shared.evaluationState.value==='计算未完成')return '计算未完成'
   if(proposal.value)return '预览完成'
   if(operations.value.length)return '本机临时稿'
   if(head.value?.pending)return '待处理共享草稿'
@@ -65,7 +67,7 @@ async function submit(kind:'save'|'adopt'){
   if(!unknown.value&&!error.value)drawer.value=false
 }
 watch(unknown,value=>{if(value){tab.value='actions';drawer.value=true}},{immediate:true})
-watch(unknown,(value,before)=>{if(before&&!value&&!recoveryCandidate.value)drawer.value=false})
+watch(unknown,(value,before)=>{if(before&&!value&&!recoveryCandidate.value&&!conflict.value&&!error.value)drawer.value=false})
 watch(conflict,value=>{if(value){tab.value='actions';drawer.value=true}})
 </script>
 
@@ -80,6 +82,7 @@ watch(conflict,value=>{if(value){tab.value='actions';drawer.value=true}})
         <div><dt>本机动作</dt><dd>{{ operations.length }}</dd></div>
       </dl>
       <span class="local-state">{{ localState }}</span>
+      <span v-if="proposal" aria-label="有效预览依据">本机预览 · 共享修订 {{ shared.effectiveBasis.value?.base_revision }} · 输入版本 {{ shared.effectiveBasis.value?.input_version }}</span>
     </div>
     <div class="plan-status-actions">
       <el-button v-if="unknown && !drawer" type="warning" @click="shared.verify()" :disabled="busy || !shared.ownsDraft.value">
@@ -100,6 +103,7 @@ watch(conflict,value=>{if(value){tab.value='actions';drawer.value=true}})
         <BadgeCheck :size="16" />正式采用
       </el-button>
     </div>
+    <div v-if="shared.sourceNotice.value" role="status" class="plan-feedback">{{ shared.sourceNotice.value }}<span v-if="shared.draftBase.value">原动作基准：共享修订 {{ shared.draftBase.value.base_revision }}，输入版本 {{ shared.draftBase.value.input_version }}。</span><el-button v-if="editor && onPlanWorkspace" :disabled="readonly" @click="check(true)">按最新资料重新预览</el-button></div>
     <div v-if="unknown || error || message || voided" class="plan-feedback" role="status">
       <CircleAlert v-if="unknown || error" :size="16" />
       <span v-if="unknown">前次保存结果未知，当前只读。请先核实，避免重复保存或采用。</span>
