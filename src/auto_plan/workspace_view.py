@@ -36,11 +36,11 @@ def workspace_view(snapshot, evaluation):
     zero = _hours(0)
     days = []
     weeks = []
-    from .line_states import calculation_anchors, active_state_reviews, active_unfinished_jobs, unfinished_job_history
+    from .line_states import certificate_anchors, active_state_reviews, active_unfinished_jobs, unfinished_job_history
     unfinished = active_unfinished_jobs(snapshot)
     history = unfinished_job_history(snapshot)
     uncertain={review.line_code for review in active_state_reviews(snapshot)}
-    analysis = analyze_recipe_states(plan, index, include_transitions=True, confirmed_states=calculation_anchors(snapshot),window_start=snapshot.time.window_start,as_of=snapshot.time.as_of)
+    analysis = analyze_recipe_states(plan, index, include_transitions=True, confirmed_states=certificate_anchors(snapshot),window_start=snapshot.time.window_start,as_of=snapshot.time.as_of)
     today = production_date(snapshot.time.as_of)
     for line in lines:
         confirmation = confirmed_day_capacity(snapshot, line)

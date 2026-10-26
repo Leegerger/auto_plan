@@ -61,7 +61,8 @@ class _Finished(Exception):
 class _Search:
     def __init__(self, frozen, progress, should_stop):
         self.frozen = frozen.model_copy(deep=True)
-        self.snapshot, self.request = self.frozen.snapshot, self.frozen.request
+        from .line_states import freeze_state_evidence
+        self.snapshot, self.request = freeze_state_evidence(self.frozen.snapshot), self.frozen.request
         self.index = InputIndex(self.snapshot.inputs)
         self.scope = self.request.scope
         self.today = production_date(self.snapshot.time.as_of)
@@ -73,8 +74,8 @@ class _Search:
             if not (switch.residual_record_id is not None and switch.line_code in pending
                     and matches_actual_job(switch, pending[switch.line_code])
                     and switch.line_code in self.scope.line_codes
-                    and all(self.scope.start_date <= allocation.date <= self.scope.end_date and allocation.date < self.today
-                            for allocation in switch.allocations))]})
+                    and all(self.scope.start_date <= allocation.date <= self.scope.end_date for allocation in switch.allocations)
+                    and any(allocation.date < self.today for allocation in switch.allocations))]})
         self.context = OperationContext(self.snapshot.model_copy(update={'plan': self.prepared_plan}), self.frozen.source_revision, action_id='solver')
         self.start = time.monotonic()
         self.deadline = self.start + self.request.time_limit_seconds
@@ -231,7 +232,7 @@ class _Search:
             return self.candidate_cache[id(entry)]
         plan, result, score, stage, bounds = entry
         candidate = Candidate(id='', source_revision=self.frozen.source_revision, input_version=self.frozen.input_version,
-            latest_adoption=self.frozen.latest_adoption, snapshot=self.snapshot, request=self.request, plan=plan,
+            latest_adoption=self.frozen.latest_adoption, snapshot=self.frozen.snapshot, request=self.request, plan=plan,
             operation=patch_operation(self.snapshot.plan, plan), effects=[list(r) for r in effect_keys(self.snapshot.plan, plan, self.snapshot)],
             objective=[str(v) for v in score], evaluation=result, stage_bounds=bounds or [StageBound(stage=stage,
                 neighborhood='authorized scope', status='validated', detail='完整规则已校验，没有全局最优证明')],
@@ -323,8 +324,8 @@ class _Search:
             raise ValueError('生成阶段日容量不足')
         return trial
 
-    def day_bounds(self, trial, day, line):
-        daily = sorted([r for r in trial.segments if r.date == day and r.line_code == line and r.quantity], key=lambda r: (r.order, r.id))
+    def state_before_production(self, trial, day, line):
+        """Keep confirmed points and mandatory work before proposing daily order."""
         from .recipe_states import snapshot_recipe_states
         prefix = trial.model_copy(update={'segments': [row for row in trial.segments if row.date < day],
             'switches': [switch.model_copy(update={'allocations': [row for row in switch.allocations
@@ -332,7 +333,11 @@ class _Search:
                         for switch in trial.switches if any(row.date < day or switch.residual_record_id is not None and row.date == day for row in switch.allocations)]})
         states = snapshot_recipe_states(self.snapshot.model_copy(update={'plan': prefix}), self.index)
         endings = [(date, state) for (date, code), state in states.endings.items() if code == line and date <= day]
-        state = max(endings, key=lambda row: row[0])[1] if endings else states.initial_states.get(line)
+        return max(endings, key=lambda row: row[0])[1] if endings else states.initial_states.get(line)
+
+    def day_bounds(self, trial, day, line):
+        daily = sorted([r for r in trial.segments if r.date == day and r.line_code == line and r.quantity], key=lambda r: (r.order, r.id))
+        state = self.state_before_production(trial, day, line)
         switch_hours = sum((Fraction(row.hours) for switch in trial.switches if switch.line_code == line and switch.residual_record_id is not None
                             for row in switch.allocations if row.date == day), Fraction(0))
         from .line_states import active_unfinished_jobs, matches_residual_job
@@ -564,7 +569,14 @@ class _Search:
                 self.scope_issue(error)
         prepared = self.cleanup(plan)
         self.stage('eligible_start', '范围内无需求富余经精确产出检查移除；最近采用版仍是原稳定性基线')
-        self.accept(prepared, 'eligible_start', prepare=True)
+        if not self.accept(prepared, 'eligible_start', prepare=True):
+            try:
+                repaired = self.witness(prepared)
+            except (ValueError, CertificateError, PlanProblem) as error:
+                self.scope_issue(error)
+            else:
+                if self.accept(repaired, 'source_certificate', prepare=True):
+                    prepared = repaired
         self.order(prepared, 'order_before_quantity')
         prepared = self.best or prepared
         built = self.construct(prepared, on_time_only=True)

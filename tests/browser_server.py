@@ -86,6 +86,11 @@ if __name__ == '__main__':
                 data['parameters']['switch_durations'][0]['hours'] = '12'
                 data['masters']['lines'].append({'code':'B','name':'周三观测线','active':True})
                 data['parameters']['capacities'] += [row|{'line_code':'B'} for row in list(data['parameters']['capacities']) if row['line_code']=='L']
+            if os.getenv('AUTO_PLAN_BROWSER_CANDIDATE_STATES_FIXTURE') == '1':
+                for row in data['parameters']['capacities']: row['pieces'] = 1000
+                data['business'] = {'demands': [
+                    {'model_code':'M','week':'2026-10-12','quantity':10},
+                    {'model_code':'P','week':'2026-10-12','quantity':1000}], 'confirmations': []}
             if os.getenv('AUTO_PLAN_BROWSER_DEMAND_TRIAL_FIXTURE') == '1':
                 data['parameters']['capacities'] = [row|{'pieces':600} for row in data['parameters']['capacities']]
                 data['masters']['lines'].append({'code':'B','name':'零产能线','active':True})

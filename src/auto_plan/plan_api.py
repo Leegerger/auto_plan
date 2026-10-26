@@ -44,7 +44,7 @@ def preview_certificate(payload: CertificatePreview, request: Request, principal
     source = payload.snapshot
     frozen_time = source.time or EvaluationTime.at(request.app.state.clock())
     from fractions import Fraction
-    from .line_states import calculation_anchors, active_unfinished_jobs
+    from .line_states import certificate_anchors, active_unfinished_jobs
     from .execution_rules import confirmed_day_capacity
     from .production_time import production_date
     frozen = source.model_copy(update={'time': frozen_time})
@@ -58,7 +58,7 @@ def preview_certificate(payload: CertificatePreview, request: Request, principal
         limits[today, line] = Fraction(budget.remaining_hours) if budget is not None else Fraction(0)
     try:
         plan = construct_hour_certificate(source.inputs, source.plan.segments, source.plan.initial_states,
-                                          window_start=frozen_time.window_start, confirmed_states=calculation_anchors(frozen),
+                                          window_start=frozen_time.window_start, confirmed_states=certificate_anchors(frozen),
                                           unfinished_jobs=unfinished.values(), end_date=frozen_time.window_end,
                                           unfinished_start=today, day_limits=limits)
     except CertificateError as error:

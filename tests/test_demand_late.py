@@ -154,3 +154,23 @@ def test_valid_continuity_cannot_waive_a_late_shipping_ban(shared_client):
     assert checked.json()['evaluation']['executable'] is False
     assert post(client,'save',command).status_code == 200
     assert post(client,'adopt',current_command(client)).status_code == 422
+
+
+def test_late_trial_uses_current_recipe_without_backdating_historical_monday(shared_client):
+    client, _, inputs = shared_client
+    configure(inputs,demand=10,line_yield='100',model_yield='100')
+    budget = {'kind':'confirm_day_capacity','observed_at':'2026-10-14T08:00:00+08:00',
+              'confirmations':[{'line_code':'L','current_recipe':'S','remaining_hours':'1'}]}
+    checked = trial(client,mode='late',target_output=10,operations=[budget],start_date='2026-10-20',end_date='2026-10-20',
+                    scope={'start_date':'2026-10-20','end_date':'2026-10-20','line_codes':['L'],'model_codes':['M']})
+    assert checked.status_code == 200, checked.text
+    result = checked.json()
+    assert (result['suggested_input'],result['scheduled_late_output'],result['remaining_output_target']) == (10,10,0)
+    switch, = result['preview']['evaluation']['switches']
+    assert (switch['from_recipe'],switch['to_recipe'],switch['total_hours']['exact']) == ('S','R','2')
+    assert result['preview']['evaluation']['adoption_conditions'] == []
+    monday = next(row for row in result['preview']['workspace_view']['line_weeks'] if row['line_code']=='L')
+    assert monday['state'] == 'unknown'
+    input_week = next(row for row in result['preview']['workspace_view']['line_weeks'] if row['line_code']=='L' and row['week']=='2026-10-19')
+    assert (input_week['first_production']['from_recipe'],input_week['first_production']['arranged']) == ('S',True)
+    assert any(row['code']=='confirmation_pending' for row in result['preview']['evaluation']['issues'])
