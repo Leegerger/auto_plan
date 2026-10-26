@@ -5,6 +5,7 @@ export function createWorkspaceContext() {
     line: '',
     lineFilter: '',
     modelFilter: '',
+    demand: { expanded: false, modelFilter: '', weekFilter: '', reasonFilter: '', model_code: '', week: '' },
     selected: [] as string[],
     panelOpen: true,
     exactHours: '',

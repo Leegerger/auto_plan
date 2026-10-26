@@ -381,6 +381,21 @@ class WeeklyResult(InputRow):
     on_time_rate_display: str = '不适用'
 
 
+class MissingDemandInput(InputRow):
+    category: str
+    model_code: Code
+    month: Month | None = None
+    reason: str
+
+
+class DemandAttention(WeeklyResult):
+    deadline: datetime
+    unarranged_output: Pieces | None
+    planning_complete: bool
+    reasons: list[str]
+    missing_inputs: list[MissingDemandInput] = Field(default_factory=list)
+
+
 class ConfirmationUsage(InputRow):
     model_code: Code
     week: ProductionDate
@@ -420,6 +435,7 @@ class EvaluationResult(InputRow):
     output_sources: list['OutputSource'] = Field(default_factory=list)
     attributions: list['OutputAttribution'] = Field(default_factory=list)
     weekly_results: list['WeeklyResult'] = Field(default_factory=list)
+    demand_attention: list[DemandAttention] = Field(default_factory=list)
     confirmation_usage: list['ConfirmationUsage'] = Field(default_factory=list)
     reconciled_cells: list['ReconciledCell'] = Field(default_factory=list)
     output_totals: 'OutputTotals | None' = None
