@@ -151,8 +151,13 @@ def trial_in_unit(planner, unit, request, actor, now, *, prepared=None):
                 day += timedelta(days=1)
                 continue
             capacity = index.capacity(day.strftime('%Y-%m'), recipe, line)
-            if capacity['state'] != 'known' or not capacity['pieces']:
-                block('recipe_capacity', '所选日期没有已知、允许且大于零的全日产能', day)
+            if capacity['state'] != 'known':
+                code, reason = {
+                    'missing': ('missing_capacity', f'{day:%Y-%m} 缺少 {line} / {recipe} 全日产能，尚不能计算'),
+                    'zero': ('zero_capacity', f'{day:%Y-%m} {line} / {recipe} 全日产能明确为零'),
+                    'forbidden': ('recipe_forbidden', f'{line} 明确禁止生产 Recipe {recipe}'),
+                }[capacity['state']]
+                block(code, reason, day)
                 day += timedelta(days=1)
                 continue
             prefix = result_plan
@@ -214,7 +219,7 @@ def trial_in_unit(planner, unit, request, actor, now, *, prepared=None):
             if physical(result_eval, model, request.demand_week) - baseline_on_time >= target:
                 break
             day += timedelta(days=1)
-    incomplete = incomplete or not placements and any(row['code'] in ('missing_parameters', 'incomplete_output') for row in blockers)
+    incomplete = incomplete or not placements and any(row['code'] in ('missing_parameters', 'missing_capacity', 'incomplete_output') for row in blockers)
     if placements and on_time_violation(before, result_eval, model, request.demand_week, {row['date'] for row in placements}):
         block('on_time_deadline', '此部分目标会使已有较晚产出新归属到目标周，本次按时模式保留目标并要求重新选择')
         placements = []
