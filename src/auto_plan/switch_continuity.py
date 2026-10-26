@@ -31,6 +31,8 @@ def _basis(snapshot, record, index):
     complete=len(arranged)==1 and matches_residual_job(arranged[0],record) and sum((Fraction(row.hours) for row in raw),Fraction(0))==Fraction(job.remaining_hours)
     positive=sorted({row.date for row in raw if Fraction(row.hours)})
     consecutive=all(b-a==timedelta(days=1) for a,b in zip(positive,positive[1:]))
+    full_interior=all(sum((Fraction(row.hours) for row in raw if row.date==day),Fraction(0))==24 for day in positive[1:-1])
+    uninterrupted=all(index.day(day,record.line_code)['available_hours']==24 for day in positive[1:-1])
     unique=len({(row.date,row.order) for row in raw})==len(raw)
     applicable=all(max(today,production_date(record.effective_at),snapshot.time.window_start)<=row.date<=snapshot.time.window_end for row in raw)
     reasons=[]
@@ -38,7 +40,9 @@ def _basis(snapshot, record, index):
     if not applicable: reasons.append('剩余作业不能安排到已过去日期、现场观察之前或排程窗口以外。')
     if not unique: reasons.append('剩余切机分配的同日顺序重复，请先修正。')
     if not consecutive: reasons.append('剩余切机安排之间存在未安排作业的生产日，已知中断不能由连续性确认豁免。')
-    eligible=complete and applicable and unique and consecutive
+    if not full_interior: reasons.append('跨越完整生产日的剩余切机工时必须覆盖整日24小时，已知中断不能豁免。')
+    if not uninterrupted: reasons.append('完整生产日存在已知休息、保养或实验中断，不能确认连续。')
+    eligible=complete and applicable and unique and consecutive and full_interior and uninterrupted
     first=min((row.date for row in raw),default=max(snapshot.time.window_start,production_date(record.effective_at)))
     last=max((row.date for row in raw),default=first)
     days=[]
@@ -94,7 +98,8 @@ def _basis(snapshot, record, index):
                         'associations':_ordered([row.model_dump(mode='json') for row in snapshot.execution.associations if row.segment_id in selected]),
                         'association_cells':_ordered([row.model_dump(mode='json') for row in snapshot.execution.association_cells if row.line_code==record.line_code and start<=row.date<=end])},
            'locks':_ordered([row.model_dump(mode='json') for row in snapshot.locks if row.line_code==record.line_code and first<=row.date<=end]),
-           'applicability':{'not_elapsed':applicable,'consecutive_days':consecutive,'unique_orders':unique,'complete':complete}}
+           'applicability':{'not_elapsed':applicable,'consecutive_days':consecutive,'full_interior_days':full_interior,
+                            'uninterrupted_calendar':uninterrupted,'unique_orders':unique,'complete':complete}}
     return basis,eligible,reasons
 
 
