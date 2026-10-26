@@ -119,6 +119,8 @@ def _evaluate_fields(snapshot, *, output_cache=None, json_mode=False):
                 problem('residual_reference', '剩余切机须关联当前现场原作业，不能改变线体、原目标 Recipe 或使用过期依据', switch=switch)
             else:
                 total = Fraction(actual.unfinished_switch.remaining_hours)
+                if any(row.date < max(production_date(snapshot.time.as_of),production_date(actual.effective_at)) for row in switch.allocations):
+                    problem('remaining_switch_elapsed', '现场实际剩余作业不能安排到观察时点之前或已经过去的生产日', switch=switch)
         allocated = sum((Fraction(a.hours) for a in switch.allocations), Fraction(0))
         idle = sum((Fraction(a.idle_hours) for a in switch.allocations), Fraction(0))
         if duration['state'] == 'same_recipe':

@@ -14,7 +14,8 @@ def _hours(value):
 
 
 def _job_details(record):
-    return record.unfinished_switch.model_dump(mode='json') | {'record_id': record.id}
+    return record.unfinished_switch.model_dump(mode='json') | {'record_id': record.id,
+        'effective_at':record.effective_at.isoformat(),'source':record.source,'actor':record.actor,'recorded_at':record.recorded_at.isoformat()}
 
 
 def workspace_view(snapshot, evaluation):
@@ -166,13 +167,14 @@ def _line_weeks(snapshot, index, evaluation, line, analysis, current, history):
                     'issues': relevant}
         pending_switch = switches.get(pending)
         pending_actual = actual is not None and pending == actual.unfinished_switch.job_id
+        inferred_start = pending_actual and actual.effective_at>production_cutoff(week) and actual.unfinished_switch.started_at<=production_cutoff(week)
         rows.append({'week': week.isoformat(), 'line_code': line, 'recipe_code': state,
                      'state': 'unfinished_switch' if pending_actual else 'planned_switch' if pending_switch else 'retained_recipe' if state else 'unknown',
-                     'source': ('confirmed_state' if any(record.line_code==line and record.effective_at<=production_cutoff(week) for record in snapshot.line_states.records) else 'window_plan_start') if number == 0 else 'plan_projection',
+                     'source': ('confirmed_job_start' if inferred_start else 'confirmed_state' if any(record.line_code==line and record.effective_at<=production_cutoff(week) for record in snapshot.line_states.records) else 'window_plan_start') if number == 0 else 'plan_projection',
                      'planned_switch': {'id': pending_switch.id, 'from_recipe': pending_switch.from_recipe,
                                         'to_recipe': pending_switch.to_recipe} if pending_switch else None,
                      'current_confirmation': current, 'first_production': link,
-                     'unfinished_switch':_job_details(actual) if pending_actual else None,
+                     'unfinished_switch':_job_details(actual)|{'remaining_at_week_start_known':actual.effective_at<=production_cutoff(week)} if pending_actual else None,
                      'new_switch_count':sum(week<=job['start']<end for job in jobs.values()),
                      'carried_switch_count':sum(job['start']<week<=job['end'] for job in jobs.values()),
                      'switch_hours':_hours(sum((Fraction(row.hours) for switch in switches.values() if switch.line_code==line for row in switch.allocations if week<=row.date<end),Fraction(0)))})

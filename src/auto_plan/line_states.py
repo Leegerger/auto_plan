@@ -5,7 +5,7 @@ import hashlib
 from typing import Literal
 from pydantic import Field, field_validator
 from .input_models import InputRow, Code
-from .plan_models import LineStateRecord, LineStateValue, LineStateAudit, LineStateReview, RuleIssue
+from .plan_models import LineStateRecord, LineStateValue, LineStateAudit, LineStateReview, RuleIssue, UnfinishedSwitch
 from .plan_operations import register_operation, ReplayResult
 from .production_time import production_date
 
@@ -35,6 +35,10 @@ class ConfirmLineStates(InputRow):
     kind: Literal['confirm_line_states']
     rows: list[StateConfirmation] = Field(min_length=1, max_length=1000)
     reason: str | None = Field(default=None, max_length=2000)
+
+
+def _job_identity(job):
+    return (job.job_id,job.started_at,job.from_recipe,job.to_recipe) if job is not None else None
 
 
 def confirm_line_states(plan, command, context):
@@ -68,11 +72,13 @@ def confirm_line_states(plan, command, context):
                        key=lambda record: (record.effective_at, record.recorded_at), default=None)
         previous_job = previous.unfinished_switch if previous is not None else None
         next_job = row.unfinished_switch
-        reconcile = previous_job is not None and (next_job is None or
-            (previous_job.job_id, previous_job.started_at, previous_job.from_recipe, previous_job.to_recipe) !=
-            (next_job.job_id, next_job.started_at, next_job.from_recipe, next_job.to_recipe))
+        reconcile = previous_job is not None and _job_identity(previous_job) != _job_identity(next_job)
         if reconcile and (not command.reason or not command.reason.strip()):
             raise ValueError('已经开始的实际切机不能自动取消或改目标，请填写现场核对及更正原因')
+        previous_states = [record for record in records.values() if next_job is not None and record.line_code == row.line_code
+            and next_job.started_at <= record.effective_at < row.effective_at and _job_identity(record.unfinished_switch) != _job_identity(next_job)]
+        if previous_states and (not command.reason or not command.reason.strip()):
+            raise ValueError('原切机实际开始时点与已有现场状态矛盾，请填写核对及更正原因')
         if old:
             if row.expected_record_id != old.id:
                 raise ValueError('已确认状态已变化，请重新读取并核对更正基准')
@@ -89,6 +95,8 @@ def confirm_line_states(plan, command, context):
             change['previous_capacity'] = prior_capacity.model_dump(mode='json')
         if reconcile:
             change['previous_unfinished'] = previous.model_dump(mode='json')
+        if previous_states:
+            change['previous_states'] = [record.model_dump(mode='json') for record in previous_states]
         changes.append(change)
         records[key] = record
     resolved=resolved_reviews(records.values(),context.issues)
@@ -108,6 +116,8 @@ class RecipeAnchor:
     recipe_code: str | None
     recorded_at: datetime
     priority: int = 0
+    unfinished_switch: UnfinishedSwitch | None = None
+    origin_record_id: str | None = None
 
 
 def unfinished_job_history(snapshot):
@@ -217,7 +227,16 @@ def active_state_reviews(snapshot):
 def calculation_anchors(snapshot):
     from .production_time import production_cutoff
     anchors=_known_anchors(snapshot)
+    observed_jobs=[record for record in anchors if getattr(record,'unfinished_switch',None) is not None]
+    anchors=[record for record in anchors if not isinstance(record,LineStateRecord) or not any(
+        job.line_code==record.line_code and job.unfinished_switch.started_at<=record.effective_at<job.effective_at
+        and _job_identity(record.unfinished_switch)!=_job_identity(job.unfinished_switch) for job in observed_jobs)]
     pending=active_unfinished_jobs(snapshot)
+    for record in list(anchors):
+        job=getattr(record,'unfinished_switch',None)
+        if job is not None and job.started_at<record.effective_at:
+            anchors.append(RecipeAnchor('start-'+record.id,record.line_code,job.started_at,None,record.recorded_at,
+                priority=2,unfinished_switch=job,origin_record_id=record.id))
     for review in active_state_reviews(snapshot):
         if review.line_code in pending:
             continue

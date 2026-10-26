@@ -290,3 +290,41 @@ def test_later_record_bound_day_budget_keeps_pending_progress_in_current_confirm
     assert current['effective_at'] == progress['rows'][0]['effective_at']
     assert current['record_id'] == record['id']
     assert current['valid'] is True
+
+
+def test_known_actual_start_precedes_observation_without_backdating_remaining_work(shared_client):
+    client, _, _ = shared_client
+    progress = unfinished()
+    progress['rows'][0]['effective_at'] = '2026-10-14T08:00:00+08:00'
+    checked = preview(client, progress)
+    assert checked.status_code == 200, checked.text
+    first = next(value for value in checked.json()['workspace_view']['line_weeks'] if value['line_code'] == 'L')
+    assert first['state'] == 'unfinished_switch'
+    assert first['recipe_code'] is None
+    assert first['unfinished_switch']['effective_at'] == progress['rows'][0]['effective_at']
+    assert first['source'] == 'confirmed_job_start'
+    assert first['unfinished_switch']['remaining_at_week_start_known'] is False
+    record = checked.json()['context']['line_states']['records'][0]
+    past = {'kind': 'patch_plan', 'switches': [residual(record['id'], day='2026-10-13')]}
+    checked = preview(client, progress, past)
+    assert checked.status_code == 200, checked.text
+    assert checked.json()['evaluation']['capacity_valid'] is False
+    assert any(issue['code'] == 'remaining_switch_elapsed' for issue in checked.json()['evaluation']['issues'])
+
+
+def test_backdated_actual_start_cannot_silently_override_protected_ready_points(shared_client):
+    client, _, _ = shared_client
+    ready = {'kind': 'confirm_line_states', 'rows': [{'line_code': 'L', 'effective_at': '2026-10-12T08:00:00+08:00', 'recipe_code': 'R', 'source': '原点检'}]}
+    assert post(client, 'save', current_command(client, ready)).status_code == 200
+    progress = unfinished()
+    progress['rows'][0]['effective_at'] = '2026-10-14T08:00:00+08:00'
+    assert preview(client, progress).status_code == 422
+    progress['reason'] = '复核原点检记录，原切机已于周日实际开始'
+    checked = preview(client, progress)
+    assert checked.status_code == 200, checked.text
+    first = next(value for value in checked.json()['workspace_view']['line_weeks'] if value['line_code'] == 'L')
+    assert first['state'] == 'unfinished_switch'
+    assert first['recipe_code'] is None
+    audit = checked.json()['context']['line_states']['audit'][-1]
+    assert audit['changes'][0]['previous_states'][0]['recipe_code'] == 'R'
+    assert head(client)['context']['line_states']['records'][0]['recipe_code'] == 'R'

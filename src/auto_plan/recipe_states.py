@@ -59,7 +59,7 @@ def analyze_recipe_states(plan: Plan, index: InputIndex, problem=None, *, includ
         if window_start is not None and record.effective_at <= production_cutoff(window_start):
             initial_states[record.line_code] = record.recipe_code
             initial_jobs[record.line_code] = getattr(record, 'unfinished_switch', None)
-            initial_records[record.line_code] = record.id
+            initial_records[record.line_code] = getattr(record,'origin_record_id',None) or record.id
             continue
         day = production_date(record.effective_at)
         if record.effective_at == production_cutoff(day) or getattr(record, 'unfinished_switch', None) is not None:
@@ -85,7 +85,7 @@ def analyze_recipe_states(plan: Plan, index: InputIndex, problem=None, *, includ
             if kind == 'confirmation':
                 state = item.recipe_code
                 actual = getattr(item, 'unfinished_switch', None)
-                actual_record = item.id
+                actual_record = getattr(item,'origin_record_id',None) or item.id
                 pending = actual.job_id if actual is not None else None
             elif kind == 'production':
                 if item.quantity or Fraction(item.hours):
