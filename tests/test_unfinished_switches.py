@@ -328,3 +328,24 @@ def test_backdated_actual_start_cannot_silently_override_protected_ready_points(
     audit = checked.json()['context']['line_states']['audit'][-1]
     assert audit['changes'][0]['previous_states'][0]['recipe_code'] == 'R'
     assert head(client)['context']['line_states']['records'][0]['recipe_code'] == 'R'
+
+
+def test_old_pending_observation_does_not_hide_retained_state_review(shared_client):
+    client, _, _ = shared_client
+    ready = {'kind': 'confirm_line_states', 'rows': [{'line_code': 'L', 'effective_at': '2026-10-12T08:00:00+08:00', 'recipe_code': 'R', 'source': '原点检'}]}
+    old_switch = {'id': 'elapsed-unconfirmed', 'line_code': 'L', 'from_recipe': 'R', 'to_recipe': 'S',
+                  'allocations': [{'date': '2026-10-13', 'order': 0, 'hours': '19/20'}]}
+    assert post(client, 'save', current_command(client, ready, {'kind': 'patch_plan', 'switches': [old_switch]})).status_code == 200
+    assert post(client, 'save', current_command(client, {'kind': 'replace_plan', 'plan': {}})).status_code == 200
+    current = head(client)
+    progress = unfinished()
+    progress['rows'][0]['expected_record_id'] = current['context']['line_states']['records'][0]['id']
+    progress['reason'] = '补充原实际切机历史状态，当前进度仍须核对'
+    first = preview(client, progress)
+    record = first.json()['context']['line_states']['records'][0]
+    plan = patch(row('target', model='P') | {'order': 1})
+    plan['switches'] = [residual(record['id'])]
+    checked = preview(client, progress, plan)
+    assert checked.status_code == 200, checked.text
+    assert checked.json()['evaluation']['capacity_valid'] is True
+    assert {issue['code'] for issue in checked.json()['evaluation']['adoption_conditions']} == {'line_state_review', 'remaining_switch_continuity'}

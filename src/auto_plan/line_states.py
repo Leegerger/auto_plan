@@ -305,14 +305,15 @@ def adoption_conditions(snapshot):
     anchors=calculation_anchors(snapshot)
     pending=active_unfinished_jobs(snapshot)
     for line,(day,segment) in sorted(affected.items()):
+        if line in reviews:
+            conditions.append(RuleIssue(code='line_state_review',severity='warning',line_code=line,date=day,
+                segment_id=segment,reason=reviews[line].reason+' 当前起点待核对，首次切机尚未计入。'))
+            if line not in pending:
+                continue
         if line in pending:
             job=pending[line].unfinished_switch
             conditions.append(RuleIssue(code='remaining_switch_continuity',severity='warning',line_code=line,date=day,
                 segment_id=segment,reason=f'原切机 {job.job_id} 尚余 {job.remaining_hours} 小时，日级容量不能证明连续条件，须核对后才能采用。'))
-            continue
-        if line in reviews:
-            conditions.append(RuleIssue(code='line_state_review',severity='warning',line_code=line,date=day,
-                segment_id=segment,reason=reviews[line].reason+' 当前起点待核对，首次切机尚未计入。'))
             continue
         records=[record for record in anchors if record.line_code==line]
         latest=max(records,key=lambda record:(record.effective_at,getattr(record,'priority',1),record.recorded_at)) if records else None
