@@ -1,5 +1,6 @@
 """Frozen single-line qualified-output trials using the common plan engines."""
 from datetime import date, timedelta
+from typing import Literal
 import hashlib
 import json
 from pydantic import field_validator
@@ -17,7 +18,7 @@ class DemandTrial(PlanCommand):
     demand_week: date
     goal_id: Code | None = None
     target_output: Pieces | None = None
-    mode: str = 'on_time'
+    mode: Literal['on_time', 'late'] = 'on_time'
     line_code: Code
     start_date: date
     end_date: date
@@ -39,6 +40,11 @@ def physical(evaluation, model, week, *, late=False):
     cutoff = str(week + timedelta(days=7))
     return sum(row['quantity'] for row in evaluation['attributions'] if row['model_code'] == model
                and row['demand_week'] == str(week) and (row['date'] >= cutoff if late else row['date'] < cutoff))
+
+
+def physical_coverage(evaluation, model, week, mode):
+    on_time = physical(evaluation, model, week)
+    return on_time + physical(evaluation, model, week, late=True) if mode == 'late' else on_time
 
 
 def confirmation_requirements(evaluation, model, weeks):
@@ -72,8 +78,6 @@ def trial_in_unit(planner, unit, request, actor, now, *, prepared=None):
     model, line = request.model_code, request.line_code
     if model not in index.models or not index.models[model].active or line not in index.lines or not index.lines[line].active:
         raise PlanProblem(422, '请选择有效机种及线体')
-    if request.mode != 'on_time':
-        raise PlanProblem(422, '请显式使用按时补排模式')
     if not snapshot.time.window_start <= request.demand_week <= snapshot.time.window_end:
         raise PlanProblem(422, '需求周必须位于冻结的十五周窗口')
     if not snapshot.time.window_start <= request.scope.start_date <= request.start_date <= request.end_date <= request.scope.end_date <= snapshot.time.window_end:
@@ -114,6 +118,8 @@ def trial_in_unit(planner, unit, request, actor, now, *, prepared=None):
     result_eval = before
     placements = []
     baseline_on_time = physical(before, model, request.demand_week)
+    baseline_late = physical(before, model, request.demand_week, late=True)
+    baseline_coverage = physical_coverage(before, model, request.demand_week, request.mode)
     cutoff = str(request.demand_week + timedelta(days=7))
     incomplete = not selected['computation_complete'] or not model_accounting_complete(before, model)
     baseline_complete = not incomplete
@@ -187,15 +193,15 @@ def trial_in_unit(planner, unit, request, actor, now, *, prepared=None):
             # A date's own CT tail cannot be repaired by a later input date.
             # FIFO attribution of existing late output can change again after
             # another authorized day, so check that only on the final result.
-            if output_tail_crosses_deadline(maximum_eval, model, request.demand_week, {str(day)}):
+            if request.mode == 'on_time' and output_tail_crosses_deadline(maximum_eval, model, request.demand_week, {str(day)}):
                 block('on_time_deadline', '所选投入会跨过目标需求截止点，本次按时模式不自动安排迟交', day)
                 day += timedelta(days=1)
                 continue
-            progress = physical(maximum_eval, model, request.demand_week) - baseline_on_time
+            progress = physical_coverage(maximum_eval, model, request.demand_week, request.mode) - baseline_coverage
             needed = min(target, progress)
             def fifo_total(evaluation):
                 return sum(row['quantity'] for row in evaluation['attributions'] if row['model_code'] == model
-                           and row['demand_week'] <= str(request.demand_week) and row['date'] < cutoff)
+                           and row['demand_week'] <= str(request.demand_week) and (request.mode == 'late' or row['date'] < cutoff))
             max_fifo = fifo_total(maximum_eval)
             if max_fifo <= fifo_total(result_eval):
                 block('no_target_progress', '此日期新增投入不能增加较早或所选需求的归属产出', day)
@@ -206,7 +212,7 @@ def trial_in_unit(planner, unit, request, actor, now, *, prepared=None):
             while low < high:
                 amount = (low + high) // 2
                 proposed, evaluated = candidate(amount)
-                reaches = physical(evaluated, model, request.demand_week) - baseline_on_time >= needed
+                reaches = physical_coverage(evaluated, model, request.demand_week, request.mode) - baseline_coverage >= needed
                 if progress < target:
                     reaches = reaches and fifo_total(evaluated) >= max_fifo
                 if reaches:
@@ -216,11 +222,11 @@ def trial_in_unit(planner, unit, request, actor, now, *, prepared=None):
                     low = amount + 1
             result_plan, result_eval = best_plan, best_eval
             placements.append({'date': str(day), 'quantity': low})
-            if physical(result_eval, model, request.demand_week) - baseline_on_time >= target:
+            if physical_coverage(result_eval, model, request.demand_week, request.mode) - baseline_coverage >= target:
                 break
             day += timedelta(days=1)
     incomplete = incomplete or not placements and any(row['code'] in ('missing_parameters', 'missing_capacity', 'incomplete_output') for row in blockers)
-    if placements and on_time_violation(before, result_eval, model, request.demand_week, {row['date'] for row in placements}):
+    if placements and request.mode == 'on_time' and on_time_violation(before, result_eval, model, request.demand_week, {row['date'] for row in placements}):
         block('on_time_deadline', '此部分目标会使已有较晚产出新归属到目标周，本次按时模式保留目标并要求重新选择')
         placements = []
     goal = DemandGoal.model_validate({key: continued_goal[key] for key in DemandGoal.model_fields}).model_dump(mode='json') if continued_goal else {'id': request.action_id, 'model_code': model, 'demand_week': str(request.demand_week), 'requested_output': target,
@@ -233,7 +239,7 @@ def trial_in_unit(planner, unit, request, actor, now, *, prepared=None):
     accepted = operation if placements else None
     preview = planner._prepare(unit, command.model_copy(update={'operations': command.operations + [accepted]}), now, actor) if accepted else prepared
     after = preview['evaluation']
-    gain = physical(after, model, request.demand_week) - baseline_on_time
+    gain = physical_coverage(after, model, request.demand_week, request.mode) - baseline_coverage
     remaining = max(target - gain, 0)
     final_selected = weekly(after, model, request.demand_week)
     week_effects = []
@@ -249,7 +255,10 @@ def trial_in_unit(planner, unit, request, actor, now, *, prepared=None):
     actual = [row for row in preview['plan']['segments'] if row['id'] not in new_ids]
     return {'status': 'incomplete' if incomplete else 'complete' if target and not remaining else 'partial' if actual else 'blocked',
         'basis': basis, 'request': echoed, 'suggested_input': None if incomplete else sum(row['quantity'] for row in actual),
-        'scheduled_on_time_output': None if incomplete else gain, 'valid_on_time_output': None if incomplete else final_selected['on_time'] - selected['on_time'],
+        'scheduled_on_time_output': None if incomplete else physical(after, model, request.demand_week) - baseline_on_time,
+        'scheduled_late_output': None if incomplete else physical(after, model, request.demand_week, late=True) - baseline_late,
+        'valid_on_time_output': None if incomplete else final_selected['on_time'] - selected['on_time'],
+        'valid_late_output': None if incomplete else final_selected['late'] - selected['late'], 'selected_demand': final_selected,
         'remaining_output_target': None if incomplete else remaining,
         'goal_remaining_output_target': preview.get('lineage', {}).get('demand_goals', {}).get(goal['id'], {}).get('remaining_output_target', None if incomplete else remaining),
         'placements': actual,

@@ -29,7 +29,7 @@ class SupplementDemand(InputRow):
     kind: Literal['supplement_demand']
     model_code: Code
     demand_week: date
-    mode: Literal['on_time'] = 'on_time'
+    mode: Literal['on_time', 'late'] = 'on_time'
     line_code: Code
     start_date: date
     end_date: date
@@ -128,7 +128,7 @@ def supplement_demand(plan, command, context):
         actual.extend(segment.model_dump(mode='json') for segment in result.segments if segment.id not in before)
     if actual:
         after_evaluation = _evaluation_json(context.snapshot.model_copy(update={'plan': result}))
-        if on_time_violation(before_evaluation, after_evaluation, command.model_code, command.demand_week, {row['date'] for row in actual}):
+        if command.mode == 'on_time' and on_time_violation(before_evaluation, after_evaluation, command.model_code, command.demand_week, {row['date'] for row in actual}):
             raise ValueError('接受的按时补排会跨过目标需求截止点，请重新试算，不自动引入迟交')
     record = command.goal.model_dump(mode='json') | {'mode': command.mode, 'accepted_actions': deepcopy((existing or {}).get('accepted_actions', {}))}
     record['accepted_actions'][context.action_id] = {
