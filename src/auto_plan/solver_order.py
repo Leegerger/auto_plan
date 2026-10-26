@@ -23,10 +23,10 @@ def order_proposal(search, plan):
     states = snapshot_recipe_states(search.snapshot.model_copy(update={'plan': plan}), search.index)
     replacements, exhaustive = {}, True
     for line in sorted(search.scope.line_codes):
-        incoming = states.initial_states.get(line)
-        for (day, code), state in sorted(states.endings.items()):
-            if code == line and day < search.scope.start_date:
-                incoming = state
+        days = [day for code, day in groups if code == line]
+        if not days:
+            continue
+        incoming = search.state_before_production(plan, min(days), line)
         # Each state retains a path and a lexicographic switch/order cost.
         frontier = {incoming: ((0, 0), [])}
         for (code, day), rows in sorted(groups.items()):

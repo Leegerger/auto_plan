@@ -3,11 +3,14 @@ import type { OutputEvaluation } from './outputTypes'
 import type { InputSnapshot } from './inputFields'
 import type { ExecutionContext, ExecutionCoverage, ResetSnapshot } from './executionTypes'
 import type { LockedCell, PlanningPreferences } from './stabilityTypes'
+import type { LineStateContext } from './lineStateTypes'
+import type { SwitchContinuityContext } from './switchContinuityTypes'
 
 export interface ComputationSource {
   source_revision:number;input_version:number;latest_adoption:number
   snapshot:{time:{as_of:string;window_start:string;weeks:number};inputs:InputSnapshot;plan:Plan;
     execution:ExecutionContext;reset:ResetSnapshot|null;locks:LockedCell[];preferences:PlanningPreferences;
+    line_states?:LineStateContext;state_reviews?:{id:string;line_code:string;review_after:string;reason:string}[];switch_continuity?:SwitchContinuityContext;
     baseline:{version:number;plan:Plan;coverage:ExecutionCoverage[]}|null}
 }
 
@@ -33,6 +36,6 @@ export type SubmissionResult={status:'ACCEPTED';submission_id:string;job_id:stri
 export interface CandidateView {
   job_id:string;candidate_id:string;payload_sha:string
   validity:{state:'requires_recheck'|'view_only';current_input_version:number}
-  candidate:{id:string;source_revision:number;input_version:number;latest_adoption:number;plan:Plan;operation:Record<string,unknown>;evaluation:OutputEvaluation;objective:string[];stage_bounds:StageBound[];eligibility:'executable'|'pending_confirmation';tradeoff:string}
+  candidate:{id:string;source_revision:number;input_version:number;latest_adoption:number;snapshot?:ComputationSource['snapshot'];plan:Plan;operation:Record<string,unknown>;evaluation:OutputEvaluation;objective:string[];stage_bounds:StageBound[];eligibility:'executable'|'pending_confirmation';tradeoff:string}
   proposal:{base_revision:number;input_version:number;latest_adoption:number;operations:BusinessOperation[]}
 }

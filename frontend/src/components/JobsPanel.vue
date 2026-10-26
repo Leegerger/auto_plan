@@ -8,6 +8,7 @@ import type { CandidateView, ComputationSource, Job, JobCandidateRef, JobList, S
 import type { InputSnapshot } from '../inputFields'
 import OutputResults from './OutputResults.vue'
 import ComputationSourceReview from './ComputationSourceReview.vue'
+import CandidateFieldEvidence from './CandidateFieldEvidence.vue'
 
 const props=defineProps<{shared:ReturnType<typeof useSharedPlan>}>()
 const router=useRouter()
@@ -232,6 +233,7 @@ onUnmounted(()=>{alive=false;clearTimeout(pollTimer)})
       <h3>候选 {{viewed.candidate_id}}</h3>
       <p>原共享修订 {{viewed.proposal.base_revision}} · 输入版本 {{viewed.proposal.input_version}} · 最近采用版 {{viewed.proposal.latest_adoption}}</p>
       <p>原始检查 {{viewed.candidate.eligibility==='executable' ? '可执行候选' : '待业务确认'}} · {{viewed.candidate.tradeoff}}</p>
+      <CandidateFieldEvidence :candidate="viewed.candidate" />
       <el-alert v-if="viewOnly" :title="`完整输入已变化，候选仅可查看。当前输入版本 ${viewed.validity.current_input_version}。若需调整当前计划，请提交当前共享计划的新计算任务。按原输入重新计算仍保留历史输入。`" type="warning" :closable="false" />
       <p v-else>有效性 需要重新检查。原始候选的可执行状态不代替本次完整业务预览。</p>
       <p>完整或部分候选均先重新预览。预览后可共享保存，正式采用需要另行点击。部分选择会重新检查保护范围和业务规则。</p>
