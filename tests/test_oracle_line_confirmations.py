@@ -69,6 +69,12 @@ def test_real_line_evidence_correction_race_retries_unknown_commit_and_reopen():
                 record = confirmed['context']['line_states']['records'][0]
                 assert (record['actor'], record['source'], record['recipe_code']) == ('T33EDITOR', '现场点检', 'R')
                 assert len(confirmed['context']['line_states']['audit']) == 1
+                current_point = confirm()
+                current_point['rows'][0]['effective_at'] = '2026-10-14T08:00:00+08:00'
+                conflicting_capacity = {'kind': 'confirm_day_capacity', 'confirmations': [{'line_code': 'L', 'current_recipe': 'S', 'remaining_hours': '1'}],
+                                        'observed_at': '2026-10-14T08:00:00+08:00'}
+                assert post('save', command(current_point, conflicting_capacity)).status_code == 422
+                assert head() == confirmed
                 first = command(confirm('班组甲复核', record['id']))
                 second = first | {'operation_id': str(uuid4()), 'operations': [confirm('班组乙复核', record['id'])]}
                 with ThreadPoolExecutor(2) as pool:

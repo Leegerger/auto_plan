@@ -397,3 +397,29 @@ def test_removing_later_switch_does_not_promote_the_same_old_daily_actual_into_f
     assert established.status_code == 200, established.text
     assert established.json()['evaluation']['executable'] is True
     assert len(established.json()['context']['line_states']['audit']) == 1
+
+
+def test_current_capacity_cannot_correct_same_point_field_recipe_without_reasoned_state_correction(shared_client):
+    from datetime import datetime, timezone
+    client, _, _ = shared_client
+    client.app.state.clock = lambda: datetime(2026, 10, 14, 1, tzinfo=timezone.utc)
+    assert client.post('/auto_plan/api/auth/login', json={'username': 'EDITOR', 'password': 'company-secret'}).status_code == 200
+    point = confirm()
+    point['rows'][0]['effective_at'] = '2026-10-14T08:30:00+08:00'
+    assert post(client, 'save', current_command(client, point)).status_code == 200
+    conflicting = {'kind': 'confirm_day_capacity', 'confirmations': [{'line_code': 'L', 'current_recipe': 'S', 'remaining_hours': '1'}],
+                   'observed_at': '2026-10-14T08:30:00+08:00'}
+    for observed in ('2026-10-14T08:30:00+08:00', '2026-10-14T08:00:00+08:00'):
+        operation = conflicting | {'observed_at': observed}
+        checked = preview(client, operation, patch(row('future-s', model='P')))
+        assert checked.status_code == 422, checked.status_code
+        assert '现场' in checked.json()['detail']
+        assert post(client, 'adopt', current_command(client, operation, patch(row('future-s', model='P')))).status_code == 422
+    assert head(client)['context']['line_states']['records'][0]['recipe_code'] == 'R'
+    assert len(head(client)['context']['line_states']['audit']) == 1
+    later = conflicting | {'observed_at': '2026-10-14T09:00:00+08:00'}
+    checked = preview(client, later, patch(row('future-s', model='P')))
+    assert checked.status_code == 200, checked.text
+    assert checked.json()['evaluation']['executable'] is True
+    assert post(client, 'adopt', current_command(client, later, patch(row('future-s', model='P')))).status_code == 200
+    assert len(head(client)['context']['line_states']['audit']) == 1
