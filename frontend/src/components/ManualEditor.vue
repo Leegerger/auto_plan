@@ -5,9 +5,12 @@ import type { BusinessOperation } from '../useSharedPlan'
 import { useSharedPlan } from '../useSharedPlan'
 import ExactHours from './ExactHours.vue'
 import QuantityChange from './QuantityChange.vue'
+import LineWeekState from './LineWeekState.vue'
+import MatrixDayState from './MatrixDayState.vue'
+import type { WorkspaceCapacity, WorkspaceLineWeek } from '../workspaceTypes'
 const props=defineProps<{shared:ReturnType<typeof useSharedPlan>}>()
 const {head,rows,plan,hourDisplay,readonly,appendOperation,check,unallocated}=props.shared
-const options=ref<{models:{code:string;name:string}[];lines:{code:string;name:string}[]}>({models:[],lines:[]})
+const options=ref<{models:{code:string;name:string;recipe_code:string}[];lines:{code:string;name:string}[]}>({models:[],lines:[]})
 const workspace=props.shared.workspace
 const {week,day,line,lineFilter,modelFilter,selected,exactHours,panelOpen}=toRefs(workspace)
 const {form,scope,mapping}=workspace
@@ -16,7 +19,25 @@ const matrix=ref<HTMLElement|null>(null), panelHeading=ref<HTMLElement|null>(nul
 let panelTrigger:HTMLElement|null=null
 const fillLines=ref<{code:string;name:string}[]>([]), fillDays=ref<{date:string;line_code:string;quantity:number}[]>([])
 const currentWeek=computed(()=>head.value?.weeks?.find(value=>value.number===week.value))
-const displayLines=computed(()=>[...options.value.lines,...[...new Set(rows.value.map(row=>row.line_code))].filter(code=>!options.value.lines.some(row=>row.code===code)).map(code=>({code,name:'历史引用'}))])
+const displayLines=computed(()=>[...options.value.lines,...[...new Set([...rows.value.map(row=>row.line_code),...(plan.value?.switches.map(row=>row.line_code) ?? []),...(props.shared.effective.value?.workspace_view?.line_weeks.map(row=>row.line_code) ?? [])])].filter(code=>!options.value.lines.some(row=>row.code===code)).map(code=>({code,name:'历史引用'}))])
+const matrixView=props.shared.matrixView
+const matrixDays=computed(()=>new Map((matrixView.value?.days ?? []).map(value=>[`${value.date}/${value.line_code}`,value])))
+const lineWeeks=computed(()=>new Map((matrixView.value?.line_weeks ?? []).map(value=>[`${value.week}/${value.line_code}`,value])))
+const monthCapacities=computed(()=>{
+  const values=new Map<string,WorkspaceCapacity[]>()
+  for(const row of matrixView.value?.capacities ?? []){const key=`${row.month}/${row.line_code}`;const group=values.get(key) ?? [];group.push(row);values.set(key,group)}
+  return values
+})
+const filteredRecipe=computed(()=>options.value.models.find(value=>value.code===modelFilter.value)?.recipe_code)
+const completeDay=computed(()=>matrixDays.value.get(`${day.value}/${line.value}`))
+const selectedLineWeek=computed(()=>{
+  const viewed=head.value?.weeks.find(value=>value.dates.includes(day.value))
+  return viewed ? lineWeeks.value.get(`${viewed.start_date}/${line.value}`) : undefined
+})
+function switchPaths(state:WorkspaceLineWeek|undefined){return (state?.first_production?.planned_switch_ids ?? []).flatMap(id=>{const value=plan.value?.switches.find(row=>row.id===id);return value ? [`${value.from_recipe} → ${value.to_recipe}`] : []})}
+function matrixDay(date:string,code:string){return matrixDays.value.get(`${date}/${code}`)}
+function matrixCapacities(date:string,code:string){return monthCapacities.value.get(`${date.slice(0,7)}/${code}`) ?? []}
+function hiddenCount(date:string,code:string){return cell(date,code).length-visibleCellRows(date,code).length}
 const filteredLines=computed(()=>lineFilter.value?displayLines.value.filter(value=>value.code===lineFilter.value):displayLines.value)
 const weekItems=computed(()=>head.value?.weeks.map(value=>{
   const outputs=props.shared.evaluation.value?.weekly_results.filter(row=>row.week===value.start_date) ?? []
@@ -124,10 +145,15 @@ async function stageExactHours(){
     <div class="schedule-frame" :class="{'panel-closed':!panelOpen}">
       <div class="schedule-board">
         <div class="input-toolbar"><label>周次 <select v-model.number="week" aria-label="计划周次"><option v-for="value in head?.weeks" :key="value.number" :value="value.number">第 {{value.number}} 周 · {{value.label}} · {{value.start_date}}</option></select></label><label>筛选线体 <select v-model="lineFilter" aria-label="筛选线体"><option value="">全部线体</option><option v-for="value in displayLines" :key="value.code" :value="value.code">{{value.code}} {{value.name}}</option></select></label><label>筛选机种 <select v-model="modelFilter" aria-label="筛选机种"><option value="">全部机种</option><option v-for="value in options.models" :key="value.code" :value="value.code">{{value.code}} {{value.name}}</option></select></label></div>
-        <div ref="matrix" class="input-table-scroll matrix-scroll" role="region" aria-label="周矩阵滚动区域" tabindex="0" @scroll="rememberScroll"><table class="input-table weekly-grid" aria-label="十五周日期线体计划"><thead><tr><th>线体</th><th v-for="date in currentWeek?.dates" :key="date">{{date}}</th></tr></thead><tbody><tr v-for="value in filteredLines" :key="value.code"><th scope="row" :aria-label="`${value.code} ${value.name}`">{{value.code}} {{value.name}}</th><td v-for="date in currentWeek?.dates" :key="date" :class="{'selected-cell':date===day && value.code===line}"><button type="button" class="plan-cell" :data-date="date" :data-line="value.code" :aria-label="`${date} ${value.code} 日内详情`" @click="open(date,value.code,$event)"><span v-for="row in visibleCellRows(date,value.code)" :key="row.id">{{row.model_code}} · {{row.quantity}}片<br></span><span v-if="!visibleCellRows(date,value.code).length">空白</span></button></td></tr></tbody></table></div>
+        <div ref="matrix" class="input-table-scroll matrix-scroll" role="region" aria-label="周矩阵滚动区域" tabindex="0" @scroll="rememberScroll"><table class="input-table weekly-grid" aria-label="十五周日期线体计划"><thead><tr><th>线体</th><th v-for="date in currentWeek?.dates" :key="date">{{date}}</th></tr></thead><tbody><tr v-for="value in filteredLines" :key="value.code"><th scope="row" :aria-label="`${value.code} ${value.name}`"><strong>{{value.code}} {{value.name}}</strong><LineWeekState :state="lineWeeks.get(`${currentWeek?.start_date}/${value.code}`)" :switch-paths="switchPaths(lineWeeks.get(`${currentWeek?.start_date}/${value.code}`))" :stale="shared.needsPreview.value" /></th><td v-for="date in currentWeek?.dates" :key="date" :class="{'selected-cell':date===day && value.code===line}"><button type="button" class="plan-cell" :data-date="date" :data-line="value.code" :aria-label="`${date} ${value.code} 日内详情`" @click="open(date,value.code,$event)"><span v-for="row in visibleCellRows(date,value.code)" :key="row.id">{{row.model_code}} · {{row.quantity}}片<br></span><span v-if="hiddenCount(date,value.code)" class="hidden-production">另有 {{hiddenCount(date,value.code)}} 段已排生产被筛选隐藏</span><span v-else-if="!visibleCellRows(date,value.code).length">无已排生产</span><MatrixDayState :day="matrixDay(date,value.code)" :capacities="matrixCapacities(date,value.code)" :recipe-code="filteredRecipe" :stale="shared.needsPreview.value" /></button></td></tr></tbody></table></div>
       </div>
       <aside v-show="panelOpen" class="schedule-inspector" aria-label="排程对象详情" @keydown.esc.prevent="closePanel">
     <div class="inspector-heading"><h3 ref="panelHeading" tabindex="-1">{{day}} · {{line}} 日内详情</h3><el-button aria-label="关闭对象面板" @click="closePanel">关闭</el-button></div>
+    <section v-if="selectedLineWeek" class="inspector-line-state" aria-label="所选线体周初状态"><h4>周初线体状态</h4><LineWeekState :state="selectedLineWeek" :switch-paths="switchPaths(selectedLineWeek)" /></section>
+    <section v-if="selectedLineWeek?.current_confirmation" aria-label="当前现场确认" class="inspector-line-state"><h4>当前现场确认</h4><p>Recipe {{selectedLineWeek.current_confirmation.recipe_code}} · {{selectedLineWeek.current_confirmation.observed_at}}</p><p>{{selectedLineWeek.current_confirmation.valid ? '现场依据有效' : '现场依据已变化，需重新核对'}}</p></section>
+    <section v-if="completeDay" role="region" aria-label="完整日容量依据" class="inspector-line-state"><h4>{{completeDay.basis==='confirmed_remaining_day' ? '现场确认剩余工时' : '日历与工时'}}</h4><p>日历可用 <ExactHours :value="completeDay.calendar_hours" /></p><p>当前可用 <ExactHours :value="completeDay.available_hours" /></p><p>已占用 <ExactHours :value="completeDay.occupied_hours" /></p><p>剩余 <ExactHours :value="completeDay.remaining_hours" /></p><p v-if="completeDay.holiday">Holiday{{completeDay.opening_exception ? ' · 开工例外' : ''}}</p><p v-if="completeDay.maintenance_hours">保养 {{completeDay.maintenance_hours}} 小时</p><p v-if="completeDay.experiment_hours">实验 {{completeDay.experiment_hours}} 小时</p></section>
+    <p v-else>{{shared.needsPreview.value ? '日容量待重新预览' : '尚未取得完整日容量，不能视为空闲'}}</p>
+    <p v-if="hiddenCount(day,line)" class="hidden-production">另有 {{hiddenCount(day,line)}} 段已排生产被筛选隐藏 <el-button @click="modelFilter=''">显示该日全部机种</el-button></p>
     <table class="input-table" aria-label="日内生产顺序"><thead><tr><th>选择</th><th>顺序 / 机种</th><th>投入量</th><th>精确工时</th><th>排序</th></tr></thead><tbody><tr v-for="(row,index) in daily" :key="row.id"><td><input type="checkbox" :checked="selected.includes(row.id)" :disabled="readonly" :aria-label="`选择生产段 ${row.id}`" @change="choose(row.id)"></td><td>{{row.order}} · {{row.model_code}}</td><td>{{row.quantity}}片</td><td><ExactHours v-if="hourDisplay?.segments[row.id]" :value="hourDisplay!.segments[row.id]!" /></td><td><el-button size="small" :disabled="readonly || index===0" :aria-label="`${row.id}上移`" @click="order(row.id,-1)">上移</el-button><el-button size="small" :disabled="readonly || index===daily.length-1" :aria-label="`${row.id}下移`" @click="order(row.id,1)">下移</el-button></td></tr></tbody></table>
     <p v-if="!daily.length">当日尚无生产段。</p>
     <div v-if="capacity" role="region" aria-label="每日容量依据"><p>日可用 {{capacity.available_hours}} 小时；日末 Recipe {{capacity.ending_recipe ?? '未知'}}。完整计划切机 {{evaluation?.switch_count}} 次。</p><div class="hour-summary"><p>生产 <ExactHours :value="capacity.production_hours" /></p><p>切机 <ExactHours :value="capacity.switch_hours" /></p><p>总占用 <ExactHours :value="capacity.occupied_hours" /></p></div><table class="input-table" aria-label="所选日Recipe容量"><thead><tr><th>Recipe</th><th>汇总投入</th><th>生产工时</th><th>全日产能</th><th>精确投入上限</th><th>状态</th></tr></thead><tbody><tr v-for="value in capacity.recipes" :key="value.recipe_code"><td>{{value.recipe_code}}</td><td>{{value.quantity}}</td><td><ExactHours :value="value.hours" /></td><td>{{value.full_day_capacity}}</td><td>{{value.limit}}</td><td>{{({known:'已知',zero:'已知为零',missing:'缺失',forbidden:'明确不能生产'} as Record<string,string>)[value.capacity_state]}}</td></tr></tbody></table></div>
