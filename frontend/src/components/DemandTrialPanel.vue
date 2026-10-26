@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { api, principal } from '../api'
+import { api } from '../api'
+import { demandRequestFields, demandRequestKey } from '../demandRequests'
 import type { DemandTrialResult } from '../demandTrialTypes'
 import type { useSharedPlan } from '../useSharedPlan'
 import DemandTrialDetails from './DemandTrialDetails.vue'
@@ -14,10 +15,9 @@ const result=computed(()=>form.result)
 function pieces(value:number|null|undefined,unit='片合格产出'){return value==null ? '待完成计算' : `${value} ${unit}`}
 const goal=computed(()=>props.shared.lineage.value.demand_goals?.[form.goalId])
 function payload(){
-  const {operation_id:_,pending:__,...command}=props.shared.command()
-  return {...command,action_id:form.actionId,goal_id:form.goalId||null,model_code:form.modelCode,demand_week:form.demandWeek,target_output:form.targetOutput===''?null:Number(form.targetOutput),mode:form.mode,line_code:form.lineCode,start_date:form.startDate,end_date:form.endDate,scope:{start_date:scope.start_date,end_date:scope.end_date,line_codes:[...scope.line_codes],model_codes:[...scope.model_codes]}}
+  return {...demandRequestFields(props.shared),mode:form.mode,line_code:form.lineCode}
 }
-const currentRequest=computed(()=>JSON.stringify({actor:principal.value?.user_id,request:props.shared.head.value ? payload() : null,head:props.shared.head.value ? {revision:props.shared.head.value.revision,input_version:props.shared.head.value.input_version,latest_adoption:props.shared.head.value.latest_adoption,as_of:props.shared.head.value.time.as_of}:null}))
+const currentRequest=computed(()=>demandRequestKey(props.shared,payload))
 function invalidate(){request++;busy.value=false;if(form.result)form.notice='试算已失效，输入已保留，请重新试算。';form.result=null;form.requestKey=''}
 watch(currentRequest,()=>invalidate())
 onMounted(async()=>{

@@ -1,4 +1,6 @@
 import { test, expect, type Page } from '@playwright/test'
+import { mkdir, writeFile } from 'node:fs/promises'
+import { join } from 'node:path'
 
 async function enter(page: Page, user = 'SHARED_EDITOR') {
   await page.goto('/planning/login')
@@ -7,6 +9,53 @@ async function enter(page: Page, user = 'SHARED_EDITOR') {
   await page.getByRole('button', { name: '登录', exact: true }).click()
   await page.getByRole('navigation', { name: '主要导航' }).getByRole('link', { name: '排程', exact: true }).click()
 }
+
+test('selecting existing output with missing Cycle Time keeps every computed summary amount unknown', async ({ page }) => {
+  test.skip(process.env.AUTO_PLAN_BROWSER_DEMAND_LATE_INCOMPLETE_FIXTURE !== '1', 'Requires existing output with missing Cycle Time')
+  await enter(page)
+  const head = await (await page.request.get('/planning/api/plans/current')).json()
+  expect(head.plan.segments).toEqual([expect.objectContaining({ id: 'incomplete-existing', model_code: 'N', quantity: 100 })])
+  expect(head.evaluation.demand_attention.find((row: { model_code: string }) => row.model_code === 'N')).toMatchObject({ demand: 1000, computation_complete: false, unarranged_output: null })
+  await page.getByRole('button', { name: '2026-10-15 L 日内详情', exact: true }).click()
+  await page.getByLabel('选择生产段 incomplete-existing', { exact: true }).check()
+  await page.getByLabel('调整后精确工时', { exact: true }).fill('4')
+  await page.getByRole('button', { name: '加入工时调整并预览', exact: true }).click()
+  await expect(page.getByText('预览完成，尚未共享', { exact: true })).toBeVisible()
+  await page.getByLabel('追加起日', { exact: true }).fill('2026-10-22')
+  await page.getByLabel('操作数量', { exact: true }).fill('123')
+  await page.getByRole('button', { name: '展开待处理需求', exact: true }).click()
+  await page.getByRole('button', { name: '选择需求 N 2026-10-12', exact: true }).click()
+  const summary = page.getByRole('region', { name: '所选需求摘要', exact: true })
+  const amounts = summary.locator('.demand-quantities')
+  const artifact = process.env.AUTO_PLAN_BROWSER_REVIEW_ARTIFACTS
+  if (artifact) {
+    await mkdir(artifact, { recursive: true })
+    await writeFile(join(artifact, 'current.json'), JSON.stringify(head, null, 2))
+    await writeFile(join(artifact, 'summary.txt'), await summary.innerText())
+    await page.screenshot({ path: join(artifact, 'summary.png'), fullPage: true })
+  }
+  for (const label of ['尚无产出安排', '按时覆盖', '待物料确认', '待出货确认', '已确认迟交预计覆盖', '未补足缺口']) {
+    await expect(amounts).toContainText(`${label} 待完成计算`)
+    await expect(amounts).not.toContainText(`${label} 0 片`)
+  }
+  await expect(amounts).toContainText('周出货需求 1000 片')
+  await summary.getByRole('link', { name: '补Cycle Time', exact: true }).click()
+  await expect(page.getByLabel('资料类别', { exact: true })).toHaveValue('cycle_times')
+  await expect(page.getByRole('region', { name: '需求资料定位', exact: true })).toContainText('N · 需求周 2026-10-12')
+  await page.getByRole('link', { name: '返回计划工作区', exact: true }).click()
+  await expect(summary).toContainText('旧试算已失效')
+  await expect(page.getByLabel('追加起日', { exact: true })).toHaveValue('2026-10-22')
+  await expect(page.getByLabel('操作数量', { exact: true })).toHaveValue('123')
+  await expect(page.getByLabel('选择生产段 incomplete-existing', { exact: true })).toBeChecked()
+  await page.getByRole('button', { name: '按最新资料重新预览', exact: true }).click()
+  await expect(summary).toContainText('按时覆盖 待完成计算')
+  await page.getByRole('button', { name: '继续编辑', exact: true }).click()
+  await page.getByRole('button', { name: /本机临时稿/ }).click()
+  const actions = page.getByRole('region', { name: '本机完整动作队列', exact: true }).getByRole('checkbox')
+  await expect(actions).toHaveCount(1)
+  await expect(actions).toBeChecked()
+  expect((await (await page.request.get('/planning/api/plans/current')).json()).revision).toBe(head.revision)
+})
 
 test('demand reasons use authoritative quantities, filters and retained independent demand selection', async ({ page }) => {
   test.skip(process.env.AUTO_PLAN_BROWSER_DEMAND_FIXTURE !== '1', 'Requires the frozen demand fixture')
