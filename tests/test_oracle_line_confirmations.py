@@ -124,5 +124,31 @@ def test_real_line_evidence_correction_race_retries_unknown_commit_and_reopen():
                 for path in ('preview', 'save', 'adopt'):
                     body = forbidden if path != 'preview' else {key: value for key, value in forbidden.items() if key not in ('operation_id', 'pending')}
                     assert reopened.post('/auto_plan/api/plans/' + path, json=body).status_code == 403
+                assert reopened.post('/auto_plan/api/auth/login', json={'username': 'T33EDITOR', 'password': 'company-secret'}).status_code == 200
+                client = reopened
+                capacity = {'kind': 'confirm_day_capacity', 'confirmations': [{'line_code': 'L', 'current_recipe': 'R', 'remaining_hours': '1'}],
+                            'observed_at': '2026-10-14T08:00:00+08:00'}
+                assert post('save', command(capacity)).status_code == 200
+                before = head()
+                conflicting = capacity | {'confirmations': [{'line_code': 'L', 'current_recipe': 'S', 'remaining_hours': '1'}]}
+                assert post('save', command(conflicting)).status_code == 422
+                corrected = confirm()
+                corrected['rows'][0].update(effective_at=capacity['observed_at'], recipe_code='S')
+                assert post('save', command(corrected)).status_code == 422
+                assert head() == before
+                corrected['reason'] = '复核同一时点的剩余工时 Recipe 登记错误'
+                future_s = {'kind': 'replace_plan', 'plan': {'segments': pending_switch['plan']['segments']}}
+                assert post('save', command(corrected, conflicting, future_s)).status_code == 200
+                expected = head()
+                audit = expected['context']['line_states']['audit'][-1]
+                assert audit['reason'] == corrected['reason']
+                assert audit['changes'][0]['previous_capacity']['current_recipe'] == 'R'
+                assert audit['changes'][0]['after']['recipe_code'] == 'S'
+                assert plans.check_consistency() is True
+            with TestClient(app(), base_url=settings.public_origin) as corrected_reopen:
+                corrected_reopen.headers.update({'Origin': settings.public_origin, 'X-Auto-Plan-Request': '1'})
+                assert corrected_reopen.post('/auto_plan/api/auth/login', json={'username': 'T33EDITOR', 'password': 'company-secret'}).status_code == 200
+                assert corrected_reopen.get('/auto_plan/api/plans/current').json() == expected
+                assert corrected_reopen.get('/auto_plan/api/plans/adoptions/1').json() == original
     finally:
         access.close()

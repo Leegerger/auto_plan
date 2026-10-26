@@ -77,8 +77,9 @@ def test_current_confirmation_can_resolve_future_work_without_fabricating_a_mond
     assert monday['recipe_code'] is None
     assert monday['current_confirmation']['recipe_code'] == 'R'
     assert post(client, 'adopt', current_command(client, day, patch(row()))).status_code == 200
-    newer = {'kind': 'confirm_line_states', 'rows': [{'line_code': 'L', 'effective_at': '2026-10-14T08:00:00+08:00', 'recipe_code': 'S', 'source': '重新现场核实'}]}
-    revised = preview(client, newer)
+    corrected = {'kind': 'confirm_line_states', 'reason': '复核同一时点剩余工时的 Recipe 登记错误',
+                 'rows': [{'line_code': 'L', 'effective_at': '2026-10-14T08:00:00+08:00', 'recipe_code': 'S', 'source': '重新现场核实'}]}
+    revised = preview(client, corrected)
     assert revised.status_code == 200, revised.text
     evaluation = revised.json()['evaluation']
     assert evaluation['executable'] is False
@@ -423,3 +424,81 @@ def test_current_capacity_cannot_correct_same_point_field_recipe_without_reasone
     assert checked.json()['evaluation']['executable'] is True
     assert post(client, 'adopt', current_command(client, later, patch(row('future-s', model='P')))).status_code == 200
     assert len(head(client)['context']['line_states']['audit']) == 1
+
+
+def test_current_capacity_recipe_cannot_be_silently_overwritten_at_the_same_point(shared_client):
+    from datetime import datetime, timezone
+    client, _, _ = shared_client
+    client.app.state.clock = lambda: datetime(2026, 10, 14, 1, tzinfo=timezone.utc)
+    assert client.post('/auto_plan/api/auth/login', json={'username': 'EDITOR', 'password': 'company-secret'}).status_code == 200
+    day = {'kind': 'confirm_day_capacity', 'confirmations': [{'line_code': 'L', 'current_recipe': 'R', 'remaining_hours': '1'}],
+           'observed_at': '2026-10-14T08:30:00+08:00'}
+    assert post(client, 'save', current_command(client, day)).status_code == 200
+    before = head(client)
+    assert before['context']['line_states']['records'] == []
+    conflict = day | {'confirmations': [{'line_code': 'L', 'current_recipe': 'S', 'remaining_hours': '1'}]}
+    checked = preview(client, conflict, patch(row('future-s', model='P')))
+    assert checked.status_code == 422, checked.status_code
+    assert '更正' in checked.json()['detail']
+    for action in ('save', 'adopt'):
+        assert post(client, action, current_command(client, conflict, patch(row('future-s', model='P')))).status_code == 422
+    assert head(client) == before
+    later = conflict | {'observed_at': '2026-10-14T09:00:00+08:00'}
+    assert post(client, 'adopt', current_command(client, later, patch(row('future-s', model='P')))).status_code == 200
+
+
+def test_new_field_record_correcting_same_point_capacity_requires_reason_and_audits_prior_evidence(shared_client):
+    from datetime import datetime, timezone
+    client, _, _ = shared_client
+    client.app.state.clock = lambda: datetime(2026, 10, 14, 1, tzinfo=timezone.utc)
+    assert client.post('/auto_plan/api/auth/login', json={'username': 'EDITOR', 'password': 'company-secret'}).status_code == 200
+    day = {'kind': 'confirm_day_capacity', 'confirmations': [{'line_code': 'L', 'current_recipe': 'R', 'remaining_hours': '1'}],
+           'observed_at': '2026-10-14T08:30:00+08:00'}
+    assert post(client, 'save', current_command(client, day)).status_code == 200
+    before = head(client)
+    corrected = confirm('S')
+    corrected['rows'][0]['effective_at'] = '2026-10-14T08:30:00+08:00'
+    assert preview(client, corrected).status_code == 422
+    for action in ('save', 'adopt'):
+        assert post(client, action, current_command(client, corrected)).status_code == 422
+    assert head(client) == before
+    later = confirm('S')
+    later['rows'][0]['effective_at'] = '2026-10-14T09:00:00+08:00'
+    checked = preview(client, later, patch(row('later-s', model='P')))
+    assert checked.status_code == 200, checked.text
+    assert checked.json()['evaluation']['executable'] is True
+    corrected['reason'] = '复核发现同一时点的剩余工时 Recipe 登记错误'
+    refreshed = day | {'confirmations': [{'line_code': 'L', 'current_recipe': 'S', 'remaining_hours': '1'}]}
+    command = current_command(client, corrected, refreshed, patch(row('future-s', model='P')))
+    saved = post(client, 'adopt', command)
+    assert saved.status_code == 200, saved.text
+    assert post(client, 'adopt', command).json() == saved.json()
+    current = head(client)
+    audit = current['context']['line_states']['audit']
+    assert len(audit) == 1
+    assert audit[0]['reason'] == corrected['reason']
+    assert audit[0]['changes'][0]['before'] is None
+    assert audit[0]['changes'][0]['previous_capacity']['current_recipe'] == 'R'
+    assert audit[0]['changes'][0]['previous_capacity']['confirmed_at'] == day['observed_at']
+    assert audit[0]['changes'][0]['after']['recipe_code'] == 'S'
+    assert current['context']['execution']['day_capacities'][0]['current_recipe'] == 'S'
+
+
+def test_capacity_observation_cannot_backdate_across_any_conflicting_protected_point(shared_client):
+    from datetime import datetime, timezone
+    client, _, _ = shared_client
+    client.app.state.clock = lambda: datetime(2026, 10, 14, 1, tzinfo=timezone.utc)
+    assert client.post('/auto_plan/api/auth/login', json={'username': 'EDITOR', 'password': 'company-secret'}).status_code == 200
+    points = {'kind': 'confirm_line_states', 'rows': [
+        {'line_code': 'L', 'effective_at': '2026-10-14T08:00:00+08:00', 'recipe_code': 'R', 'source': '早班点检'},
+        {'line_code': 'L', 'effective_at': '2026-10-14T08:30:00+08:00', 'recipe_code': 'S', 'source': '切机后点检'}]}
+    assert post(client, 'save', current_command(client, points)).status_code == 200
+    before = head(client)
+    day = {'kind': 'confirm_day_capacity', 'confirmations': [{'line_code': 'L', 'current_recipe': 'S', 'remaining_hours': '1'}],
+           'observed_at': '2026-10-14T08:00:00+08:00'}
+    checked = preview(client, day, patch(row('future-s', model='P')))
+    assert checked.status_code == 422, checked.status_code
+    assert post(client, 'adopt', current_command(client, day, patch(row('future-s', model='P')))).status_code == 422
+    assert head(client) == before
+    later = day | {'observed_at': '2026-10-14T09:00:00+08:00'}
+    assert post(client, 'adopt', current_command(client, later, patch(row('future-s', model='P')))).status_code == 200

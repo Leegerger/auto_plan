@@ -55,6 +55,10 @@ def confirm_line_states(plan, command, context):
         old = records.get(key)
         if old and (old.recipe_code, old.source) == (row.recipe_code, row.source):
             continue
+        prior_capacity = next((value for value in context.execution.day_capacities
+            if value.line_code == row.line_code and value.confirmed_at == row.effective_at and value.current_recipe != row.recipe_code), None)
+        if prior_capacity is not None and (not command.reason or not command.reason.strip()):
+            raise ValueError('更正同一时点已确认的剩余工时 Recipe 必须填写现场状态更正原因')
         if old:
             if row.expected_record_id != old.id:
                 raise ValueError('已确认状态已变化，请重新读取并核对更正基准')
@@ -65,7 +69,10 @@ def confirm_line_states(plan, command, context):
         identity = 'state-' + hashlib.sha256(f'{context.action_id}:{row.line_code}:{row.effective_at.isoformat()}'.encode()).hexdigest()[:40]
         record = LineStateRecord(id=identity, line_code=row.line_code, effective_at=row.effective_at,
             recipe_code=row.recipe_code, source=row.source, actor=context.actor, recorded_at=context.time.as_of)
-        changes.append({'before': old.model_dump(mode='json') if old else None, 'after': record.model_dump(mode='json')})
+        change = {'before': old.model_dump(mode='json') if old else None, 'after': record.model_dump(mode='json')}
+        if prior_capacity is not None:
+            change['previous_capacity'] = prior_capacity.model_dump(mode='json')
+        changes.append(change)
         records[key] = record
     resolved=resolved_reviews(records.values(),context.issues)
     if not changes:
