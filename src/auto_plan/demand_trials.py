@@ -62,9 +62,10 @@ def confirmation_requirements(evaluation, model, weeks):
     return result
 
 
-def trial_in_unit(planner, unit, request, actor, now):
+def trial_in_unit(planner, unit, request, actor, now, *, prepared=None):
     command = PlanCommand.model_validate(request.model_dump(include=set(PlanCommand.model_fields)))
-    prepared = planner._prepare(unit, command, now, actor)
+    if prepared is None:
+        prepared = planner._prepare(unit, command, now, actor)
     snapshot = EvaluationSnapshot.model_validate(prepared['snapshot'])
     index = InputIndex(snapshot.inputs)
     model, line = request.model_code, request.line_code
