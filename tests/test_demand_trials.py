@@ -370,6 +370,39 @@ def test_partial_target_does_not_silently_reattribute_existing_late_output_to_se
     assert any(row['code'] == 'on_time_deadline' for row in result['blockers'])
 
 
+def test_multi_day_fifo_keeps_a_prefix_when_full_range_removes_temporary_selected_late_output(shared_client):
+    client, _, inputs = shared_client
+    data = configure(inputs, demand=500, week='2026-10-19', line_yield='100', model_yield='100', capacity=500)
+    data['business']['demands'].insert(0, {'model_code': 'M', 'week': '2026-10-12', 'quantity': 300})
+    inputs.versions[1] = InputSnapshot.model_validate(data)
+    later = {'id': 'existing-late', 'date': '2026-10-27', 'line_code': 'B', 'order': 0, 'model_code': 'M', 'quantity': 100, 'hours': '3'}
+    source = {'kind': 'patch_plan', 'segments': [later]}
+    scope = {'start_date': '2026-10-20', 'end_date': '2026-10-21', 'line_codes': ['L'], 'model_codes': []}
+    before = head(client)
+    explicit = [{'kind': 'append_fill', 'model_code': 'M', 'line_code': 'L', 'quantity': quantity,
+                 'start_date': day, 'end_date': day, 'scope': scope} for day, quantity in [('2026-10-20', 500), ('2026-10-21', 300)]]
+    witness = preview(client, source, *explicit)
+    assert witness.status_code == 200, witness.text[:500]
+    assert witness.json()['evaluation']['capacity_valid'] is True
+    assert next(row for row in witness.json()['evaluation']['weekly_results'] if row['week'] == '2026-10-19')['on_time'] == 500
+
+    checked = trial(client, demand_week='2026-10-19', target_output=500, operations=[source],
+                    start_date='2026-10-20', end_date='2026-10-21', scope=scope)
+
+    assert checked.status_code == 200, checked.text[:500]
+    result = checked.json()
+    assert (result['status'], result['suggested_input'], result['scheduled_on_time_output'], result['remaining_output_target']) == ('complete', 800, 500, 0)
+    assert [(row['date'], row['line_code'], row['quantity']) for row in result['placements']] == [('2026-10-20', 'L', 500), ('2026-10-21', 'L', 300)]
+    selected = next(row for row in result['week_effects'] if row['week'] == '2026-10-19')
+    assert (selected['physical_on_time_after'], selected['physical_late_after']) == (500, 0)
+    assert next(row for row in result['preview']['plan']['segments'] if row['id'] == 'existing-late') == later
+    assert not any(row['code'] == 'on_time_deadline' for row in result['blockers'])
+    replayed = preview(client, source, result['operation'])
+    assert replayed.status_code == 200, replayed.text[:500]
+    assert replayed.json()['plan'] == result['preview']['plan']
+    assert head(client) == before
+
+
 def test_trial_rejects_stale_inputs_and_viewer_requests_without_writing(shared_client):
     client, _, inputs = shared_client
     configure(inputs)

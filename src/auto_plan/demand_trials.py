@@ -8,7 +8,7 @@ from .plans import PlanCommand, PlanProblem, protect
 from .plan_models import EvaluationSnapshot
 from .editing_scope import EditingScope
 from .input_lookup import InputIndex
-from .demand_operations import place_input, on_time_violation, model_accounting_complete
+from .demand_operations import place_input, on_time_violation, output_tail_crosses_deadline, model_accounting_complete
 
 
 class DemandTrial(PlanCommand):
@@ -167,7 +167,10 @@ def trial_in_unit(planner, unit, request, actor, now):
                 block('no_remaining_capacity', '所选日期受到剩余容量、执行依据或数量锁限制，未新增投入', day)
                 day += timedelta(days=1)
                 continue
-            if on_time_violation(before, maximum_eval, model, request.demand_week, {str(day)}):
+            # A date's own CT tail cannot be repaired by a later input date.
+            # FIFO attribution of existing late output can change again after
+            # another authorized day, so check that only on the final result.
+            if output_tail_crosses_deadline(maximum_eval, model, request.demand_week, {str(day)}):
                 block('on_time_deadline', '所选投入会跨过目标需求截止点，本次按时模式不自动安排迟交', day)
                 day += timedelta(days=1)
                 continue

@@ -83,15 +83,19 @@ def refresh_demand_goals(lineage, evaluation, time):
     return refreshed
 
 
+def output_tail_crosses_deadline(evaluation, model, week, input_dates):
+    cutoff = str(week + timedelta(days=7))
+    return any(portion['quantity'] and portion['date'] >= cutoff
+               for source in evaluation['output_sources'] if source['kind'] == 'input' and source['model_code'] == model and source['input_date'] in input_dates
+               for portion in source['portions'])
+
+
 def on_time_violation(before, after, model, week, input_dates):
     cutoff = str(week + timedelta(days=7))
-    tails = any(portion['quantity'] and portion['date'] >= cutoff
-                for source in after['output_sources'] if source['kind'] == 'input' and source['model_code'] == model and source['input_date'] in input_dates
-                for portion in source['portions'])
     def late(evaluation):
         return sum(row['quantity'] for row in evaluation['attributions'] if row['model_code'] == model
                    and row['demand_week'] == str(week) and row['date'] >= cutoff)
-    return tails or late(after) > late(before)
+    return output_tail_crosses_deadline(after, model, week, input_dates) or late(after) > late(before)
 
 
 def supplement_demand(plan, command, context):
