@@ -1,4 +1,5 @@
 """Continuity evidence through the shared public planning boundary."""
+import pytest
 from tests.test_plan_transactions import shared_client, post, row, patch
 from tests.test_execution_reset import head, preview, current_command
 from tests.test_unfinished_switches import unfinished, residual
@@ -174,3 +175,168 @@ def test_editing_away_elapsed_residual_keeps_state_uncertainty_separate_from_con
     assert post(client, 'save', current_command(client, changed, confirmation(dto))).status_code == 200
     assert post(client, 'adopt', current_command(client)).status_code == 422
     assert preview(client, {'kind': 'replace_plan', 'plan': {}}, patch(row('later-target', model='P'))).json()['evaluation']['executable'] is False
+
+
+def test_other_line_execution_does_not_stale_a_continuity_with_no_related_execution_evidence(shared_client):
+    client, _, _ = shared_client
+    before = arrange(client)
+    dto = before['workspace_view']['switch_continuity'][0]
+    assert post(client, 'adopt', current_command(client, confirmation(dto))).status_code == 200
+    unrelated = {'kind': 'record_execution', 'rows': [{'date': '2026-10-14', 'line_code': 'B', 'model_code': 'M', 'quantity': 0}],
+                 'cutoff': '2026-10-14T08:00:00+08:00'}
+    checked = preview(client, unrelated)
+    assert checked.status_code == 200, checked.text
+    assert checked.json()['workspace_view']['switch_continuity'][0]['status'] == 'valid'
+    assert checked.json()['workspace_view']['switch_continuity'][0]['basis_digest'] == dto['basis_digest']
+
+
+@pytest.mark.parametrize('changes,feasible', [
+    ({'maintenance': [{'date': '2026-10-15', 'line_code': 'L', 'hours': 2}]}, True),
+    ({'experiments': [{'date': '2026-10-15', 'line_code': 'L', 'hours': 23}]}, False),
+    ({'holidays': [{'date': '2026-10-15', 'holiday': True}]}, False),
+    ({'capacities': [{'month': '2026-10', 'recipe_code': 'S', 'line_code': 'L', 'pieces': 900}]}, True),
+    ({'capabilities': [{'recipe_code': 'S', 'line_code': 'L', 'allowed': False}]}, False),
+])
+def test_related_physical_input_changes_stale_continuity_and_recheck_never_waives_conflicts(shared_client, changes, feasible):
+    client, _, _ = shared_client
+    before = arrange(client)
+    dto = before['workspace_view']['switch_continuity'][0]
+    assert post(client, 'adopt', current_command(client, confirmation(dto))).status_code == 200
+    original = client.get('/auto_plan/api/plans/adoptions/1').json()
+    inputs = client.get('/auto_plan/api/inputs').json()
+    assert client.post('/auto_plan/api/inputs/apply', json={'base_version': inputs['input_version'], 'changes': changes}).status_code == 200
+    current = head(client)
+    dto = current['workspace_view']['switch_continuity'][0]
+    assert dto['status'] == 'stale'
+    assert '日历与可用工时' in dto['changed_groups']
+    recheck = confirmation(dto, expected_confirmation_id=dto['confirmation']['id'], reason='相关现场安排改变，重新核对连续条件')
+    checked = preview(client, recheck)
+    assert checked.status_code == 200, checked.text
+    assert checked.json()['workspace_view']['switch_continuity'][0]['status'] == 'valid'
+    assert checked.json()['evaluation']['capacity_valid'] is feasible
+    assert checked.json()['evaluation']['executable'] is feasible
+    assert post(client, 'save', current_command(client, recheck)).status_code == 200
+    assert post(client, 'adopt', current_command(client)).status_code == (200 if feasible else 422)
+    assert client.get('/auto_plan/api/plans/adoptions/1').json() == original
+
+
+def test_semantic_equivalence_and_unrelated_calendar_rows_keep_the_confirmation(shared_client):
+    client, _, _ = shared_client
+    before = arrange(client)
+    dto = before['workspace_view']['switch_continuity'][0]
+    assert post(client, 'adopt', current_command(client, confirmation(dto))).status_code == 200
+    current = head(client)
+    operation = {'kind': 'replace_plan', 'plan': current['plan']}
+    operation['plan']['switches'][0]['allocations'][0]['hours'] = '4/1'
+    operation['plan']['segments'][0]['hours'] = '3.000'
+    equivalent = preview(client, operation)
+    assert equivalent.json()['workspace_view']['switch_continuity'][0]['basis_digest'] == dto['basis_digest']
+    inputs = client.get('/auto_plan/api/inputs').json()
+    assert client.post('/auto_plan/api/inputs/apply', json={'base_version': inputs['input_version'], 'changes': {
+        'maintenance': [{'date': '2026-10-15', 'line_code': 'L', 'hours': 0}, {'date': '2026-10-15', 'line_code': 'B', 'hours': 20}, {'date': '2026-10-20', 'line_code': 'L', 'hours': 20}],
+        'experiments': [{'date': '2026-10-15', 'line_code': 'L', 'hours': 0}],
+        'cycle_times': [{'model_code': 'P', 'days': '1'}]}}).status_code == 200
+    after = head(client)
+    assert after['workspace_view']['switch_continuity'][0]['status'] == 'valid'
+    assert after['workspace_view']['switch_continuity'][0]['basis_digest'] == dto['basis_digest']
+    same = confirmation(after['workspace_view']['switch_continuity'][0])
+    assert post(client, 'save', current_command(client, same)).status_code == 200
+    assert head(client)['context']['switch_continuity'] == current['context']['switch_continuity']
+
+
+def test_queue_order_and_forged_basis_cannot_bless_later_arrangement_changes(shared_client):
+    client, _, _ = shared_client
+    before = arrange(client)
+    dto = before['workspace_view']['switch_continuity'][0]
+    for forged in (confirmation(dto, expected_basis_digest='0'*64), confirmation(dto, source_record_id='forged-source'), confirmation(dto, job_id='forged-job')):
+        assert preview(client, forged).status_code == 422
+    changed = patch(row('target', model='P') | {'order': 2})
+    stale = preview(client, confirmation(dto), changed)
+    assert stale.status_code == 200, stale.text
+    assert stale.json()['workspace_view']['switch_continuity'][0]['status'] == 'stale'
+    assert stale.json()['evaluation']['executable'] is False
+    assert post(client, 'adopt', current_command(client, confirmation(dto), changed)).status_code == 422
+    assert head(client)['context']['switch_continuity']['records'] == []
+    assert preview(client, changed, confirmation(dto)).status_code == 422
+    newer = preview(client, changed).json()['workspace_view']['switch_continuity'][0]
+    assert post(client, 'adopt', current_command(client, changed, confirmation(newer))).status_code == 200
+
+
+def test_reconfirmation_requires_current_identity_and_reason_and_keeps_audit(shared_client):
+    client, _, _ = shared_client
+    before = arrange(client)
+    dto = before['workspace_view']['switch_continuity'][0]
+    assert post(client, 'adopt', current_command(client, confirmation(dto))).status_code == 200
+    old = head(client)['context']['switch_continuity']['records'][0]
+    for changes in ({'source': '交班复核'}, {'source': '交班复核', 'expected_confirmation_id': 'stale', 'reason': '现场复核'}):
+        assert preview(client, confirmation(dto, **changes)).status_code == 422
+    update = confirmation(dto, source='交班复核', expected_confirmation_id=old['id'], reason='补充交班现场来源')
+    assert post(client, 'adopt', current_command(client, update)).status_code == 200
+    current = head(client)
+    assert current['workspace_view']['switch_continuity'][0]['basis_digest'] == dto['basis_digest']
+    audit = current['context']['switch_continuity']['audit']
+    assert len(audit) == 2
+    assert audit[-1]['changes'][0]['before']['id'] == old['id']
+    assert audit[-1]['changes'][0]['after']['source'] == '交班复核'
+    assert audit[-1]['reason'] == update['reason']
+
+
+def test_progress_replacement_and_quantity_protection_require_recheck_without_unlocking(shared_client):
+    client, _, _ = shared_client
+    before = arrange(client)
+    dto = before['workspace_view']['switch_continuity'][0]
+    assert post(client, 'adopt', current_command(client, confirmation(dto))).status_code == 200
+    record = head(client)['context']['line_states']['records'][0]
+    changed = unfinished(remaining_hours='2')
+    changed['rows'][0]['expected_record_id'] = record['id']
+    changed['reason'] = '现场复核剩余工时'
+    local = preview(client, changed)
+    newer = local.json()['context']['line_states']['records'][0]
+    repair = {'kind': 'patch_plan', 'switches': [residual(newer['id'], hours='2')]}
+    dto = preview(client, changed, repair).json()['workspace_view']['switch_continuity'][0]
+    assert dto['status'] == 'stale'
+    assert dto['source_record_id'] == newer['id']
+    assert '现场进度依据' in dto['changed_groups']
+    update = confirmation(dto, expected_confirmation_id=dto['confirmation']['id'], reason='按新进度重新核对')
+    assert post(client, 'adopt', current_command(client, changed, repair, update)).status_code == 200
+    lock = {'kind': 'lock_cells', 'cells': [{'date': '2026-10-15', 'line_code': 'L', 'model_code': 'P', 'quantity': 100}]}
+    dto = preview(client, lock).json()['workspace_view']['switch_continuity'][0]
+    assert dto['status'] == 'stale'
+    assert '数量锁' in dto['changed_groups']
+    update = confirmation(dto, expected_confirmation_id=dto['confirmation']['id'], reason='保持锁定数量重新核对')
+    assert post(client, 'adopt', current_command(client, lock, update)).status_code == 200
+    cannot_change = patch(row('target', model='P', quantity=101) | {'order': 1})
+    assert preview(client, cannot_change).status_code == 409
+    assert head(client)['context']['locks'][0]['quantity'] == 100
+
+
+def test_frozen_confirmation_survives_source_reads_and_cannot_hide_missing_computation(shared_client):
+    from copy import deepcopy
+    from tests.jobs_support import MemoryJobStore
+    client, plans, _ = shared_client
+    before = arrange(client)
+    dto = before['workspace_view']['switch_continuity'][0]
+    assert post(client, 'adopt', current_command(client, confirmation(dto))).status_code == 200
+    client.app.state.job_store = MemoryJobStore(plans, client.app.state.access_store)
+    source = client.get('/auto_plan/api/jobs/source')
+    assert source.status_code == 200, source.text
+    frozen = source.json()['snapshot']
+    assert frozen['switch_continuity'] == head(client)['context']['switch_continuity']
+    checked = client.post('/auto_plan/api/plans/evaluate', json={'snapshot': frozen})
+    assert checked.status_code == 200 and checked.json()['executable'] is True
+    incomplete = deepcopy(frozen)
+    incomplete['inputs']['parameters']['cycle_times'] = [row for row in incomplete['inputs']['parameters']['cycle_times'] if row['model_code'] != 'P']
+    checked = client.post('/auto_plan/api/plans/evaluate', json={'snapshot': incomplete})
+    assert checked.status_code == 200, checked.text
+    assert checked.json()['capacity_valid'] is True
+    assert checked.json()['computation_complete'] is checked.json()['executable'] is False
+    assert checked.json()['adoption_conditions'] == []
+    assert any(issue['code'] == 'missing_cycle_time' for issue in checked.json()['issues'])
+    legacy = deepcopy(frozen)
+    legacy.pop('switch_continuity')
+    checked = client.post('/auto_plan/api/plans/evaluate', json={'snapshot': legacy})
+    assert checked.status_code == 200, checked.text
+    assert checked.json()['capacity_valid'] is True
+    assert checked.json()['computation_complete'] is True
+    assert checked.json()['executable'] is False
+    assert {issue['code'] for issue in checked.json()['adoption_conditions']} == {'remaining_switch_continuity'}
