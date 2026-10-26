@@ -59,6 +59,10 @@ def place_input(plan, snapshot, scope, model, line, day, quantity, action_id):
     return append_fill(plan, command, context)
 
 
+def model_accounting_complete(evaluation, model):
+    return not any(issue['severity'] == 'incomplete' and issue.get('model_code') in (None, model) for issue in evaluation['issues'])
+
+
 def refresh_demand_goals(lineage, evaluation, time):
     """Refresh output balances from the final ledger, never accepted deltas."""
     if 'demand_goals' not in lineage:
@@ -68,7 +72,7 @@ def refresh_demand_goals(lineage, evaluation, time):
         week = date.fromisoformat(goal['demand_week'])
         row = next((row for row in evaluation['weekly_results'] if row['model_code'] == goal['model_code'] and row['week'] == goal['demand_week']), None)
         unavailable = not time.window_start <= week <= time.window_end
-        incomplete = row is not None and not row['computation_complete']
+        incomplete = row is not None and (not row['computation_complete'] or not model_accounting_complete(evaluation, goal['model_code']))
         quantity = None if unavailable or incomplete else max(min(goal['desired_attributed'], row['demand'] if row else 0) - (row['attributed'] if row else 0), 0)
         goal.update(status='unavailable' if unavailable else 'incomplete' if incomplete else 'pending' if quantity else 'complete',
                     current_demand=row['demand'] if row else None if unavailable else 0,

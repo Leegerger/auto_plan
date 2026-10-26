@@ -297,6 +297,8 @@ def test_actual_job_trial_reserves_four_hours_and_retains_review_and_outside_wor
     assert next(row for row in result['preview']['plan']['segments'] if row['id'] == 'other-line') == outside
     assert result['preview']['snapshot']['state_reviews'][0]['id'] == 'retained-review'
     assert {'remaining_switch_continuity', 'line_state_review'} <= {row['code'] for row in result['blockers']}
+    week = next(row for row in result['preview']['workspace_view']['line_weeks'] if row['line_code'] == 'L' and row['week'] == '2026-10-12')
+    assert (week['new_switch_count'], week['carried_switch_count'], week['switch_hours']['exact']) == (0, 1, '4')
     assert result['preview']['evaluation']['capacity_valid'] is True
     assert result['preview']['evaluation']['executable'] is False
 
@@ -366,3 +368,93 @@ def test_partial_target_does_not_silently_reattribute_existing_late_output_to_se
     assert result['operation'] is None
     assert result['preview']['plan']['segments'] == [later]
     assert any(row['code'] == 'on_time_deadline' for row in result['blockers'])
+
+
+def test_trial_rejects_stale_inputs_and_viewer_requests_without_writing(shared_client):
+    client, _, inputs = shared_client
+    configure(inputs)
+    before = head(client)
+    result = trial(client).json()
+    request = {key: value for key, value in result['request'].items() if key != 'placement_scope'} | {
+        'base_revision': before['revision'], 'input_version': before['input_version'], 'latest_adoption': before['latest_adoption'], 'operations': []}
+    updated = client.post('/auto_plan/api/inputs/apply', json={'base_version': before['input_version'],
+        'changes': {'model_yields': [{'month': '2026-10', 'model_code': 'M', 'percent': '50'}]}})
+    assert updated.status_code == 200, updated.text
+
+    stale = post(client, 'demand-trial', request)
+
+    assert stale.status_code == 409, stale.text[:500]
+    assert stale.json()['input_diff']
+    assert head(client)['revision'] == 0
+    client.app.state.access_store.users['VIEWER'] = {'user_id': 'VIEWER', 'roles': ['viewer'], 'active': True}
+    assert client.post('/auto_plan/api/auth/login', json={'username': 'VIEWER', 'password': 'company-secret'}).status_code == 200
+    denied = trial(client)
+    assert denied.status_code == 403, denied.text
+    assert head(client)['revision'] == 0
+
+
+def test_durable_goal_becomes_unavailable_after_its_demand_week_leaves_window(shared_client):
+    from datetime import datetime, timezone
+    client, _, inputs = shared_client
+    configure(inputs)
+    result = trial(client).json()
+    assert post(client, 'save', current_command(client, result['retain_operation'])).status_code == 200
+    client.app.state.clock = lambda: datetime(2026, 11, 2, tzinfo=timezone.utc)
+    assert client.post('/auto_plan/api/auth/login', json={'username': 'EDITOR', 'password': 'company-secret'}).status_code == 200
+
+    goal = head(client)['lineage']['demand_goals'][result['retain_operation']['goal']['id']]
+
+    assert goal['status'] == 'unavailable'
+    assert goal['remaining_output_target'] is None
+
+
+def test_current_day_target_uses_record_bound_budget_and_charges_only_actual_remainder(shared_client):
+    from tests.test_switch_remaining_certificate import unfinished
+    client, _, inputs = shared_client
+    data = configure(inputs, demand=1000, line_yield='100', model_yield='100')
+    data['business']['demands'][0]['model_code'] = 'P'
+    data['parameters']['switch_durations'][0]['hours'] = '12'
+    inputs.versions[1] = InputSnapshot.model_validate(data)
+    state = unfinished()
+    prepared = preview(client, state)
+    assert prepared.status_code == 200, prepared.text[:500]
+    record, = prepared.json()['context']['line_states']['records']
+    budget = {'kind': 'confirm_day_capacity', 'observed_at': '2026-10-14T08:00:00+08:00',
+              'confirmations': [{'line_code': 'L', 'residual_record_id': record['id'], 'remaining_hours': '24'}]}
+    dates = {'start_date': '2026-10-14', 'end_date': '2026-10-14',
+             'scope': {'start_date': '2026-10-14', 'end_date': '2026-10-14', 'line_codes': ['L'], 'model_codes': []}}
+    unknown_execution = trial(client, operations=[state, budget], model_code='P', target_output=1000, **dates)
+    assert unknown_execution.status_code == 200, unknown_execution.text[:500]
+    assert unknown_execution.json()['status'] == 'incomplete'
+    assert unknown_execution.json()['suggested_input'] is None
+    execution = {'kind': 'record_execution', 'rows': [{'date': '2026-10-14', 'line_code': 'L', 'model_code': 'P', 'quantity': 0}],
+                 'cutoff': '2026-10-14T08:00:00+08:00'}
+
+    checked = trial(client, operations=[state, execution, budget], model_code='P', target_output=1000, **dates)
+
+    assert checked.status_code == 200, checked.text[:500]
+    result = checked.json()
+    assert (result['suggested_input'], result['remaining_output_target']) == (834, 166), result['blockers']
+    witness, = result['preview']['plan']['current_day_witnesses']
+    assert witness['prior_switch_hours'] == '0'
+    assert witness['prior_switches'] == []
+    assert result['preview']['evaluation']['capacity_valid'] is True
+    assert not any(row['code'] == 'current_day_witness' for row in result['blockers'])
+
+
+def test_trial_preserves_unrelated_continuity_evidence_in_its_frozen_snapshot(shared_client):
+    from tests.test_switch_continuity import arrange, confirmation as continuity_confirmation
+    client, _, inputs = shared_client
+    configure(inputs)
+    current = arrange(client)
+    dto, = current['workspace_view']['switch_continuity']
+    assert post(client, 'save', current_command(client, continuity_confirmation(dto))).status_code == 200
+    before = head(client)
+
+    checked = trial(client, line_code='B', scope={'start_date': '2026-10-15', 'end_date': '2026-10-15', 'line_codes': ['B'], 'model_codes': []})
+
+    assert checked.status_code == 200, checked.text[:500]
+    result = checked.json()
+    assert result['preview']['snapshot']['switch_continuity'] == before['context']['switch_continuity']
+    assert result['preview']['workspace_view']['switch_continuity'][0]['status'] == 'valid'
+    assert not any(row['code'] == 'remaining_switch_continuity' for row in result['blockers'])

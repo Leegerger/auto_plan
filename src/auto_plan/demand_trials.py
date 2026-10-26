@@ -8,7 +8,7 @@ from .plans import PlanCommand, PlanProblem, protect
 from .plan_models import EvaluationSnapshot
 from .editing_scope import EditingScope
 from .input_lookup import InputIndex
-from .demand_operations import place_input, on_time_violation
+from .demand_operations import place_input, on_time_violation, model_accounting_complete
 
 
 class DemandTrial(PlanCommand):
@@ -103,7 +103,8 @@ def trial_in_unit(planner, unit, request, actor, now):
     placements = []
     baseline_on_time = physical(before, model, request.demand_week)
     cutoff = str(request.demand_week + timedelta(days=7))
-    incomplete = not selected['computation_complete']
+    incomplete = not selected['computation_complete'] or not model_accounting_complete(before, model)
+    baseline_complete = not incomplete
     if incomplete:
         block('incomplete_output', '此机种已有投入的产出计算尚未完成，请先补齐参数')
     elif not target:
@@ -154,6 +155,11 @@ def trial_in_unit(planner, unit, request, actor, now):
                 block('placement_blocked', error.detail if isinstance(error, PlanProblem) else str(error), day)
                 day += timedelta(days=1)
                 continue
+            if not weekly(maximum_eval, model, request.demand_week)['computation_complete'] or not model_accounting_complete(maximum_eval, model):
+                block('incomplete_output', '所选日期的执行事实或产出计算依据尚未完成，请补齐后重新试算', day)
+                blockers.extend(issue for issue in maximum_eval['issues'] if issue['severity'] == 'incomplete' and issue.get('model_code') == model)
+                day += timedelta(days=1)
+                continue
             old_ids = {row.id for row in prefix.segments}
             added = [row for row in maximum.segments if row.id not in old_ids]
             maximum_input = sum(row.quantity for row in added)
@@ -193,7 +199,7 @@ def trial_in_unit(planner, unit, request, actor, now):
             if physical(result_eval, model, request.demand_week) - baseline_on_time >= target:
                 break
             day += timedelta(days=1)
-    incomplete = incomplete or not placements and any(row['code'] == 'missing_parameters' for row in blockers)
+    incomplete = incomplete or not placements and any(row['code'] in ('missing_parameters', 'incomplete_output') for row in blockers)
     if placements and on_time_violation(before, result_eval, model, request.demand_week, {row['date'] for row in placements}):
         block('on_time_deadline', '此部分目标会使已有较晚产出新归属到目标周，本次按时模式保留目标并要求重新选择')
         placements = []
@@ -203,7 +209,7 @@ def trial_in_unit(planner, unit, request, actor, now):
     operation = {'kind': 'supplement_demand', 'action_id': request.action_id, 'model_code': model, 'demand_week': str(request.demand_week),
                  'mode': request.mode, 'line_code': line, 'start_date': str(request.start_date), 'end_date': str(request.end_date),
                  'scope': scope.model_dump(mode='json'), 'placements': placements, 'goal': goal}
-    retain = operation | {'placements': []} if target and selected['computation_complete'] else None
+    retain = operation | {'placements': []} if target and baseline_complete else None
     accepted = operation if placements else None
     preview = planner._prepare(unit, command.model_copy(update={'operations': command.operations + [accepted]}), now, actor) if accepted else prepared
     after = preview['evaluation']
