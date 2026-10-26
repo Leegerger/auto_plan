@@ -1,4 +1,5 @@
 """Selected history and restoration through the public business API."""
+from tests.line_state_support import confirm_states
 from datetime import datetime, timedelta, timezone
 from tests.test_plan_transactions import shared_client, post, command, patch, row
 
@@ -124,7 +125,7 @@ def test_legacy_history_keeps_original_output_while_restore_uses_current_model_y
     assert current['lineage']['history_restore'] == {'kind': 'revision', 'id': 1}
     assert client.get('/auto_plan/api/plans/revisions/1').json() == original
 
-    adopted = post(client, 'adopt', command(
+    adopted = post(client, 'adopt', command(confirm_states(),
         base=saved_revision, version=current_version, adoption=0))
     assert adopted.status_code == 200, adopted.text
     assert adopted.json()['latest_adoption'] == 1
@@ -170,17 +171,17 @@ def test_restore_rejects_current_quantity_locks_without_copying_old_context(shar
 def test_restore_has_inclusive_30_day_boundary_and_adoption_is_permanent(shared_client):
     client, _, _ = shared_client
     assert post(client, 'save', command(patch(row()))).status_code == 200
-    adopted = post(client, 'adopt', command(base=1))
+    adopted = post(client, 'adopt', command(confirm_states(), base=1))
     assert adopted.status_code == 200, adopted.text
     created = datetime(2026, 10, 14, tzinfo=timezone.utc)
     client.app.state.clock = lambda: created + timedelta(days=30)
     assert client.post('/auto_plan/api/auth/login', json={'username': 'EDITOR', 'password': 'company-secret'}).status_code == 200
-    at_boundary = preview(client, command(restore(), base=2, adoption=1))
+    at_boundary = preview(client, command(restore(), base=2, adoption=1, version=2))
     assert at_boundary.status_code == 200, at_boundary.text
     client.app.state.clock = lambda: created + timedelta(days=30, microseconds=1)
-    expired = preview(client, command(restore(), base=2, adoption=1))
+    expired = preview(client, command(restore(), base=2, adoption=1, version=2))
     assert expired.status_code == 410, expired.text
-    permanent = preview(client, command(restore(1, 'adoption'), base=2, adoption=1))
+    permanent = preview(client, command(restore(1, 'adoption'), base=2, adoption=1, version=2))
     assert permanent.status_code == 200, permanent.text
     listed = client.get('/auto_plan/api/plans/history').json()
     assert [(r['revision'], r['adoption']) for r in listed['items']] == [(2, 1)]
@@ -267,7 +268,7 @@ def test_restore_keeps_current_reset_source_and_does_not_copy_historical_lineage
 
 def test_viewer_can_select_and_export_but_cannot_restore_save_or_adopt_and_revocation_stops_reads(shared_client):
     client, _, _ = shared_client
-    assert post(client, 'adopt', command(patch(row()))).status_code == 200
+    assert post(client, 'adopt', command(confirm_states(), patch(row()))).status_code == 200
     access=client.app.state.access_store
     access.users['READER']={'user_id':'READER','roles':['viewer'],'active':True}
     assert client.post('/auto_plan/api/auth/login',json={'username':'READER','password':'company-secret'}).status_code == 200

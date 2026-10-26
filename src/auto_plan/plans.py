@@ -6,7 +6,7 @@ from uuid import UUID
 from pydantic import Field
 from .input_models import InputRow, Pieces, InputSnapshot
 from .plan_models import (Plan, EvaluationSnapshot, EvaluationTime, ExecutionContext, ResetContext,
-                          EvaluationPreferences, ExecutionCoverage, PlanCell, AdoptedBaseline)
+                          EvaluationPreferences, ExecutionCoverage, PlanCell, AdoptedBaseline, LineStateContext)
 from .plan_operations import replay_result, OperationContext
 from .exact import hours
 from .production_time import week_label
@@ -20,6 +20,7 @@ def plan_hour_display(plan):
 
 
 class PlanningContext(InputRow):
+    line_states: LineStateContext = Field(default_factory=LineStateContext)
     execution: ExecutionContext = Field(default_factory=ExecutionContext)
     locks: list[PlanCell] = Field(default_factory=list)
     reset: ResetContext | None = None
@@ -133,10 +134,12 @@ def effect_keys(before, after, context):
     # Propagate only while the before/after Recipe state differs. Quantity or
     # hour-only edits with identical state leave later independent days free.
     index=InputIndex(context.inputs)
-    before_states=analyze_recipe_states(before,index)
-    after_states=analyze_recipe_states(after,index)
+    from .line_states import calculation_anchors
+    anchors=calculation_anchors(context)
+    before_states=analyze_recipe_states(before,index,confirmed_states=anchors,window_start=context.time.window_start)
+    after_states=analyze_recipe_states(after,index,confirmed_states=anchors,window_start=context.time.window_start)
     def states(plan,analysis,line):
-        initial=next((r.recipe_code for r in plan.initial_states if r.line_code==line),None)
+        initial=analysis.initial_states.get(line)
         events={day.isoformat():recipe for (day,event_line),recipe in analysis.endings.items() if event_line==line}
         return initial,events
     for line, dates in changed_lines.items():
@@ -183,6 +186,16 @@ def result_effect_keys(before, after, snapshot):
 
 def context_effect_keys(context,updates,snapshot=None):
     keys=set()
+    if 'line_states' in updates and snapshot is not None:
+        prior={(r.line_code,r.effective_at):r for r in context.line_states.records}
+        after={(r.line_code,r.effective_at):r for r in updates['line_states'].records}
+        from .production_time import production_date
+        for identity in prior.keys()|after.keys():
+            if prior.get(identity)==after.get(identity): continue
+            day=max(snapshot.time.window_start,production_date(identity[1]))
+            while day<=snapshot.time.window_end:
+                keys.add(('CAP',identity[0],day.isoformat()))
+                day+=timedelta(days=1)
     if 'locks' in updates:
         before={(r.date.isoformat(),r.line_code,r.model_code):r.quantity for r in context.locks}
         after={(r.date.isoformat(),r.line_code,r.model_code):r.quantity for r in updates['locks']}
@@ -224,6 +237,8 @@ def context_effect_keys(context,updates,snapshot=None):
 
 
 def protect(before, after, snapshot, *, allow_past_input=False):
+    from .line_states import protect_initial_hints
+    protect_initial_hints(before,after,snapshot)
     from .execution_rules import executed_by_segment
     from .production_time import production_date
     old,new=cells(before),cells(after)
@@ -278,8 +293,11 @@ class PlanService:
     def __init__(self, store):
         self.store=store
 
-    def _evaluation_json(self,snapshot):
+    def _evaluation_json(self,snapshot,operation_issues=None):
         from .rules import _evaluation_json
+        from .line_states import review_records
+        if operation_issues is not None:
+            snapshot=snapshot.model_copy(update={'state_reviews':review_records(operation_issues)})
         return _evaluation_json(snapshot,output_cache=getattr(self.store,'output_cache',None))
 
     @staticmethod
@@ -294,8 +312,10 @@ class PlanService:
         if unit.adoption:
             record=unit.get_planning_adoption(unit.adoption)
             baseline=AdoptedBaseline(version=unit.adoption,plan=self._planning_plan(unit,record),coverage=record['coverage'])
-        return EvaluationSnapshot(time=EvaluationTime.at(now),inputs=unit.inputs,plan=plan,
-            execution=freeze_associations(unit.plan,context.execution),reset=context.reset,locks=context.locks,baseline=baseline,preferences=context.preferences)
+        from .line_states import review_records
+        reviews=review_records(unit.get_planning_revision(unit.revision).get('operation_issues',[]))
+        return EvaluationSnapshot(state_reviews=reviews,time=EvaluationTime.at(now),inputs=unit.inputs,plan=plan,
+            line_states=context.line_states,execution=freeze_associations(unit.plan,context.execution),reset=context.reset,locks=context.locks,baseline=baseline,preferences=context.preferences)
 
     def _reset_participants(self,unit,snapshot,lineage):
         from .reset_operations import participating_models
@@ -354,7 +374,8 @@ class PlanService:
         merged_context=unit.context.model_copy(update=replayed.context_updates)
         if {'execution','reset'}&replayed.context_updates.keys():
             merged_context=merged_context.model_copy(update={'lineage':unit.context.lineage|replayed.lineage})
-        merged_snapshot=snapshot.model_copy(update={'plan':merged,**replayed.context_updates})
+        from .line_states import review_records
+        merged_snapshot=snapshot.model_copy(update={'plan':merged,**replayed.context_updates,'state_reviews':review_records(replayed.issues)})
         from .reset_operations import refresh_lineage
         replayed.lineage=refresh_lineage(replayed.lineage,merged,merged_snapshot)
         if {'execution','reset'}&replayed.context_updates.keys():
@@ -372,7 +393,7 @@ class PlanService:
         if effects&changed:
             raise PlanProblem(409,'合并后的关联范围已变化',revision=unit.revision,conflicts=sorted(effects&changed))
         protect(unit.plan,merged,merged_snapshot,allow_past_input=initial_import)
-        result=self._evaluation_json(merged_snapshot)
+        result=self._evaluation_json(merged_snapshot,replayed.issues)
         from .workspace_view import workspace_view
         matrix=workspace_view(merged_snapshot,result)
         return {'revision':unit.revision,'input_version':unit.inputs.input_version,'latest_adoption':unit.adoption,
@@ -468,7 +489,7 @@ class PlanService:
             record=unit.get_planning_revision(unit.revision)
             from .reset_operations import refresh_lineage
             lineage=refresh_lineage(record.get('lineage',{})|unit.context.lineage,unit.plan,snapshot)
-            evaluation=self._evaluation_json(snapshot)
+            evaluation=self._evaluation_json(snapshot,record.get('operation_issues',[]))
             from .workspace_view import workspace_view
             return {'workspace_view':workspace_view(snapshot,evaluation),'revision':unit.revision,'latest_adoption':unit.adoption,'input_version':unit.inputs.input_version,
                     'pending':record.get('pending',False), 'kind':record.get('kind','empty'),

@@ -2,6 +2,7 @@
 from uuid import uuid4
 import pytest
 from tests.test_plan_transactions import shared_client
+from tests.line_state_support import assert_unconfirmed_trial
 
 
 def test_synchronous_compute_cannot_bypass_the_durable_queue(shared_client):
@@ -305,7 +306,7 @@ def test_partial_order_exchange_gets_fresh_certificate_instead_of_full_candidate
         result=calculate(client,{k:v for k,v in body.items() if k!='submission_id'})
         assert result.status_code==200,result.text
         candidate=result.json()['candidates'][0]
-        assert candidate['evaluation']['executable'] is True
+        assert_unconfirmed_trial(candidate['evaluation'])
         assert candidate['objective'][32]=='0'
         proposal=candidate['server_reference']
         partial=proposal|{'operations':[proposal['operations'][0]|{'selection':['segments:m']}]}
@@ -315,7 +316,7 @@ def test_partial_order_exchange_gets_fresh_certificate_instead_of_full_candidate
         assert plans.revision==0 and plans.adoption==1
         whole=client.post('/auto_plan/api/plans/preview',json=proposal)
         assert whole.status_code==200,whole.text
-        assert whole.json()['evaluation']['executable'] is True
+        assert_unconfirmed_trial(whole.json()['evaluation'])
     finally: controller.shutdown()
 
 

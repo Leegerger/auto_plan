@@ -45,7 +45,10 @@ def executed_by_segment(plan,execution):
 def capacity_basis(snapshot):
     inputs=snapshot.inputs.model_dump(mode='json',exclude={'input_version'})
     execution=snapshot.execution.model_dump(mode='json',exclude={'audit','day_capacities'})
-    raw=json.dumps({'inputs':inputs,'execution':execution},ensure_ascii=False,sort_keys=True,separators=(',',':'))
+    content={'inputs':inputs,'execution':execution}
+    if snapshot.line_states.records:
+        content['line_states']=snapshot.line_states.model_dump(mode='json',exclude={'audit'})
+    raw=json.dumps(content,ensure_ascii=False,sort_keys=True,separators=(',',':'))
     return hashlib.sha256(raw.encode()).hexdigest()
 
 

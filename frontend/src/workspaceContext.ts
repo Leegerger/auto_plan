@@ -1,3 +1,4 @@
+import type { LineStateRecord } from './lineStateTypes'
 export function createWorkspaceContext() {
   return {
     week: 1,
@@ -8,6 +9,8 @@ export function createWorkspaceContext() {
     demand: { expanded: false, modelFilter: '', weekFilter: '', reasonFilter: '', model_code: '', week: '' },
     selected: [] as string[],
     panelOpen: true,
+    panelObject: 'day' as 'day' | 'line_state',
+    lineStates: { effectiveAt: '', source: '', batchRecipe: '', reason: '', selectedLines: [] as string[], recipes: {} as Record<string,string>, expected: {} as Record<string,LineStateRecord> },
     exactHours: '',
     exactHoursSelection: '',
     scopeInitialized: false,

@@ -1,3 +1,4 @@
+from tests.line_state_support import assert_unconfirmed_trial
 from copy import deepcopy
 
 from tests.test_inputs import batch, inputs_client
@@ -141,7 +142,7 @@ def test_exact_ct_portions_and_cross_line_aggregation(inputs_client):
     assert [(row['date'], row['quantity']) for row in result['output_sources'][0]['portions']] == [('2026-10-14', 466), ('2026-10-15', 466)]
     assert result['weekly_results'][0]['on_time'] == 932
     assert result['weekly_results'][0]['gap'] == 68
-    assert result['executable'] is True
+    assert_unconfirmed_trial(result)
     data['inputs']['masters']['lines'].append({'code': 'L2', 'name': '二线', 'active': True})
     data['inputs']['parameters']['capacities'].append({'month': '2026-10', 'recipe_code': 'R', 'line_code': 'L2', 'pieces': 10000})
     data['plan']['segments'][0]['quantity'] = 600
@@ -203,7 +204,7 @@ def test_largest_remainder_partial_material_and_no_nominal_minimum(inputs_client
     assert result['executable'] is False
     data['inputs']['business']['confirmations'][0]['quantity'] = 429
     result = preview(inputs_client, data)
-    assert result['executable'] is True
+    assert_unconfirmed_trial(result)
     assert result['weekly_results'][1]['on_time'] == 400
 
 
@@ -470,7 +471,7 @@ def test_rolling_window_retains_demand_history_without_reusing_full_old_demand(i
     data['execution'] = {'cutoff': '2026-10-19T09:00:00+08:00', 'coverage': [{'start_date':'2026-10-19','end_date':'2026-10-19','line_codes':['L'],'model_codes':['M'],'blanks_are_zero':True}]}
     data['inputs']['business']['demands'] = [{'model_code':'M','week':'2026-10-12','quantity':100}, {'model_code':'M','week':'2026-10-19','quantity':100}]
     result = preview(inputs_client, data)
-    assert result['executable'] is True
+    assert_unconfirmed_trial(result)
     assert [w['week'] for w in result['weekly_results']] == ['2026-10-19']
     assert result['weekly_results'][0]['on_time'] == 100
     assert result['excluded_demands'] == [{'model_code':'M','week':'2026-10-12','quantity':100}]

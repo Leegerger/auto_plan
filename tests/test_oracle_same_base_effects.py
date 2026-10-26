@@ -1,4 +1,5 @@
 """Actual disposable Oracle public closure semantics, separate from encoded units."""
+from tests.line_state_support import confirm_states
 from copy import deepcopy
 import json
 import os
@@ -40,7 +41,7 @@ def test_real_same_base_preview_save_adopt_context_and_protection(oracle_manual,
         'initial_states':[{'line_code':'L','recipe_code':'R'}]}
     saved=post('save',command({'kind':'replace_plan','plan':initial}))
     assert saved.status_code==200,saved.text
-    adopted=post('adopt',command())
+    adopted=post('adopt',command(confirm_states()))
     assert adopted.status_code==200,adopted.text
     source=current()
     old_adoption=client.get('/auto_plan/api/plans/adoptions/1').json()

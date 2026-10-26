@@ -1,4 +1,5 @@
 """Candidate business API cases, expected quantities worked independently."""
+from tests.line_state_support import confirm_states, assert_unconfirmed_trial
 from tests.test_plan_transactions import shared_client as shared_plan_client
 from tests.job_http_support import calculate
 from auto_plan.input_models import InputSnapshot
@@ -42,7 +43,7 @@ def test_empty_draft_creates_absent_model_and_returns_valid_partial_candidate(sh
     candidate = result['candidates'][0]
     assert sum(r['quantity'] for r in candidate['plan']['segments']) == 10
     assert candidate['objective'] == ['10'] + ['0'] * 14 + ['10'] + ['0'] * 17
-    assert candidate['evaluation']['executable'] is True
+    assert_unconfirmed_trial(candidate['evaluation'])
     assert candidate['input_version'] == 1 and candidate['source_revision'] == 0
     assert candidate['snapshot']['plan']['segments'] == []
     assert candidate['snapshot']['plan']['current_day_witnesses'] == []
@@ -55,9 +56,9 @@ def test_demand_reduction_removes_useless_input_even_against_adopted_baseline(sh
     client, plans, inputs = shared_client
     setup(inputs, [])
     plan = {'segments': [row(quantity=10) | {'hours': '24'}]}
-    assert post(client, 'adopt', command({'kind': 'replace_plan', 'plan': plan}) | {'pending': False}).status_code == 200
+    assert post(client, 'adopt', command(confirm_states(), {'kind': 'replace_plan', 'plan': plan}) | {'pending': False}).status_code == 200
     response = calculate(client, {
-        'base_revision': 1, 'input_version': 1, 'latest_adoption': 1,
+        'base_revision': 1, 'input_version': 2, 'latest_adoption': 1,
         'request': {'scope': {'start_date': '2026-10-15', 'end_date': '2026-10-15', 'line_codes': ['L']}}})
     assert response.status_code == 200, response.text
     candidate = response.json()['candidates'][0]
@@ -142,7 +143,8 @@ def test_exact_fractional_hour_witness_and_native_routes_are_real_and_isolated(s
     assert any('native ' + ('cp_sat' if strategy == 'hybrid' else strategy) + ': optimal_in_table' in stage['detail'] for stage in result['stage_bounds'])
     assert 'highspy' not in sys.modules and 'ortools' not in sys.modules
     evaluation = client.post('/auto_plan/api/plans/evaluate', json={'snapshot': candidate['snapshot'] | {'plan': candidate['plan']}})
-    assert evaluation.status_code == 200 and evaluation.json()['executable'] is True
+    assert evaluation.status_code == 200
+    assert_unconfirmed_trial(evaluation.json())
 
 
 @pytest.mark.parametrize('status,quota,covered', [('allowed', 3, 3), ('forbidden', 10, 0), ('pending', 10, 0)])
@@ -155,7 +157,10 @@ def test_general_material_quota_and_whole_week_ban_keep_valid_partial_plans(shar
     assert response.status_code == 200, response.text
     candidate = response.json()['candidates'][0]
     assert sum(r['quantity'] for r in candidate['plan']['segments']) == covered
-    assert candidate['evaluation']['executable'] is True
+    if covered:
+        assert_unconfirmed_trial(candidate['evaluation'])
+    else:
+        assert candidate['evaluation']['executable'] is True
     assert candidate['objective'][1] == candidate['objective'][16] == str(10-covered)
 
 
@@ -226,7 +231,7 @@ def test_new_week_uses_idle_capacity_and_preserves_existing_rows_and_switches(sh
     candidate = response.json()['candidates'][0]
     assert next(r for r in candidate['plan']['segments'] if r['id'] == 'a') == existing
     assert candidate['objective'][:30] == ['0'] * 30
-    assert candidate['evaluation']['executable'] is True
+    assert_unconfirmed_trial(candidate['evaluation'])
 
 
 def test_fractional_ct_rounding_tail_is_retained_and_nominal_input_is_not_a_floor(shared_client):

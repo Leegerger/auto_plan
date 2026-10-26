@@ -4,6 +4,7 @@ No actual Oracle connection is made. Private call/identity assertions qualify
 validation reuse; full public behavior and the existing timing RED remain the
 acceptance criteria. These adapters never connect to Oracle.
 """
+from tests.line_state_support import confirm_states
 from copy import deepcopy
 from datetime import datetime, timezone
 import hashlib
@@ -61,7 +62,7 @@ def test_public_owned_current_plan_reuse_preserves_adoption_sources_and_fallback
         'initial_states': [{'line_code': 'L', 'recipe_code': 'R'}],
     }}))
     assert saved.status_code == 200, saved.text
-    adopted = post(client, 'adopt', command(base=saved.json()['revision']))
+    adopted = post(client, 'adopt', command(confirm_states(), base=saved.json()['revision']))
     assert adopted.status_code == 200, adopted.text
     adoption = client.get('/auto_plan/api/plans/adoptions/1').json()
     normal_read = plans.read

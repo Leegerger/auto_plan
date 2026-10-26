@@ -313,3 +313,9 @@ input:focus-visible,select:focus-visible,textarea:focus-visible,button:focus-vis
 .inspector-line-state{padding:12px 0;border-bottom:1px solid var(--hairline-soft)}
 .inspector-line-state h4{margin:0 0 8px}
 .inspector-line-state p{margin:6px 0}
+
+.line-state-link{display:block;border:0;background:transparent;color:var(--info);padding:4px 0;font-size:12px;cursor:pointer;text-decoration:underline}
+.line-state-form{border:1px solid var(--hairline);padding:12px;border-radius:6px}
+.line-state-form>label{display:grid;gap:6px;margin:12px 0;font-size:13px}
+.line-state-form input:not([type=checkbox]),.line-state-form select,.line-state-form textarea{min-width:0;max-width:100%;padding:6px;border:1px solid var(--border-strong);border-radius:6px}
+.line-state-form textarea{min-height:72px}

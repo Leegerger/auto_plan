@@ -110,16 +110,23 @@ def replay_result(plan, operations, context):
         content=json.dumps(raw,ensure_ascii=False,sort_keys=True,separators=(',',':'))
         if 'action_id' in raw: TypeAdapter(Code).validate_python(raw['action_id'])
         action=raw.get('action_id') or hashlib.sha256(f'{inherited.source_revision}:{ordinal}:{content}'.encode()).hexdigest()[:32]
-        operation_context=OperationContext(inherited.snapshot.model_copy(update={'plan':result.plan,**result.context_updates}),
+        from .line_states import review_records
+        operation_context=OperationContext(inherited.snapshot.model_copy(update={'plan':result.plan,**result.context_updates,'state_reviews':review_records(result.issues)}),
             inherited.source_revision,deepcopy(result.unallocated),deepcopy(result.issues),deepcopy(result.lineage),action,inherited.actor,inherited.history,inherited.latest_adoption,inherited.current_revision,inherited.allow_past_input)
         model, apply = OPERATIONS[raw['kind']]
         value = apply(result.plan, model.model_validate({key:value for key,value in raw.items() if key!='action_id'}), operation_context)
         candidate=Plan.model_validate(value.plan if isinstance(value,ReplayResult) else value)
+        protected_reviews={issue['id']:issue for issue in result.issues if issue.get('code')=='line_state_review'}
+        from .line_states import retained_state_reviews
+        new_reviews=retained_state_reviews(result.plan,candidate,operation_context.snapshot) if candidate!=result.plan and raw['kind']!='confirm_line_states' else []
+        protected_reviews.update({issue['id']:issue for issue in new_reviews})
         if candidate!=result.plan:
             from .plans import protect
             protect(result.plan,candidate,operation_context.snapshot,allow_past_input=inherited.allow_past_input)
         if isinstance(value, ReplayResult):
-            if set(value.context_updates)-{'locks','preferences','execution','reset'}:
+            if raw['kind']!='confirm_line_states':
+                value.resolve_issues=[identity for identity in value.resolve_issues if identity not in protected_reviews]
+            if set(value.context_updates)-{'locks','preferences','execution','reset','line_states'}:
                 raise ValueError('未知计划上下文变更')
             result.context_updates.update(value.context_updates)
             result.plan=candidate
@@ -137,6 +144,10 @@ def replay_result(plan, operations, context):
             result.lineage.update(value.lineage)
         else:
             result.plan=Plan.model_validate(value)
+        resolved=set(value.resolve_issues) if isinstance(value,ReplayResult) and raw['kind']=='confirm_line_states' else set()
+        current={issue['id']:issue for issue in result.issues}
+        current.update({identity:issue for identity,issue in protected_reviews.items() if identity not in resolved})
+        result.issues=list(current.values())
     identities=[row.id for row in result.plan.segments]+[row.id for row in result.plan.switches]
     if len(identities)!=len(set(identities)):
         raise ValueError('生产段和切机识别号必须唯一')
@@ -156,3 +167,5 @@ from . import execution_operations  # noqa: E402,F401
 from . import reset_operations  # noqa: E402,F401
 from . import candidate_operations  # noqa: E402,F401
 from . import history_operations  # noqa: E402,F401
+
+from . import line_states  # noqa: E402,F401

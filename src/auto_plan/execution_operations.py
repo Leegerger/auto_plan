@@ -161,6 +161,13 @@ def confirm_capacity(plan,command,context):
     capacities={r.line_code:r for r in execution.day_capacities if r.date==production_date(context.time.as_of)}
     for row in command.confirmations:
         if row.line_code not in lines or row.current_recipe not in recipes: raise ValueError('请确认有效线体和当前 Recipe')
+        if any(r.line_code==row.line_code and r.effective_at>=command.observed_at and r.recipe_code!=row.current_recipe for r in context.line_states.records):
+            raise ValueError('剩余工时确认的 Recipe 与同一或更晚时点的现场记录矛盾，请先带原因更正现场状态')
+        prior=capacities.get(row.line_code)
+        if prior is not None and prior.confirmed_at>=command.observed_at and prior.current_recipe!=row.current_recipe:
+            corrected=prior.confirmed_at==command.observed_at and any(r.line_code==row.line_code and r.effective_at==command.observed_at and r.recipe_code==row.current_recipe for r in context.line_states.records)
+            if not corrected:
+                raise ValueError('更正已确认剩余工时的 Recipe 须先带原因更正同一时点的现场状态')
         try: hours=Fraction(row.remaining_hours)
         except (ValueError,ZeroDivisionError): raise ValueError('剩余工时必须为精确非负数') from None
         if not 0<=hours<=24: raise ValueError('剩余可用工时必须在零到24小时之间')

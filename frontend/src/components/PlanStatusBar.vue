@@ -17,6 +17,11 @@ const business=computed(()=>principal.value?.roles.some(role=>role==='viewer'||r
 const onPlanWorkspace=computed(()=>route.path==='/schedule')
 const canPreview=computed(()=>onPlanWorkspace.value&&editor.value&&!readonly.value&&!!head.value)
 const canSave=computed(()=>onPlanWorkspace.value&&editor.value&&!readonly.value&&!!proposal.value)
+const adoptionBlocked=computed(()=>!!proposal.value?.adoption_blocked || !preview.value?.executable)
+const lineStateChanges=computed(()=>{
+  const saved=new Set((head.value?.context.line_states?.audit ?? []).map(value=>value.action_id))
+  return (proposal.value?.context.line_states?.audit ?? []).filter(value=>!saved.has(value.action_id)).flatMap(value=>value.changes.map(change=>({...change,reason:value.reason})))
+})
 const canAdopt=computed(()=>canSave.value&&!proposal.value?.adoption_blocked&&!!preview.value?.executable)
 const selectedHighRisk=computed(()=>operations.value.filter(operation=>selectedActions.value.includes(operation.action_id!)&&['clear_segments','overwrite_copy_segments','discard_unallocated','weekly_reset'].includes(operation.kind)))
 const stateLabel=computed(()=>{
@@ -150,7 +155,6 @@ watch(conflict,value=>{if(value){tab.value='actions';drawer.value=true}})
         </section>
         <div class="drawer-actions">
           <el-checkbox v-if="onPlanWorkspace" v-model="pending" :disabled="readonly">保存为待处理草稿</el-checkbox>
-          <el-button @click="drawer=false">继续编辑</el-button>
           <router-link v-if="!onPlanWorkspace && operations.length" to="/schedule"><el-button type="primary">前往计划工作区</el-button></router-link>
           <el-button v-if="onPlanWorkspace" type="primary" :disabled="!canPreview" @click="check()">预览本机修改</el-button>
         </div>
@@ -172,9 +176,11 @@ watch(conflict,value=>{if(value){tab.value='actions';drawer.value=true}})
             <div><span>计划变化</span><strong>{{ proposalChanges.length }}</strong></div>
             <div><span>业务问题</span><strong>{{ proposalIssues.length }}</strong></div>
             <div><span>关联范围</span><strong>{{ proposal.effects?.length ?? 0 }}</strong></div>
-            <div><span>采用状态</span><strong>{{ proposal.adoption_blocked ? '存在阻断' : '可继续核对' }}</strong></div>
+            <div><span>采用状态</span><strong>{{ adoptionBlocked ? '存在阻断' : '可继续核对' }}</strong></div>
           </div>
-          <el-alert v-if="proposal.adoption_blocked" title="当前预览存在阻断正式采用的事项。可保存为待处理共享草稿并继续核对。" type="warning" :closable="false" />
+          <el-alert v-if="adoptionBlocked" title="当前预览存在阻断正式采用的事项。可保存为待处理共享草稿并继续核对。" type="warning" :closable="false" />
+          <section v-if="preview?.adoption_conditions?.length" aria-label="正式采用所需现场依据"><h2>正式采用所需现场依据</h2><el-table :data="preview.adoption_conditions"><el-table-column prop="line_code" label="线体"/><el-table-column prop="date" label="受影响日期"/><el-table-column prop="reason" label="待处理依据"/></el-table></section>
+          <section v-if="lineStateChanges.length" aria-label="线体状态确认影响"><h2>线体状态确认影响</h2><el-table :data="lineStateChanges"><el-table-column label="线体"><template #default="{row}">{{row.after.line_code}}</template></el-table-column><el-table-column label="状态对应时点"><template #default="{row}">{{row.after.effective_at}}</template></el-table-column><el-table-column label="原 Recipe"><template #default="{row}">{{row.before?.recipe_code ?? '尚未确认'}}</template></el-table-column><el-table-column label="新 Recipe"><template #default="{row}">{{row.after.recipe_code}}</template></el-table-column><el-table-column label="来源"><template #default="{row}">{{row.after.source}}</template></el-table-column><el-table-column prop="reason" label="更正原因"/></el-table></section>
           <section aria-label="完整动作影响预览">
             <h2>计划变更</h2>
             <div role="table" aria-label="本次完整计划变更">
@@ -211,12 +217,12 @@ watch(conflict,value=>{if(value){tab.value='actions';drawer.value=true}})
           <OutputResults v-if="preview" :result="preview" />
           <div class="drawer-actions sticky-actions">
             <el-checkbox v-model="pending" :disabled="readonly">保存为待处理草稿</el-checkbox>
-            <el-button @click="drawer=false">继续编辑</el-button>
             <el-button type="primary" :disabled="!canSave" @click="submit('save')"><Save :size="16" />共享保存</el-button>
             <el-button type="success" :disabled="!canAdopt" @click="submit('adopt')"><BadgeCheck :size="16" />正式采用</el-button>
           </div>
         </template>
       </el-tab-pane>
     </el-tabs>
+    <template #footer><el-button @click="drawer=false">继续编辑</el-button></template>
   </el-drawer>
 </template>
