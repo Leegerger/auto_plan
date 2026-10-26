@@ -9,7 +9,7 @@ from .plan_models import (Plan, EvaluationSnapshot, EvaluationTime, ExecutionCon
                           EvaluationPreferences, ExecutionCoverage, PlanCell, AdoptedBaseline, LineStateContext, SwitchContinuityContext)
 from .plan_operations import replay_result, OperationContext
 from .exact import hours
-from .production_time import week_label
+from .production_time import week_label, production_date
 from .input_lookup import InputIndex
 from .recipe_states import analyze_recipe_states
 
@@ -524,7 +524,7 @@ class PlanService:
                     'execution_surplus':execution_surplus(unit.plan,snapshot.execution),
                     'reset_preview':lineage.get('reset_preview'),
                     'reset_participants':self._reset_participants(unit,snapshot,lineage),
-                    'time':snapshot.time.model_dump(mode='json'),'hour_display':plan_hour_display(unit.plan),
+                    'time':snapshot.time.model_dump(mode='json')|{'production_date':production_date(snapshot.time.as_of).isoformat()},'hour_display':plan_hour_display(unit.plan),
                     'weeks': [{'number':week+1,'label':week_label(snapshot.time.window_start+timedelta(days=week*7)),'start_date':(snapshot.time.window_start+timedelta(days=week*7)).isoformat(),
                         'dates':[(snapshot.time.window_start+timedelta(days=week*7+day)).isoformat() for day in range(7)]} for week in range(15)],
                     'evaluation':evaluation}
