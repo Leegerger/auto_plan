@@ -114,3 +114,74 @@ test('remaining-job continuity uses a reviewed basis before adoption', async ({ 
   await expect(page.getByLabel('连续性确认来源', { exact: true })).toHaveCount(0)
   await expect(page.getByRole('button', { name: '重新核对连续性并预览', exact: true })).toHaveCount(0)
 })
+
+test('local continuity recheck keeps other actions after external input changes', async ({ page }) => {
+  test.skip(process.env.AUTO_PLAN_BROWSER_CONTINUITY_FIXTURE !== '1', 'Requires actual remaining-job fixture')
+  await page.goto('/planning/login')
+  await page.getByRole('textbox', { name: '公司账号' }).fill('SHARED_EDITOR')
+  await page.getByLabel('公司密码', { exact: true }).fill('company-secret')
+  await page.getByRole('button', { name: '登录', exact: true }).click()
+  const headers = { Origin: `https://localhost:${process.env.AUTO_PLAN_BROWSER_PORT ?? '8774'}`, 'X-Auto-Plan-Request': '1' }
+  async function head() { return (await page.request.get('/planning/api/plans/current')).json() }
+  async function save(operations: Record<string, unknown>[]) {
+    const current = await head()
+    const response = await page.request.post('/planning/api/plans/save', { headers, data: {
+      base_revision: current.revision, input_version: current.input_version, latest_adoption: current.latest_adoption,
+      operation_id: crypto.randomUUID(), pending: true, operations,
+    } })
+    expect(response.ok(), await response.text()).toBe(true)
+  }
+  await save([
+    { kind: 'confirm_line_states', rows: [{ line_code: 'B', effective_at: '2026-10-12T08:00:00+08:00', state: 'unfinished_switch', recipe_code: null,
+      source: '实际剩余点检', unfinished_switch: { job_id: 'local-recheck', started_at: '2026-10-11T20:00:00+08:00', from_recipe: 'R', to_recipe: 'S', remaining_hours: '4' } }] },
+    { kind: 'replace_plan', plan: { segments: [{ id: 'local-target', date: '2026-10-16', line_code: 'B', model_code: 'P', quantity: 100, order: 1, hours: '3' }] } },
+  ])
+  const record = (await head()).context.line_states.records.find((row: { line_code: string }) => row.line_code === 'B')
+  await save([{ kind: 'patch_plan', switches: [{ id: 'local-recheck', line_code: 'B', from_recipe: 'R', to_recipe: 'S', residual_record_id: record.id,
+    allocations: [{ date: '2026-10-15', order: 0, hours: '4', idle_hours: '0' }] }] }])
+  await page.getByRole('navigation', { name: '主要导航' }).getByRole('link', { name: '排程', exact: true }).click()
+  await page.getByRole('button', { name: '线体状态', exact: true }).click()
+  await page.getByRole('button', { name: '安排剩余作业 local-recheck', exact: true }).click()
+  await page.getByLabel('剩余切机日期 1', { exact: true }).fill('2026-10-16')
+  await page.getByRole('button', { name: '加入剩余切机并预览', exact: true }).click()
+  await page.getByLabel('连续性确认来源', { exact: true }).fill('本机首次连续核对')
+  await page.getByRole('button', { name: '确认剩余切机可连续执行', exact: true }).click()
+  const detail = page.getByRole('region', { name: '剩余切机连续性', exact: true })
+  await expect(detail).toContainText('确认有效')
+  const before = await head()
+  expect(before.context.switch_continuity.records.some((row: { job_id: string }) => row.job_id === 'local-recheck')).toBe(false)
+  const changed = await page.request.post('/planning/api/inputs/apply', { headers, data: {
+    base_version: before.input_version, changes: { maintenance: [{ date: '2026-10-16', line_code: 'B', hours: 1 }] },
+  } })
+  expect(changed.ok(), await changed.text()).toBe(true)
+  await page.getByRole('button', { name: '预览本机修改', exact: true }).click()
+  await expect(page.getByRole('region', { name: '计划状态', exact: true })).toContainText('输入资料已变化')
+  await page.getByRole('region', { name: '共享修订冲突', exact: true }).getByRole('button', { name: '按最新资料重新预览', exact: true }).click()
+  await expect(page.getByRole('region', { name: '计划状态', exact: true })).toContainText('剩余切机安排或现场条件已变化')
+  await page.getByRole('button', { name: '继续编辑', exact: true }).click()
+  const recover = page.getByRole('button', { name: '取消选取旧本机确认并重新预览', exact: true })
+  await expect(recover).toBeVisible()
+  await recover.click()
+  await expect(page.getByText('预览完成，尚未共享', { exact: true })).toBeVisible()
+  await expect(detail).toContainText('尚未确认')
+  await expect(detail.getByRole('table', { name: '待确认剩余作业安排', exact: true })).toContainText('2026-10-16')
+  await detail.getByText('本次核对的现场依据', { exact: true }).click()
+  await expect(detail).toContainText('日历可用 23 小时')
+  await expect(page.getByLabel('连续性确认来源', { exact: true })).toHaveValue('本机首次连续核对')
+  await page.getByRole('button', { name: /本机临时稿/ }).click()
+  const queue = page.getByRole('region', { name: '本机完整动作队列', exact: true }).getByRole('checkbox')
+  await expect(queue).toHaveCount(2)
+  await expect(queue.nth(0)).toBeChecked()
+  await expect(queue.nth(1)).not.toBeChecked()
+  await page.getByRole('button', { name: '继续编辑', exact: true }).click()
+  await page.getByRole('button', { name: '确认剩余切机可连续执行', exact: true }).click()
+  await expect(detail).toContainText('确认有效')
+  await page.getByRole('button', { name: '正式采用', exact: true }).click()
+  await page.getByRole('dialog', { name: '确认正式采用', exact: true }).getByRole('button', { name: '正式采用', exact: true }).click()
+  await expect(page.getByText(/已正式采用第/)).toBeVisible()
+  const adopted = await head()
+  expect(adopted.latest_adoption).toBe(before.latest_adoption + 1)
+  expect(adopted.plan.switches.find((row: { id: string }) => row.id === 'local-recheck').allocations[0].date).toBe('2026-10-16')
+  expect(adopted.plan.segments.find((row: { id: string }) => row.id === 'local-target').quantity).toBe(100)
+  expect(adopted.context.switch_continuity.audit.filter((row: { changes: { after: { job_id: string } }[] }) => row.changes.some(change => change.after.job_id === 'local-recheck'))).toHaveLength(1)
+})

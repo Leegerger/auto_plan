@@ -9,6 +9,15 @@ const form=computed(()=>{
   const key=`${props.record.line_code}/${props.record.unfinished_switch?.job_id}`
   return props.shared.workspace.switchContinuity[key] ??= {source:detail.value?.confirmation?.source ?? '',reason:''}
 })
+const localConfirmations=computed(()=>props.shared.operations.value.filter(operation=>operation.kind==='confirm_switch_continuity' && operation.line_code===props.record.line_code && operation.job_id===props.record.unfinished_switch?.job_id && props.shared.selectedActions.value.includes(operation.action_id!)))
+async function refreshBasis(){
+  if(props.shared.readonly.value)return
+  const withdrawn=new Set(localConfirmations.value.map(operation=>operation.action_id!))
+  if(!withdrawn.size)return
+  props.shared.selectedActions.value=props.shared.selectedActions.value.filter(identity=>!withdrawn.has(identity))
+  props.shared.changed()
+  await props.shared.check(true)
+}
 const error=ref('')
 const labels={unarranged:'剩余作业尚未完整安排',missing:'尚未确认',valid:'确认有效',stale:'原确认已失效，需重新核对'}
 async function stage(){
@@ -36,6 +45,11 @@ async function stage(){
       <p v-if="detail.confirmation">确认来源 {{detail.confirmation.source}}<br>确认人 {{detail.confirmation.actor}}<br>录入时间 {{detail.confirmation.recorded_at}}</p>
     </template>
     <p v-else role="status">{{shared.needsPreview.value ? '连续性依据待重新预览，请先核对最新安排。' : '此记录不是当前待完成作业，请选择最新现场记录核对。'}}</p>
+    <section v-if="shared.editor.value && localConfirmations.length && shared.needsPreview.value" aria-label="本机连续性重新核对">
+      <p>本作业的本机确认仍使用原来的安排与资料。可取消选取这些旧确认，保留其余本机动作和安排，按最新资料重新预览后再核对现场条件。</p>
+      <ul><li v-for="operation in localConfirmations" :key="operation.action_id">本机确认来源 {{operation.source}}</li></ul>
+      <el-button :disabled="shared.readonly.value" @click="refreshBasis">取消选取旧本机确认并重新预览</el-button>
+    </section>
     <form v-if="shared.editor.value" @submit.prevent="stage">
       <fieldset :disabled="shared.readonly.value" class="line-state-form"><legend>现场连续性核对</legend>
         <label>确认来源 <input v-model="form.source" aria-label="连续性确认来源" placeholder="现场核对的连续作业条件" required></label>
