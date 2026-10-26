@@ -144,7 +144,7 @@ def _evaluate_fields(snapshot, *, output_cache=None, json_mode=False):
     from .line_states import calculation_anchors
     confirmed = [row for row in calculation_anchors(snapshot) if row.effective_at <= snapshot.time.as_of
                  and (getattr(row,'unfinished_switch',None) is not None or confirmed_day_capacity(snapshot,row.line_code) is None)]
-    states = analyze_recipe_states(capacity_plan, index, problem, confirmed_states=confirmed, window_start=snapshot.time.window_start)
+    states = analyze_recipe_states(capacity_plan, index, problem, confirmed_states=confirmed, window_start=snapshot.time.window_start, as_of=snapshot.time.as_of)
     initial_states = states.initial_states
     endings, all_lines = states.endings, states.lines
 

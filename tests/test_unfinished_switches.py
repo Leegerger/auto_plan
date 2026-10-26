@@ -154,3 +154,27 @@ def test_plan_replacement_cannot_relabel_the_original_actual_job(shared_client):
     assert current['context']['line_states']['records'][0]['unfinished_switch']['to_recipe'] == 'S'
     assert current['evaluation']['switch_count'] == 1
     assert preview(client, patch(row('unarranged', model='P'))).json()['evaluation']['capacity_valid'] is False
+
+
+def test_elapsed_planned_remainder_does_not_become_actual_completion_after_rollover_or_restore(shared_client):
+    from datetime import datetime, timezone
+    client, _, _ = shared_client
+    assert post(client, 'save', current_command(client, unfinished())).status_code == 200
+    record = head(client)['context']['line_states']['records'][0]
+    plan = patch(row('last-week-target', model='P') | {'order': 1})
+    plan['switches'] = [residual(record['id'])]
+    assert post(client, 'save', current_command(client, plan)).status_code == 200
+    old = head(client)
+    client.app.state.clock = lambda: datetime(2026, 10, 19, tzinfo=timezone.utc)
+    assert client.post('/auto_plan/api/auth/login', json={'username': 'EDITOR', 'password': 'company-secret'}).status_code == 200
+    current = head(client)
+    first = next(value for value in current['workspace_view']['line_weeks'] if value['line_code'] == 'L' and value['week'] == '2026-10-19')
+    assert first['state'] == 'unfinished_switch'
+    assert first['recipe_code'] is None
+    assert first['unfinished_switch']['remaining_hours'] == '4'
+    restored = preview(client, {'kind': 'restore_history', 'source': {'kind': 'revision', 'id': old['revision']}})
+    assert restored.status_code == 200, restored.text
+    first = next(value for value in restored.json()['workspace_view']['line_weeks'] if value['line_code'] == 'L' and value['week'] == '2026-10-19')
+    assert first['state'] == 'unfinished_switch'
+    assert first['recipe_code'] is None
+    assert preview(client, patch(row('unproven-completion', model='P', day='2026-10-20'))).json()['evaluation']['capacity_valid'] is False

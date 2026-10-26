@@ -28,7 +28,7 @@ class RecipeStates:
     initial_pending: dict[str, str] = field(default_factory=dict)
 
 
-def analyze_recipe_states(plan: Plan, index: InputIndex, problem=None, *, include_transitions=False, confirmed_states=(), window_start=None) -> RecipeStates:
+def analyze_recipe_states(plan: Plan, index: InputIndex, problem=None, *, include_transitions=False, confirmed_states=(), window_start=None, as_of=None) -> RecipeStates:
     """Walk ordered events, retaining the state across every empty date.
 
     A scope comparison needs these states without output attribution or capacity
@@ -44,6 +44,10 @@ def analyze_recipe_states(plan: Plan, index: InputIndex, problem=None, *, includ
             events[segment.line_code].append((segment.date, segment.order, 'production', segment, None))
     for switch in plan.switches:
         for position, allocation in enumerate(sorted(switch.allocations, key=lambda row: (row.date, row.order))):
+            if switch.residual_record_id is not None and as_of is not None:
+                from .production_time import production_date
+                if allocation.date < production_date(as_of):
+                    continue
             events[switch.line_code].append((allocation.date, allocation.order, 'switch', switch, position))
     from .production_time import production_date, production_cutoff
     day_starts = {}
@@ -105,7 +109,9 @@ def analyze_recipe_states(plan: Plan, index: InputIndex, problem=None, *, includ
                         pending = item.id
                 elif pending != item.id:
                     problem('switch_sequence', '同一切机的分配必须按顺序完成，不得穿插其他事件', switch=item, day=day)
-                complete = not blocked and (not residual or continuing and sum((Fraction(row.hours) for row in item.allocations),Fraction(0)) == Fraction(actual.remaining_hours))
+                complete = not blocked and (not residual or continuing
+                    and sum((Fraction(row.hours) for row in item.allocations),Fraction(0)) == Fraction(actual.remaining_hours)
+                    and sum((Fraction(row.hours) for row in item.allocations if as_of is None or row.date >= production_date(as_of)),Fraction(0)) == Fraction(actual.remaining_hours))
                 if position == len(item.allocations) - 1 and complete:
                     state = item.to_recipe
                     pending = None
