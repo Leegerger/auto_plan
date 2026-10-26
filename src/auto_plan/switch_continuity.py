@@ -1,5 +1,5 @@
 """One semantic basis for actual remaining-work continuity and its audited operation."""
-from datetime import timedelta
+from datetime import date, timedelta
 from fractions import Fraction
 import hashlib
 import json
@@ -21,6 +21,11 @@ def _ordered(rows):
     return sorted(rows,key=lambda row:json.dumps(row,ensure_ascii=False,sort_keys=True,separators=(',',':')))
 
 
+def _day_budget(snapshot,record,day):
+    return next((row for row in snapshot.execution.day_capacities if row.date==day and row.line_code==record.line_code
+                 and row.residual_record_id==record.id and record.effective_at<=row.confirmed_at<=snapshot.time.as_of),None)
+
+
 def _basis(snapshot, record, index):
     from .line_states import matches_residual_job
     job=record.unfinished_switch
@@ -31,6 +36,8 @@ def _basis(snapshot, record, index):
     complete=len(arranged)==1 and matches_residual_job(arranged[0],record) and sum((Fraction(row.hours) for row in raw),Fraction(0))==Fraction(job.remaining_hours)
     positive=sorted({row.date for row in raw if Fraction(row.hours)})
     consecutive=all(b-a==timedelta(days=1) for a,b in zip(positive,positive[1:]))
+    full_interior=all(sum((Fraction(row.hours) for row in raw if row.date==day),Fraction(0))==24 for day in positive[1:-1])
+    uninterrupted=all(index.day(day,record.line_code)['available_hours']==24 for day in positive[1:-1])
     unique=len({(row.date,row.order) for row in raw})==len(raw)
     applicable=all(max(today,production_date(record.effective_at),snapshot.time.window_start)<=row.date<=snapshot.time.window_end for row in raw)
     reasons=[]
@@ -38,7 +45,9 @@ def _basis(snapshot, record, index):
     if not applicable: reasons.append('剩余作业不能安排到已过去日期、现场观察之前或排程窗口以外。')
     if not unique: reasons.append('剩余切机分配的同日顺序重复，请先修正。')
     if not consecutive: reasons.append('剩余切机安排之间存在未安排作业的生产日，已知中断不能由连续性确认豁免。')
-    eligible=complete and applicable and unique and consecutive
+    if not full_interior: reasons.append('跨越完整生产日的剩余切机工时必须覆盖整日24小时，已知中断不能豁免。')
+    if not uninterrupted: reasons.append('完整生产日存在已知休息、保养或实验中断，不能确认连续。')
+    eligible=complete and applicable and unique and consecutive and full_interior and uninterrupted
     first=min((row.date for row in raw),default=max(snapshot.time.window_start,production_date(record.effective_at)))
     last=max((row.date for row in raw),default=first)
     days=[]
@@ -68,8 +77,7 @@ def _basis(snapshot, record, index):
               'capacities':[{'month':month,'recipe_code':recipe,**index.capacity(month,recipe,record.line_code)} for month,recipe in sorted(recipe_months)]}
     budgets=[]
     for day in days:
-        observed=next((row for row in snapshot.execution.day_capacities if row.date==day and row.line_code==record.line_code
-                       and row.residual_record_id==record.id and row.confirmed_at>=record.effective_at and row.confirmed_at<=snapshot.time.as_of),None)
+        observed=_day_budget(snapshot,record,day)
         budgets.append({'date':day.isoformat(),'remaining_hours':observed.remaining_hours if observed else str(index.day(day,record.line_code)['available_hours']),
                         'residual_record_id':record.id})
     end=max(last,handoff.date if handoff is not None else last)
@@ -82,7 +90,9 @@ def _basis(snapshot, record, index):
             covered.append({'start_date':max(start,row.start_date).isoformat(),'end_date':min(end,row.end_date).isoformat(),
                             'model_codes':sorted(row.model_codes),'blanks_are_zero':row.blanks_are_zero})
     selected={row.id for row in production if start<=row.date<=end}
-    cutoff=snapshot.execution.cutoff
+    associations=_ordered([row.model_dump(mode='json') for row in snapshot.execution.associations if row.segment_id in selected])
+    association_cells=_ordered([row.model_dump(mode='json') for row in snapshot.execution.association_cells if row.line_code==record.line_code and start<=row.date<=end])
+    cutoff=snapshot.execution.cutoff if facts or covered or associations or association_cells else None
     if cutoff is not None:
         cutoff=min(max(cutoff,production_cutoff(start)),production_cutoff(end+timedelta(days=1))).isoformat()
     basis={'schema':1,'job':{'job_id':job.job_id,'line_code':record.line_code,'from_recipe':job.from_recipe,'to_recipe':job.to_recipe,'started_at':job.started_at.isoformat()},
@@ -91,22 +101,39 @@ def _basis(snapshot, record, index):
            'allocations':allocations,'calendar':calendar,'day_budgets':budgets,
            'competing_work':{'events':_ordered(work),'handoff':segment(handoff) if handoff is not None else None},
            'execution':{'facts':_ordered(facts),'coverage':_ordered(covered),'cutoff':cutoff,
-                        'associations':_ordered([row.model_dump(mode='json') for row in snapshot.execution.associations if row.segment_id in selected]),
-                        'association_cells':_ordered([row.model_dump(mode='json') for row in snapshot.execution.association_cells if row.line_code==record.line_code and start<=row.date<=end])},
+                        'associations':associations,'association_cells':association_cells},
            'locks':_ordered([row.model_dump(mode='json') for row in snapshot.locks if row.line_code==record.line_code and first<=row.date<=end]),
-           'applicability':{'not_elapsed':applicable,'consecutive_days':consecutive,'unique_orders':unique,'complete':complete}}
+           'applicability':{'not_elapsed':applicable,'consecutive_days':consecutive,'full_interior_days':full_interior,
+                            'uninterrupted_calendar':uninterrupted,'unique_orders':unique,'complete':complete}}
     return basis,eligible,reasons
 
 
-def _evidence(basis):
+def _evidence(basis,snapshot,record):
     job=basis['job'];progress=basis['progress']
+    work=[]
+    for row in basis['competing_work']['events']:
+        if row['kind']=='production':
+            work.append(f"{row['date']} · 顺序 {row['order']} · {row['model_code']} / Recipe {row['recipe_code']} · {row['quantity']} 片 / {row['hours']} 小时")
+        else:
+            work.extend(f"{part['date']} · 顺序 {part['order']} · 切机 {row['from_recipe']} → {row['to_recipe']} · {part['hours']} 小时" for part in row['allocations'])
+    handoff=basis['competing_work']['handoff']
+    if handoff is not None:
+        work.append(f"后续衔接：{handoff['date']} · 顺序 {handoff['order']} · {handoff['model_code']} / Recipe {handoff['recipe_code']}")
+    budgets=[]
+    for row in basis['day_budgets']:
+        observed=_day_budget(snapshot,record,date.fromisoformat(row['date']))
+        budgets.append(f"{row['date']} · {'现场剩余预算' if observed else '日历预算'} {row['remaining_hours']} 小时"+
+                       (f" · 观察 {observed.confirmed_at.isoformat()}" if observed else ''))
+    execution=[f"{row['date']} · {row['model_code']} / Recipe {row['recipe_code']} · 实际累计 {row['quantity']} 片" for row in basis['execution']['facts']]
+    execution.extend(f"执行覆盖 {row['start_date']} 至 {row['end_date']} · 机种 {'、'.join(row['model_codes'])} · {'空白已确认为零' if row['blanks_are_zero'] else '空白仍未知'}" for row in basis['execution']['coverage'])
+    if basis['execution']['cutoff'] is not None: execution.append('执行截止 '+basis['execution']['cutoff'])
+    capacity_states={'known':'已知','missing':'待补','forbidden':'不允许','zero':'零产能'}
+    calendar=[f"{row['date']} · 日历可用 {row['available_hours']} 小时 · 休息日{'是' if row['holiday'] else '否'} · 开工例外{'是' if row['opening_exception'] else '否'} · 保养 {row['maintenance']} 小时 · 实验 {row['experiment']} 小时" for row in basis['calendar']['days']]
+    calendar.extend(f"{row['month']} · Recipe {row['recipe_code']} · 全日投入 {row['pieces']} 片 · {capacity_states[row['state']]}" for row in basis['calendar']['capacities'])
     items={'job':[f"作业 {job['job_id']} · {job['from_recipe']} → {job['to_recipe']}",f"实际开始 {job['started_at']}"],
            'progress':[f"状态对应 {progress['effective_at']}",f"现场剩余 {progress['remaining_hours']} 小时"],
            'allocations':[f"{row['date']} · 顺序 {row['order']} · {row['hours']} 小时" for row in basis['allocations']],
-           'calendar':[f"{row['date']} · 日历可用 {row['available_hours']} 小时 · 保养 {row['maintenance']} 小时 · 实验 {row['experiment']} 小时" for row in basis['calendar']['days']],
-           'day_budgets':[f"{row['date']} · 可用预算 {row['remaining_hours']} 小时" for row in basis['day_budgets']],
-           'competing_work':[f"同线安排 {len(basis['competing_work']['events'])} 项，后续生产已关联"],
-           'execution':[f"相关累计事实 {len(basis['execution']['facts'])} 项，执行覆盖 {len(basis['execution']['coverage'])} 项"],
+           'calendar':calendar,'day_budgets':budgets,'competing_work':work,'execution':execution,
            'locks':[f"{row['date']} · {row['model_code']} · 固定投入 {row['quantity']}" for row in basis['locks']],
            'applicability':['已完整安排当前剩余工时' if basis['applicability']['complete'] else '当前剩余工时尚未完整安排']}
     return [{'key':key,'title':title,'items':items[key] or ['无']} for key,title in GROUPS.items()]
@@ -114,10 +141,13 @@ def _evidence(basis):
 
 def continuity_details(snapshot):
     from .line_states import active_unfinished_jobs
+    jobs=active_unfinished_jobs(snapshot)
+    if not jobs:
+        return []
     index=InputIndex(snapshot.inputs)
     prior={(row.line_code,row.job_id):row for row in snapshot.switch_continuity.records}
     result=[]
-    for line,record in sorted(active_unfinished_jobs(snapshot).items()):
+    for line,record in sorted(jobs.items()):
         job=record.unfinished_switch
         basis,eligible,reasons=_basis(snapshot,record,index)
         digest=hashlib.sha256(json.dumps(basis,ensure_ascii=False,sort_keys=True,separators=(',',':')).encode()).hexdigest()
@@ -130,7 +160,7 @@ def continuity_details(snapshot):
         elif eligible: reasons=['日级工时不能证明连续条件，请核实现场可连续执行。']
         result.append({'job_id':job.job_id,'line_code':line,'source_record_id':record.id,'from_recipe':job.from_recipe,'to_recipe':job.to_recipe,
                        'remaining_hours':hours(job.remaining_hours).model_dump(mode='json'),'allocations':basis['allocations'],'basis_digest':digest,'basis':basis,
-                       'status':status,'can_confirm':eligible,'reasons':reasons,'changed_groups':changed,'evidence':_evidence(basis),
+                       'status':status,'can_confirm':eligible,'reasons':reasons,'changed_groups':changed,'evidence':_evidence(basis,snapshot,record),
                        'confirmation':old.model_dump(mode='json') if old is not None else None})
     return result
 

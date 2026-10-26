@@ -13,6 +13,7 @@ export function createWorkspaceContext() {
     panelOpen: true,
     panelObject: 'day' as 'day' | 'line_state',
     lineStates: { state: 'retained_recipe' as 'retained_recipe' | 'unfinished_switch', unfinished: {} as Record<string,{jobId:string;startedAt:string;fromRecipe:string;toRecipe:string;remainingHours:string;standardHours:string;completedHours:string}>, effectiveAt: '', source: '', batchRecipe: '', reason: '', selectedLines: [] as string[], recipes: {} as Record<string,string>, expected: {} as Record<string,LineStateRecord> },
+    switchContinuity: {} as Record<string,{source:string;reason:string}>,
     residualSwitch: {recordId:'',allocations:[] as {date:string;order:number;hours:string;idle_hours:string}[]},
     exactHours: '',
     exactHoursSelection: '',

@@ -22,6 +22,10 @@ const lineStateChanges=computed(()=>{
   const saved=new Set((head.value?.context.line_states?.audit ?? []).map(value=>value.action_id))
   return (proposal.value?.context.line_states?.audit ?? []).filter(value=>!saved.has(value.action_id)).flatMap(value=>value.changes.map(change=>({...change,reason:value.reason})))
 })
+const continuityChanges=computed(()=>{
+  const saved=new Set((head.value?.context.switch_continuity?.audit ?? []).map(value=>value.action_id))
+  return (proposal.value?.context.switch_continuity?.audit ?? []).filter(value=>!saved.has(value.action_id)).flatMap(value=>value.changes.map(change=>({...change,reason:value.reason})))
+})
 const canAdopt=computed(()=>canSave.value&&!proposal.value?.adoption_blocked&&!!preview.value?.executable)
 const selectedHighRisk=computed(()=>operations.value.filter(operation=>selectedActions.value.includes(operation.action_id!)&&['clear_segments','overwrite_copy_segments','discard_unallocated','weekly_reset'].includes(operation.kind)))
 const stateLabel=computed(()=>{
@@ -181,6 +185,7 @@ watch(conflict,value=>{if(value){tab.value='actions';drawer.value=true}})
           <el-alert v-if="adoptionBlocked" title="当前预览存在阻断正式采用的事项。可保存为待处理共享草稿并继续核对。" type="warning" :closable="false" />
           <section v-if="preview?.adoption_conditions?.length" aria-label="正式采用所需现场依据"><h2>正式采用所需现场依据</h2><el-table :data="preview.adoption_conditions"><el-table-column prop="line_code" label="线体"/><el-table-column prop="date" label="受影响日期"/><el-table-column prop="reason" label="待处理依据"/></el-table></section>
           <section v-if="lineStateChanges.length" aria-label="线体状态确认影响"><h2>线体状态确认影响</h2><el-table :data="lineStateChanges"><el-table-column label="线体"><template #default="{row}">{{row.after.line_code}}</template></el-table-column><el-table-column label="状态对应时点"><template #default="{row}">{{row.after.effective_at}}</template></el-table-column><el-table-column label="原状态"><template #default="{row}">{{lineStateDescription(row.before)}}</template></el-table-column><el-table-column label="新状态"><template #default="{row}">{{lineStateDescription(row.after)}}</template></el-table-column><el-table-column label="来源"><template #default="{row}">{{row.after.source}}</template></el-table-column><el-table-column prop="reason" label="更正原因"/></el-table></section>
+          <section v-if="continuityChanges.length" aria-label="连续性确认影响"><h2>连续性确认影响</h2><el-table :data="continuityChanges"><el-table-column label="线体"><template #default="{row}">{{row.after.line_code}}</template></el-table-column><el-table-column label="原作业"><template #default="{row}">{{row.after.job_id}}</template></el-table-column><el-table-column label="原确认来源"><template #default="{row}">{{row.before?.source ?? '尚未确认'}}</template></el-table-column><el-table-column label="本次确认来源"><template #default="{row}">{{row.after.source}}</template></el-table-column><el-table-column label="确认人"><template #default="{row}">{{row.after.actor}}</template></el-table-column><el-table-column prop="reason" label="核对原因"/></el-table></section>
           <section aria-label="完整动作影响预览">
             <h2>计划变更</h2>
             <div role="table" aria-label="本次完整计划变更">
