@@ -1,0 +1,47 @@
+{
+  "encoding": "JSON/text/profile originals gzip-compressed; existing gzip and PNG bytes unchanged. Source manifests refer to original filenames/bytes.",
+  "artifacts": [
+    {
+      "path": "request.json.gz",
+      "original_path": "request.json",
+      "original_artifact_sha256": "bdaf46797c07fa6821d4192615f3203d60507c3f73a5d98dfa946430fddc1734",
+      "stored_sha256": "8eef83c9616cf0fd58a97c1eddcfe2a99b9ec581360b57f0d22de1df3f10630c",
+      "original_artifact_bytes": 8601
+    },
+    {
+      "path": "response.json.gz",
+      "original_path": "response.json.gz",
+      "original_artifact_sha256": "04903015a6da8480ed40c5bbde75c84ae19dcdbe302ad461f990f14c71278d12",
+      "stored_sha256": "04903015a6da8480ed40c5bbde75c84ae19dcdbe302ad461f990f14c71278d12",
+      "original_artifact_bytes": 293776
+    },
+    {
+      "path": "result.json.gz",
+      "original_path": "result.json",
+      "original_artifact_sha256": "b80fa56e541697a62557a15cdf7f6fc248418dc2e5e7cd4bbaaf1d6e818b9a20",
+      "stored_sha256": "f1c1bab196c56b0c8ef584c059888cbd25cdb01bbef3c6d3e653b1b3816d6e3d",
+      "original_artifact_bytes": 878
+    },
+    {
+      "path": "worker-callers.txt.gz",
+      "original_path": "worker-callers.txt",
+      "original_artifact_sha256": "2cda63ee510eee80151205bab84d28cd2bc42188763a8b1096aab00236c6f8a8",
+      "stored_sha256": "9d68c0fc4c1bdb4a217bf6748542f2aab60f421cf2c6d2db8d0068a2a72762dc",
+      "original_artifact_bytes": 3417
+    },
+    {
+      "path": "worker-profile.txt.gz",
+      "original_path": "worker-profile.txt",
+      "original_artifact_sha256": "775e8a054e920193fc6ea7ee9b254b0d13dc36085d60800203b8c8d9839369bd",
+      "stored_sha256": "17b8ba7069e1543374f6e555e6e5f37b10bef367d3daf41a9e9a9d82c7f0d1a9",
+      "original_artifact_bytes": 9067
+    },
+    {
+      "path": "worker.prof.gz",
+      "original_path": "worker.prof",
+      "original_artifact_sha256": "2e4aa8ee97f0268d3f6d07d8895475e63633ee9266b702004fb3d44d65ad04d6",
+      "stored_sha256": "14d9bab63f90c9e8876c81e97398e811c8bca2c0bf81ec951093862f04c4083d",
+      "original_artifact_bytes": 93927
+    }
+  ]
+}

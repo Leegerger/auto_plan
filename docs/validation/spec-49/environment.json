@@ -1,0 +1,96 @@
+{
+  "original_spec_baseline": "491c8b5",
+  "prerequisite_integration": "de56d03be1d09633cfbc6b1fc101de37e1a10517",
+  "production_src_tree": "5a24fa53c385525fd9bf1d4affbab26159a47666",
+  "full_python_commit": "efdc2341b5613ca8ab849475b5c5ab6591ca33a2",
+  "clock_frontend_commit": "4e63650b440e89093ce6bb983f319040e4118668",
+  "oracle_test_commit": "e898fa99eb3c9ff669bd523bc1d59d19d9e0940c",
+  "state_composition_commit": "5ef91afbe525cde3a53464ef427430cc6f4382ed",
+  "python": "3.13.11",
+  "platform": "Linux-6.8.0-90-generic-x86_64-with-glibc2.39",
+  "node": "v24.13.0",
+  "packages": {
+    "fastapi": "0.143.1",
+    "starlette": "1.8.0",
+    "pydantic": "2.14.1",
+    "httpx": "0.28.1",
+    "oracledb": "4.0.2",
+    "ortools": "9.15.6755"
+  },
+  "business_clock_domains": [
+    "2026-10-14T07:59:00+08:00 through 08:01:00+08:00",
+    "2026-10-14T10:00:00+08:00",
+    "2026-10-14T08:00:00+08:00",
+    "2026-10-12T08:00:00+08:00, dense CPU fixture"
+  ],
+  "oracle": "Actual PLAN_TEST, disposable AP_TEST_B3D3FE business objects; canonical test access/session tables use existing test accounts.",
+  "browser_storage": "Explicit memory persistence and synthetic company authentication; browser runs are not Oracle proofs.",
+  "limits": [
+    "Shared host, distinct functional and quiet timing windows.",
+    "No customer sample, company proxy, site hardware or production acceptance.",
+    "No container/process restart proof; Oracle test reopens fresh store/application instances within one test process."
+  ],
+  "logical_cpus": 4,
+  "process_affinity_cpus": [
+    0,
+    1,
+    2,
+    3
+  ],
+  "cpu_model": "Intel(R) Core(TM) i3-6100 CPU @ 3.70GHz",
+  "frontend_packages": {
+    "vue": "3.5.44",
+    "vite": "7.3.7",
+    "@playwright/test": "1.64.1"
+  },
+  "fixture_topologies": {
+    "cpu_gate": {
+      "lines": 18,
+      "models": 40,
+      "weeks": 15,
+      "rows": 4200,
+      "input_per_row": 100,
+      "baseline_input": 420000
+    },
+    "representative_workspace_browser": {
+      "lines": 18,
+      "models": 40,
+      "weeks": 15,
+      "rows": 270,
+      "input_per_row": 20,
+      "baseline_input": 5400,
+      "demand_rows": 600
+    },
+    "oracle_prerequisite_comparison": {
+      "lines": 18,
+      "models": 40,
+      "weeks": 15,
+      "rows": 270,
+      "input_per_row": 700,
+      "baseline_input": 189000
+    },
+    "oracle_spec49_composite": {
+      "lines": 3,
+      "models": 3,
+      "weeks": 15,
+      "demand_rows": 45,
+      "target_output": 1000,
+      "outside_output": 50
+    }
+  },
+  "earlier_clock_src_tree": "b212af499ea159a4f8f99d9dbe183ae5ca2bc429",
+  "final_runtime_commit": "efdc2341b5613ca8ab849475b5c5ab6591ca33a2",
+  "final_runtime_tree": "2793692e248d56fb77d56f2f9070eb6138aca8e2",
+  "final_whole_python_commit": "efdc2341b5613ca8ab849475b5c5ab6591ca33a2",
+  "performance_fix_commit": "62b7aac5e8688a127e8365b5e93f625e08930702",
+  "frontend_src_tree": "00c5fc52f835799ade5163d2708d6bef87e7d9ea",
+  "earlier_full_python_commit": "d7b1b61cd65c454ca304f61968bc126dfe915bf7",
+  "final_whole_python_result": {
+    "passed": 582,
+    "skipped": 60,
+    "warnings": 10,
+    "wall_seconds": 527.34,
+    "exit_code": 0
+  },
+  "final_whole_python_metadata": "observed/regression/final-python-efdc234.json"
+}

@@ -1,0 +1,351 @@
+{
+  "status": "All measured gates pass after the residual-index fix; prior failed CPU attempts remain retained.",
+  "original_limits_seconds": {
+    "selection_week_day": 3,
+    "single_or_batch_preview": 15,
+    "solo_import_or_shared_save": 30,
+    "concurrent_shared_save": 60,
+    "local_compute": 60,
+    "new_week_or_all_replan": 180,
+    "each_opt_in_cpu_preview": 5
+  },
+  "comparison_sla": "No additional comparison threshold is defined. Request and browser observations are separate.",
+  "clock_browser": {
+    "source": "5ef91af",
+    "test_seconds": 4.1,
+    "suite_seconds": 5.6,
+    "result": "pass",
+    "quiet": true
+  },
+  "cpu_gate_prior_attempts": [
+    {
+      "source": "5ef91af",
+      "result": "fail",
+      "gate_elapsed_seconds": 5.0384257435798645,
+      "test_seconds": 16.88,
+      "quantities_correct": true
+    },
+    {
+      "source": "5ef91af",
+      "result": "fail",
+      "public_request_observations": [
+        {
+          "sample": 1,
+          "wall_seconds": 4.87873612344265,
+          "process_cpu_seconds": 4.844653677,
+          "status": 200,
+          "bytes": 12514156,
+          "sha256": "33f8eec3087d9258b787e76a6f558d4db4c0dcb1878775f07ecde34c330dd1e5"
+        },
+        {
+          "sample": 2,
+          "wall_seconds": 4.613329898566008,
+          "process_cpu_seconds": 4.608479093,
+          "status": 200,
+          "bytes": 12514156,
+          "sha256": "33f8eec3087d9258b787e76a6f558d4db4c0dcb1878775f07ecde34c330dd1e5"
+        },
+        {
+          "sample": 3,
+          "wall_seconds": 5.089476719498634,
+          "process_cpu_seconds": 5.070291187999999,
+          "status": 200,
+          "bytes": 12514156,
+          "sha256": "33f8eec3087d9258b787e76a6f558d4db4c0dcb1878775f07ecde34c330dd1e5"
+        }
+      ],
+      "test_seconds": 16.44,
+      "quantities_correct": true,
+      "same_response_sha256": true,
+      "artifact_work_deferred_until_after_assertions": true
+    }
+  ],
+  "notes": [
+    "Second diagnostic invokes the unchanged test through an external public HTTP observer. Its pytest plugin-rewrite warning is instrumentation-only.",
+    "The Oracle composite overlapped the full Python run; its diagnostic timings are not quiet latency measurements.",
+    "No further unchanged reruns followed the two failures. The passing gate follows a measured production matrix-index change; profiles are instrumentation-only and kept separate."
+  ],
+  "cpu_gate_final": {
+    "fix_commit": "62b7aac5e8688a127e8365b5e93f625e08930702",
+    "source_tree": "5a24fa53c385525fd9bf1d4affbab26159a47666",
+    "result": "1 passed in13.40s; all3 original5s assertions passed",
+    "samples": [
+      {
+        "bytes": 12514156,
+        "process_cpu_seconds": 4.019849474000001,
+        "sample": 1,
+        "sha256": "33f8eec3087d9258b787e76a6f558d4db4c0dcb1878775f07ecde34c330dd1e5",
+        "status": 200,
+        "wall_seconds": 4.031736638396978
+      },
+      {
+        "bytes": 12514156,
+        "process_cpu_seconds": 3.7679693299999997,
+        "sample": 2,
+        "sha256": "33f8eec3087d9258b787e76a6f558d4db4c0dcb1878775f07ecde34c330dd1e5",
+        "status": 200,
+        "wall_seconds": 3.7719710245728493
+      },
+      {
+        "bytes": 12514156,
+        "process_cpu_seconds": 3.8825111690000007,
+        "sample": 3,
+        "sha256": "33f8eec3087d9258b787e76a6f558d4db4c0dcb1878775f07ecde34c330dd1e5",
+        "status": 200,
+        "wall_seconds": 3.8952467888593674
+      }
+    ],
+    "response_sha256": "33f8eec3087d9258b787e76a6f558d4db4c0dcb1878775f07ecde34c330dd1e5",
+    "original_gate_and_fixture_unchanged": true
+  },
+  "representative_browser": {
+    "result": "2 passed in 4.3 minutes",
+    "tested_commit": "6d16bef",
+    "handoff_commit": "fd101461d20044c1e208897be32b7026067ff44a",
+    "comparison_has_no_new_latency_SLA": true,
+    "fixture": "270 source segments, 18 lines, 40 models, 15 weeks; memory browser adapter, distinct from dense 4200-source and actual Oracle",
+    "cases": [
+      {
+        "viewport": 1280,
+        "source_revision": 1,
+        "source_input_version": 4,
+        "source_latest_adoption": 0,
+        "maintenance_before_input_version": 4,
+        "maintenance_after_input_version": 5,
+        "saved_revision": 2,
+        "adopted_revision": 3,
+        "adopted_version": 1,
+        "goal_entry": "Create a new goal",
+        "rows_independent": 18,
+        "each_added_input": 100,
+        "each_added_on_time_output": 100,
+        "selected_operation_exact": true,
+        "queued_edit_and_scope_retained": true,
+        "only_selected_P100_persisted": true,
+        "outside_source_exact": true,
+        "adopted_plan_exact": true,
+        "local_and_history_recovery": true,
+        "timings": [
+          {
+            "phase": "ordinary-edit-preview",
+            "milliseconds": 1530.0569239999986,
+            "bytes": 2444061,
+            "status": 200
+          },
+          {
+            "phase": "comparison-before-maintenance",
+            "milliseconds": 32167.25142,
+            "bytes": 75667,
+            "status": 200
+          },
+          {
+            "phase": "maintenance-submit",
+            "milliseconds": 242.61447500000213,
+            "bytes": 163261,
+            "status": 200
+          },
+          {
+            "phase": "latest-source-preview",
+            "milliseconds": 2613.334456999997,
+            "bytes": 2444061,
+            "status": 200
+          },
+          {
+            "phase": "comparison-after-maintenance",
+            "milliseconds": 32833.863553999996,
+            "bytes": 75667,
+            "status": 200
+          },
+          {
+            "phase": "selected-full-preview",
+            "milliseconds": 1833.532131,
+            "bytes": 2451825,
+            "status": 200
+          },
+          {
+            "phase": "recovered-full-preview",
+            "milliseconds": 2142.969996,
+            "bytes": 2451825,
+            "status": 200
+          },
+          {
+            "phase": "shared-save",
+            "milliseconds": 2654.5317959999957,
+            "bytes": 89,
+            "status": 200
+          },
+          {
+            "phase": "saved-current-preview",
+            "milliseconds": 1488.59788999999,
+            "bytes": 2447581,
+            "status": 200
+          },
+          {
+            "phase": "formal-adopt",
+            "milliseconds": 2284.953634000005,
+            "bytes": 89,
+            "status": 200
+          },
+          {
+            "phase": "history-full-preview",
+            "milliseconds": 1896.5047440000053,
+            "bytes": 2487031,
+            "status": 200
+          }
+        ]
+      },
+      {
+        "viewport": 1440,
+        "source_revision": 4,
+        "source_input_version": 6,
+        "source_latest_adoption": 1,
+        "maintenance_before_input_version": 6,
+        "maintenance_after_input_version": 7,
+        "saved_revision": 5,
+        "adopted_revision": 6,
+        "adopted_version": 2,
+        "goal_entry": "Continue retained current goal after public history restore",
+        "rows_independent": 18,
+        "each_added_input": 100,
+        "each_added_on_time_output": 100,
+        "selected_operation_exact": true,
+        "queued_edit_and_scope_retained": true,
+        "only_selected_P100_persisted": true,
+        "outside_source_exact": true,
+        "adopted_plan_exact": true,
+        "local_and_history_recovery": false,
+        "timings": [
+          {
+            "phase": "ordinary-edit-preview",
+            "milliseconds": 1587.7453289999976,
+            "bytes": 2484698,
+            "status": 200
+          },
+          {
+            "phase": "comparison-before-maintenance",
+            "milliseconds": 36335.42146899999,
+            "bytes": 66741,
+            "status": 200
+          },
+          {
+            "phase": "maintenance-submit",
+            "milliseconds": 325.8616340000008,
+            "bytes": 163261,
+            "status": 200
+          },
+          {
+            "phase": "latest-source-preview",
+            "milliseconds": 3048.81723700001,
+            "bytes": 2484698,
+            "status": 200
+          },
+          {
+            "phase": "comparison-after-maintenance",
+            "milliseconds": 36341.392095999996,
+            "bytes": 66741,
+            "status": 200
+          },
+          {
+            "phase": "selected-full-preview",
+            "milliseconds": 2363.459410999989,
+            "bytes": 2491651,
+            "status": 200
+          },
+          {
+            "phase": "shared-save",
+            "milliseconds": 2798.167491,
+            "bytes": 89,
+            "status": 200
+          },
+          {
+            "phase": "saved-current-preview",
+            "milliseconds": 1690.3853729999973,
+            "bytes": 2487407,
+            "status": 200
+          },
+          {
+            "phase": "formal-adopt",
+            "milliseconds": 2660.80976199999,
+            "bytes": 89,
+            "status": 200
+          }
+        ]
+      }
+    ]
+  },
+  "navigation": {
+    "source": {
+      "tested_commit": "aaf8d46ef5311675f37c7e7f5693c44864828ce7",
+      "handoff_commit": "8fbce934fc1783741305636d7620262ba4dc0efd",
+      "src_tree": "5a24fa53c385525fd9bf1d4affbab26159a47666",
+      "frontend_src_tree": "00c5fc52f835799ade5163d2708d6bef87e7d9ea",
+      "performance_fix": "62b7aac5e8688a127e8365b5e93f625e08930702",
+      "test_sha256": "8679dd606479f40fedac99b48f4d980f29632ad5832a62c0270d97ac144c5263",
+      "frontend_build_source": "4e63650, frontend/src tree unchanged",
+      "result": "2 passed in 17.3 seconds; each viewport test 6.4 seconds",
+      "unchanged_limit_ms": 3000,
+      "composition_pin_separate": "6d16bef, two cases in 4.3 minutes, before backend-only workspace index fix"
+    },
+    "measurements": {
+      "1280": {
+        "viewport": {
+          "width": 1280,
+          "height": 800
+        },
+        "timings": [
+          {
+            "phase": "week-selection",
+            "milliseconds": 178.68861600000037,
+            "limit": 3000
+          },
+          {
+            "phase": "day-opening",
+            "milliseconds": 200.76119299999937,
+            "limit": 3000
+          },
+          {
+            "phase": "segment-selection",
+            "milliseconds": 156.8677119999993,
+            "limit": 3000
+          }
+        ]
+      },
+      "1440": {
+        "viewport": {
+          "width": 1440,
+          "height": 900
+        },
+        "timings": [
+          {
+            "phase": "week-selection",
+            "milliseconds": 310.2461910000002,
+            "limit": 3000
+          },
+          {
+            "phase": "day-opening",
+            "milliseconds": 243.35456700000032,
+            "limit": 3000
+          },
+          {
+            "phase": "segment-selection",
+            "milliseconds": 134.40322599999854,
+            "limit": 3000
+          }
+        ]
+      }
+    }
+  },
+  "final_whole_python_result": {
+    "passed": 582,
+    "skipped": 60,
+    "warnings": 10,
+    "wall_seconds": 527.34,
+    "exit_code": 0
+  },
+  "final_runtime_commit": "efdc2341b5613ca8ab849475b5c5ab6591ca33a2",
+  "external_gates_not_established_here": [
+    "Actual five-editor concurrent save/load acceptance",
+    "Full company-site local/new-week/all-replan distributions",
+    "Customer-sample and formal production acceptance under issues22/40"
+  ]
+}

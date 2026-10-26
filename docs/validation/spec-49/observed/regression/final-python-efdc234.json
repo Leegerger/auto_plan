@@ -1,0 +1,21 @@
+{
+  "source_commit": "efdc2341b5613ca8ab849475b5c5ab6591ca33a2",
+  "source_tree": "2793692e248d56fb77d56f2f9070eb6138aca8e2",
+  "production_src_tree": "5a24fa53c385525fd9bf1d4affbab26159a47666",
+  "command": "PYTHONPATH=src:. python -m pytest -q",
+  "cwd": "ticket/62-workspace-acceptance isolated worktree",
+  "python": "3.13.11",
+  "result": {
+    "passed": 582,
+    "skipped": 60,
+    "warnings": 10,
+    "wall_seconds": 527.34,
+    "exit_code": 0
+  },
+  "limits": "Oracle and scale opt-ins are separate. Ten malformed serializer fixture warnings were already present at baseline. Subsequent artifact and report edits do not change runtime source or tests.",
+  "log": {
+    "path": "final-python-efdc234.log.gz",
+    "sha256": "89f8c812906f4397cbea1ab970f4941d751acfa9ef3ec8a243f93aabc80ff71f",
+    "uncompressed_sha256": "decb6d469b6d15374466ef8ee57a3a99ef3edd0a87b1288acced17d285905b27"
+  }
+}

@@ -1,0 +1,50 @@
+{
+  "runtime_commit_before_final_nav_ancestry_merge": "aa55447ce83437a5eb49439a523f824607617ac1",
+  "final_runtime_commit": "efdc2341b5613ca8ab849475b5c5ab6591ca33a2",
+  "production_src_tree": "5a24fa53c385525fd9bf1d4affbab26159a47666",
+  "frontend_src_tree": "00c5fc52f835799ade5163d2708d6bef87e7d9ea",
+  "fixtures_separate": true,
+  "cases": [
+    {
+      "file": "frontend/tests/demand-continuation.spec.ts",
+      "grep": "saved output goal",
+      "test_seconds": 11.8,
+      "suite_seconds": 15.3,
+      "fixture_flags": [
+        "TRANSACTIONS_FIXTURE",
+        "DEMAND_CONTINUATION_FIXTURE"
+      ],
+      "port": 8817,
+      "covers": "Cross-month/line qualified goal, smaller-action balance, local/shared/current-yield recovery and no duplicate pending production."
+    },
+    {
+      "file": "frontend/tests/demand-late.spec.ts",
+      "grep": "late alternative is explicit",
+      "test_seconds": 9.5,
+      "suite_seconds": 12.6,
+      "fixture_flags": [
+        "TRANSACTIONS_FIXTURE",
+        "DEMAND_TRIAL_FIXTURE"
+      ],
+      "port": 8818,
+      "covers": "Explicit late target, actual confirmation maintenance/return, fixed inputs, pending save and formal adoption."
+    },
+    {
+      "file": "frontend/tests/candidate-field-state.spec.ts",
+      "test_seconds": 10.8,
+      "suite_seconds": 14.2,
+      "fixture_flags": [
+        "TRANSACTIONS_FIXTURE",
+        "UNFINISHED_SWITCH_FIXTURE",
+        "CANDIDATE_STATES_FIXTURE"
+      ],
+      "port": 8819,
+      "covers": "Real worker unknown-origin and observed4h candidate, complete draft application, unchanged actual target and adoption restrictions."
+    }
+  ],
+  "notes": [
+    "All fixture flags use prefix AUTO_PLAN_BROWSER_.",
+    "Own built frontend source is4e63650; production frontend tree is unchanged.",
+    "An initial anchored late grep matched no tests; corrected unanchored selector ran the intended case. No application change or threshold adjustment."
+  ]
+}

@@ -33,6 +33,18 @@ def workspace_view(snapshot, evaluation):
     for issue in evaluation['issues']:
         if issue.get('date') and issue.get('line_code'):
             issues[issue['date'], issue['line_code']].append(issue['code'])
+    residuals = defaultdict(list)
+    for switch in plan.switches:
+        if switch.residual_record_id is None:
+            continue
+        allocated = defaultdict(Fraction)
+        for row in switch.allocations:
+            allocated[row.date] += Fraction(row.hours)
+        for day, total in allocated.items():
+            residuals[day, switch.line_code].append({
+                'id': switch.id, 'job_id': switch.id, 'residual_record_id': switch.residual_record_id,
+                'from_recipe': switch.from_recipe, 'to_recipe': switch.to_recipe,
+                'allocated_hours': _hours(total)})
     zero = _hours(0)
     days = []
     weeks = []
@@ -83,10 +95,7 @@ def workspace_view(snapshot, evaluation):
                          'basis': 'confirmed_remaining_day' if confirmation and day == today else 'calendar',
                          'locks': locks[day, line], 'issues': sorted(set(issues[day.isoformat(), line])),
                          'unfinished_switch': _job_details(unfinished[line]) if line in unfinished else None,
-                         'residual_switches': [{'id':switch.id,'job_id':switch.id,'residual_record_id':switch.residual_record_id,
-                             'from_recipe':switch.from_recipe,'to_recipe':switch.to_recipe,
-                             'allocated_hours':_hours(sum((Fraction(a.hours) for a in switch.allocations if a.date==day),Fraction(0)))}
-                             for switch in plan.switches if switch.line_code==line and switch.residual_record_id is not None and any(a.date==day for a in switch.allocations)]})
+                         'residual_switches': residuals.get((day, line), [])})
     months = sorted({row['date'][:7] for row in days})
     capacities = [{'month': month, 'line_code': line, 'recipe_code': recipe,
                    'state': capacity['state'], 'full_day_capacity': capacity['pieces']}

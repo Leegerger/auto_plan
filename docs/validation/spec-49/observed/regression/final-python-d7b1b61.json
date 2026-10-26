@@ -1,0 +1,21 @@
+{
+  "source_commit": "d7b1b61cd65c454ca304f61968bc126dfe915bf7",
+  "source_tree": "4caf0c7ce7e2c55ffe63bd1fe2671c531dd8cd8b",
+  "production_src_tree": "b212af499ea159a4f8f99d9dbe183ae5ca2bc429",
+  "command": "PYTHONPATH=src:. python -m pytest -q",
+  "cwd": "ticket/62-workspace-acceptance isolated worktree",
+  "python": "3.13.11",
+  "result": {
+    "passed": 573,
+    "skipped": 59,
+    "warnings": 10,
+    "wall_seconds": 515.04,
+    "exit_code": 0
+  },
+  "limits": "Oracle and scale opt-ins are separate. Later new acceptance tests require focused runs. Ten malformed serializer fixture warnings were already present at baseline.",
+  "log": {
+    "path": "final-python-d7b1b61.log.gz",
+    "sha256": "0f99e3854a54891400d570dd57a9f6dddccb65b94f35f5d8422271d2991001bc",
+    "uncompressed_sha256": "ceeeb40189c8bc7dd4b7808b098efe69c8dfe4ce93d985784585ea850a6f8327"
+  }
+}

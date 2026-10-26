@@ -1,0 +1,37 @@
+{
+  "checked_json_files": 275,
+  "blocked_auth_or_connection_keys": [
+    "authorization",
+    "cookie",
+    "cookies",
+    "csrf",
+    "csrf_token",
+    "dsn",
+    "oracle_password",
+    "password",
+    "session_id",
+    "session_token"
+  ],
+  "findings": [],
+  "reproduction_test_sources": [
+    {
+      "path": "observed/cpu/observe.py",
+      "sha256": "d8bda50a155c9a9a058524081e0e01f1189eb2580f655a7ac75aa26b1dacac05"
+    },
+    {
+      "path": "observed/performance/repro/perf62-observe.py",
+      "sha256": "a6d45fb973208ae8e6e7e8e31c3cf7d358da65b0c98cf968b97c290b1ae2fa3a"
+    },
+    {
+      "path": "observed/performance/repro/profile62-preview.py",
+      "sha256": "bd4645a5b7ca442a3328ac369100b6ed84f2914fb11aadb0fc4e91e097debd3e"
+    },
+    {
+      "path": "observed/performance/repro/scale62-observe.py",
+      "sha256": "d8bda50a155c9a9a058524081e0e01f1189eb2580f655a7ac75aa26b1dacac05"
+    }
+  ],
+  "source_notice": "Exact instrumentation source is retained separately. It may contain existing fixed synthetic login literals; captured HTTP records exclude all authentication bodies, headers, cookies, sessions and connection values.",
+  "failed_log_notice": "Synthetic authentication fixture source lines are omitted from failed pytest logs.",
+  "compression_mappings_verified": 237
+}

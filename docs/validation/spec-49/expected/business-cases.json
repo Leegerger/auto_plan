@@ -1,0 +1,82 @@
+{
+  "basis": "Independent worked examples from spec 49 and acceptance-plan; no implementation-generated expectations.",
+  "cases": [
+    {
+      "name": "actual_remaining_switch",
+      "standard_hours": 12,
+      "completed_hours": 8,
+      "remaining_hours": 4,
+      "daily_input_capacity": 1000,
+      "available_production_hours": 20,
+      "maximum_input": 834,
+      "rejected_input": 835,
+      "new_switch_count": 1
+    },
+    {
+      "name": "return_to_original_recipe",
+      "remaining_switch_hours": 4,
+      "return_switch_hours": 2,
+      "production_hours": 18,
+      "maximum_input": 750,
+      "switch_count": 2
+    },
+    {
+      "name": "cross_line_goal",
+      "original_output_target": 1000,
+      "first_line_output": 834,
+      "second_line_output": 166,
+      "remaining_goal": 0,
+      "concurrent_same_base_save_statuses": [
+        200,
+        409
+      ]
+    },
+    {
+      "name": "cross_month_continuation",
+      "original_output_target": 1000,
+      "first_action_output": 600,
+      "remaining_qualified_output": 400,
+      "new_date_yield_percent": 80,
+      "minimal_new_input": 499
+    },
+    {
+      "name": "partial_action",
+      "durable_goal_remaining_before": 400,
+      "this_action_output_target": 200,
+      "action_remaining_after": 0,
+      "durable_goal_remaining_after": 200
+    },
+    {
+      "name": "pending_is_already_attributed",
+      "valid_output": 400,
+      "pending_output": 600,
+      "total_physical_attribution": 1000,
+      "new_production_target": 0
+    },
+    {
+      "name": "earlier_fifo",
+      "earlier_uncovered_demand": 300,
+      "selected_demand": 500,
+      "required_total_output": 800
+    },
+    {
+      "name": "explicit_late",
+      "on_time_output": 600,
+      "late_output": 400,
+      "shipping_quota": 200,
+      "valid_late_output": 200,
+      "remaining_gap": 200,
+      "on_time_rate": "3/5"
+    },
+    {
+      "name": "clock_rollover",
+      "before_as_of": "2026-10-14T07:59:00+08:00",
+      "after_as_of": "2026-10-14T08:01:00+08:00",
+      "before_production_date": "2026-10-13",
+      "after_production_date": "2026-10-14",
+      "window_start": "2026-10-12",
+      "versions_and_context_unchanged": true,
+      "old_current_confirmation_expires": true
+    }
+  ]
+}
