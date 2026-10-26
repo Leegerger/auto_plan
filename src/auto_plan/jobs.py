@@ -45,19 +45,21 @@ class JobService:
         self.store, self.planner = store, planner
 
     def source(self, actor, now):
+        from .line_states import freeze_state_evidence
         def read(unit):
             return ComputationSource(source_revision=unit.revision,
                 input_version=unit.inputs.input_version, latest_adoption=unit.adoption,
-                snapshot=self.planner._snapshot(unit, unit.plan, now)).model_dump(mode='json')
+                snapshot=freeze_state_evidence(self.planner._snapshot(unit, unit.plan, now))).model_dump(mode='json')
         return self.planner.store.read(actor, read)
 
     def submit(self, command, actor, now):
+        from .line_states import freeze_state_evidence
         def freeze(unit):
             if (command.base_revision, command.input_version, command.latest_adoption) != (unit.revision, unit.inputs.input_version, unit.adoption):
                 raise PlanProblem(409, '共享草稿、完整输入或采用版已变化，请刷新后提交')
             if command.reviewed_as_of is not None and production_date(command.reviewed_as_of) != production_date(now):
                 raise PlanProblem(409, '生产日期或排程窗口已变化，请重新载入并核对完整共享计划', review_required=True)
-            return FrozenSolveInput(snapshot=self.planner._snapshot(unit, unit.plan, now),
+            return FrozenSolveInput(snapshot=freeze_state_evidence(self.planner._snapshot(unit, unit.plan, now)),
                 source_revision=unit.revision, input_version=unit.inputs.input_version,
                 latest_adoption=unit.adoption, request=command.request.model_copy(update={'native_threads':1}))
         return self.store.submit(command, actor, now, freeze)
