@@ -219,3 +219,44 @@ for (const viewport of [{ width: 1280, height: 800 }, { width: 1440, height: 900
     }
   })
 }
+
+for (const viewport of [{ width: 1280, height: 800 }, { width: 1440, height: 900 }]) {
+  test(`representative navigation keeps week, day and selection within existing limits at ${viewport.width}px`, async ({ page }, info) => {
+    test.skip(process.env.AUTO_PLAN_BROWSER_WORKSPACE_FIXTURE !== '1', 'Requires the representative workspace fixture')
+    await page.setViewportSize(viewport)
+    await enter(page)
+    await expect(page.getByRole('table', { name: '十五周日期线体计划' }).locator('tbody tr')).toHaveCount(18)
+    const directory = `${process.env.AUTO_PLAN_BROWSER_EVIDENCE_DIR ?? '/tmp/auto-plan-spec49/browser62-evidence/navigation'}/${viewport.width}`
+    await mkdir(directory, { recursive: true })
+    const timings: { phase: string; milliseconds: number; limit: number }[] = []
+    async function timed(phase: string, action: () => Promise<unknown>) {
+      const start = performance.now()
+      await action()
+      const milliseconds = performance.now() - start
+      timings.push({ phase, milliseconds, limit: 3000 })
+      expect(milliseconds, phase).toBeLessThanOrEqual(3000)
+    }
+    try {
+      await timed('week-selection', async () => {
+        await page.getByLabel('计划周次').selectOption('2')
+        await expect(page.locator('.page-subtitle')).toContainText('第 2 周')
+        await expect(page.getByRole('button', { name: '2026-10-19 L 日内详情', exact: true })).toBeVisible()
+      })
+      await timed('day-opening', async () => {
+        await page.getByRole('button', { name: '2026-10-19 L 日内详情', exact: true }).click()
+        const sequence = page.getByRole('table', { name: '日内生产顺序' })
+        await expect(sequence).toContainText('X17')
+        await expect(sequence).toContainText('20片')
+      })
+      await timed('segment-selection', async () => {
+        await page.getByLabel('选择生产段 workspace-1-0').check()
+        await expect(page.getByLabel('选择生产段 workspace-1-0')).toBeChecked()
+        await expect(page.getByLabel('调整后精确工时')).toHaveValue('1')
+      })
+      await page.screenshot({ path: `${directory}/navigation-selected.png` })
+    } finally {
+      await writeFile(`${directory}/navigation-timings.json`, `${JSON.stringify({ viewport, timings }, null, 2)}\n`)
+      await info.attach('navigation-timings', { body: JSON.stringify(timings), contentType: 'application/json' })
+    }
+  })
+}
