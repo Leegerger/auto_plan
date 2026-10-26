@@ -21,3 +21,5 @@ export interface DemandTrialResult {
   blockers:{code:string;reason:string;date?:string;line_code?:string;model_code?:string}[]
   operation:BusinessOperation|null;retain_operation:BusinessOperation|null;preview:PreviewResult
 }
+
+export type DemandTrialDetails = Omit<DemandTrialResult, 'preview'>

@@ -64,7 +64,18 @@ class _Search:
         self.snapshot, self.request = self.frozen.snapshot, self.frozen.request
         self.index = InputIndex(self.snapshot.inputs)
         self.scope = self.request.scope
-        self.context = OperationContext(self.snapshot, self.frozen.source_revision, action_id='solver')
+        self.today = production_date(self.snapshot.time.as_of)
+        # Only the user's original scope authorizes moving these proposals.
+        # The frozen source retains their state review and original job truth.
+        from .line_states import active_unfinished_jobs, matches_actual_job
+        pending = active_unfinished_jobs(self.snapshot)
+        self.prepared_plan = self.snapshot.plan.model_copy(update={'switches': [switch for switch in self.snapshot.plan.switches
+            if not (switch.residual_record_id is not None and switch.line_code in pending
+                    and matches_actual_job(switch, pending[switch.line_code])
+                    and switch.line_code in self.scope.line_codes
+                    and all(self.scope.start_date <= allocation.date <= self.scope.end_date and allocation.date < self.today
+                            for allocation in switch.allocations))]})
+        self.context = OperationContext(self.snapshot.model_copy(update={'plan': self.prepared_plan}), self.frozen.source_revision, action_id='solver')
         self.start = time.monotonic()
         self.deadline = self.start + self.request.time_limit_seconds
         self.progress, self.should_stop = progress or (lambda value: None), should_stop or (lambda: False)
@@ -72,7 +83,6 @@ class _Search:
         self.bounds, self.issues, self.history = [], [], []
         self.candidate_cache = {}
         self.best, self.best_evaluation, self.best_score = None, None, None
-        self.today = production_date(self.snapshot.time.as_of)
         self.locks = {(r.date, r.line_code, r.model_code): r.quantity for r in self.snapshot.locks}
         self.original_ids = {r.id for r in self.snapshot.plan.segments}
         from .execution_rules import executed_by_segment
@@ -315,9 +325,23 @@ class _Search:
 
     def day_bounds(self, trial, day, line):
         daily = sorted([r for r in trial.segments if r.date == day and r.line_code == line and r.quantity], key=lambda r: (r.order, r.id))
-        earlier = [r for r in trial.segments if r.line_code == line and r.date < day and r.quantity]
-        state = self.index.models[max(earlier, key=lambda r: (r.date, r.order, r.id)).model_code].recipe_code if earlier else next((r.recipe_code for r in trial.initial_states if r.line_code == line), None)
-        switch_hours = Fraction(0)
+        from .recipe_states import snapshot_recipe_states
+        prefix = trial.model_copy(update={'segments': [row for row in trial.segments if row.date < day],
+            'switches': [switch.model_copy(update={'allocations': [row for row in switch.allocations
+                        if row.date < day or switch.residual_record_id is not None and row.date == day]})
+                        for switch in trial.switches if any(row.date < day or switch.residual_record_id is not None and row.date == day for row in switch.allocations)]})
+        states = snapshot_recipe_states(self.snapshot.model_copy(update={'plan': prefix}), self.index)
+        endings = [(date, state) for (date, code), state in states.endings.items() if code == line and date <= day]
+        state = max(endings, key=lambda row: row[0])[1] if endings else states.initial_states.get(line)
+        switch_hours = sum((Fraction(row.hours) for switch in trial.switches if switch.line_code == line and switch.residual_record_id is not None
+                            for row in switch.allocations if row.date == day), Fraction(0))
+        from .line_states import active_unfinished_jobs, matches_residual_job
+        actual = active_unfinished_jobs(self.snapshot).get(line)
+        if actual is not None:
+            allocated = sum((Fraction(row.hours) for switch in trial.switches if matches_residual_job(switch, actual)
+                             for row in switch.allocations if self.today <= row.date <= day), Fraction(0))
+            if allocated != Fraction(actual.unfinished_switch.remaining_hours):
+                raise ValueError('原切机剩余作业尚未完成，不能在此前安排生产')
         quantities, fixed_hours = defaultdict(int), defaultdict(Fraction)
         for row in daily:
             recipe = self.index.models[row.model_code].recipe_code
@@ -330,7 +354,10 @@ class _Search:
 
     def capacity_maximum(self, plan, model, day, line, limit):
         trial = self.add(plan, model, day, line, 1)
-        quantities, fixed_hours, switch_hours = self.day_bounds(trial, day, line)
+        try:
+            quantities, fixed_hours, switch_hours = self.day_bounds(trial, day, line)
+        except ValueError:
+            return 0
         target_recipe = self.index.models[model].recipe_code
         other_lower = Fraction(0)
         for recipe, quantity in quantities.items():
@@ -528,7 +555,13 @@ class _Search:
                 self.stage('protected_capacity', reason, status='proven_protected_conflict', neighborhood=f'{day}/{line}/{recipe} aggregate locks and available day hours')
         if any(i.code == 'protected_capacity_conflict' for i in self.issues):
             return
-        plan = self.snapshot.plan
+        plan = self.prepared_plan
+        from .line_states import active_unfinished_jobs
+        if any(line in self.scope.line_codes for line in active_unfinished_jobs(self.snapshot)):
+            try:
+                plan = self.witness(plan)
+            except (ValueError, CertificateError, PlanProblem) as error:
+                self.scope_issue(error)
         prepared = self.cleanup(plan)
         self.stage('eligible_start', '范围内无需求富余经精确产出检查移除；最近采用版仍是原稳定性基线')
         self.accept(prepared, 'eligible_start', prepare=True)
