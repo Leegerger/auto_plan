@@ -33,8 +33,8 @@ def derived_id(context,suffix):
 
 
 def _confirmed_states(context):
-    from .line_states import calculation_anchors
-    return calculation_anchors(context.snapshot)
+    from .line_states import certificate_anchors
+    return certificate_anchors(context.snapshot)
 
 
 def _unfinished_jobs(context, line, start, end):

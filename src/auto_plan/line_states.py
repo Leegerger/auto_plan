@@ -267,6 +267,18 @@ def calculation_anchors(snapshot):
     return anchors
 
 
+def certificate_anchors(snapshot):
+    """A valid current Recipe also constrains construction on later days."""
+    from .execution_rules import confirmed_day_capacity
+    anchors = calculation_anchors(snapshot)
+    for line in sorted({row.line_code for row in snapshot.execution.day_capacities}):
+        capacity = confirmed_day_capacity(snapshot, line)
+        if capacity is not None and capacity.current_recipe is not None:
+            identity = 'capacity-' + hashlib.sha256(f'{line}:{capacity.confirmed_at.isoformat()}'.encode()).hexdigest()[:40]
+            anchors.append(RecipeAnchor(identity, line, capacity.confirmed_at, capacity.current_recipe, capacity.confirmed_at, priority=3))
+    return anchors
+
+
 def record_is_current(snapshot, record):
     """Carry evidence through idle or established work, never elapsed plans alone."""
     from collections import defaultdict
@@ -424,3 +436,16 @@ def retained_state_reviews(before, after, snapshot):
                 'reason': ('原切机之后的计划作业尚无实际完成依据。移动或移除过期安排不能代替当前剩余进度确认。' if getattr(record,'unfinished_switch',None) is not None else
                            '旧计划中的历史 Recipe 变化尚无执行依据。修改或移除计划不能代替现场确认，请核实当前线体状态。')})
     return reviews
+
+
+def freeze_state_evidence(snapshot):
+    """Retain source uncertainty before a calculation replaces elapsed proposals."""
+    today = production_date(snapshot.time.as_of)
+    future = snapshot.plan.model_copy(update={
+        'segments': [row for row in snapshot.plan.segments if row.date >= today],
+        'switches': [row.model_copy(update={'allocations': [allocation for allocation in row.allocations if allocation.date >= today]})
+                     for row in snapshot.plan.switches if any(allocation.date >= today for allocation in row.allocations)]})
+    reviews = {row.id: row for row in snapshot.state_reviews}
+    for row in review_records(retained_state_reviews(snapshot.plan, future, snapshot)):
+        reviews.setdefault(row.id, row)
+    return snapshot.model_copy(update={'state_reviews': list(reviews.values())})

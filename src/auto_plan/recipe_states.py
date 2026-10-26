@@ -28,6 +28,19 @@ class RecipeStates:
     initial_pending: dict[str, str] = field(default_factory=dict)
 
 
+def snapshot_recipe_states(snapshot, index, problem=None, *, plan=None):
+    """Apply the same field and current-capacity evidence to every event walk."""
+    from .execution_rules import capacity_plan, confirmed_day_capacity
+    from .line_states import calculation_anchors
+    anchors = calculation_anchors(snapshot)
+    capacities = {line: confirmed_day_capacity(snapshot, line) for line in {row.line_code for row in anchors}}
+    confirmed = [row for row in anchors if row.effective_at <= snapshot.time.as_of and
+                 (capacities[row.line_code] is None or capacities[row.line_code].residual_record_id is not None
+                  and getattr(row, 'unfinished_switch', None) is not None)]
+    return analyze_recipe_states(plan if plan is not None else capacity_plan(snapshot), index, problem,
+        confirmed_states=confirmed, window_start=snapshot.time.window_start, as_of=snapshot.time.as_of)
+
+
 def analyze_recipe_states(plan: Plan, index: InputIndex, problem=None, *, include_transitions=False, confirmed_states=(), window_start=None, as_of=None) -> RecipeStates:
     """Walk ordered events, retaining the state across every empty date.
 

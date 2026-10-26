@@ -3,7 +3,6 @@ from collections import defaultdict
 from fractions import Fraction
 from .exact import hours
 from .input_lookup import InputIndex
-from .recipe_states import analyze_recipe_states
 from .plan_models import (EvaluationSnapshot, EvaluationResult, RuleIssue, RecipeCapacity,
                           DayEvaluation, InitialStateEvaluation, SwitchEvaluation)
 
@@ -145,13 +144,8 @@ def _evaluate_fields(snapshot, *, output_cache=None, json_mode=False):
             standard_hours=hours(actual.unfinished_switch.standard_hours) if verified and actual.unfinished_switch.standard_hours is not None else None,
             completed_hours=hours(actual.unfinished_switch.completed_hours) if verified and actual.unfinished_switch.completed_hours is not None else None))
 
-    from .line_states import calculation_anchors
-    anchors = calculation_anchors(snapshot)
-    current_capacities = {line:confirmed_day_capacity(snapshot,line) for line in {row.line_code for row in anchors}}
-    confirmed = [row for row in anchors if row.effective_at <= snapshot.time.as_of and
-                 (current_capacities[row.line_code] is None or current_capacities[row.line_code].residual_record_id is not None
-                  and getattr(row,'unfinished_switch',None) is not None)]
-    states = analyze_recipe_states(capacity_plan, index, problem, confirmed_states=confirmed, window_start=snapshot.time.window_start, as_of=snapshot.time.as_of)
+    from .recipe_states import snapshot_recipe_states
+    states = snapshot_recipe_states(snapshot, index, problem, plan=capacity_plan)
     initial_states = states.initial_states
     endings, all_lines = states.endings, states.lines
 
