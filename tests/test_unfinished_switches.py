@@ -349,3 +349,56 @@ def test_old_pending_observation_does_not_hide_retained_state_review(shared_clie
     assert checked.status_code == 200, checked.text
     assert checked.json()['evaluation']['capacity_valid'] is True
     assert {issue['code'] for issue in checked.json()['evaluation']['adoption_conditions']} == {'line_state_review', 'remaining_switch_continuity'}
+
+
+def test_same_day_progress_is_chronological_and_does_not_occupy_plan_order(shared_client):
+    from datetime import datetime, timezone
+    client, _, _ = shared_client
+    client.app.state.clock = lambda: datetime(2026, 10, 14, 2, tzinfo=timezone.utc)
+    assert client.post('/auto_plan/api/auth/login', json={'username': 'EDITOR', 'password': 'company-secret'}).status_code == 200
+    newer = unfinished(remaining_hours='2', completed_hours='10')
+    newer['rows'][0]['effective_at'] = '2026-10-14T09:00:00+08:00'
+    assert post(client, 'save', current_command(client, newer)).status_code == 200
+    current = head(client)['context']['line_states']['records'][0]
+    older = unfinished()
+    older['rows'][0]['effective_at'] = '2026-10-14T08:30:00+08:00'
+    assert post(client, 'save', current_command(client, older)).status_code == 200
+    plan = patch(row('latest-progress-target', model='P') | {'order': 1})
+    plan['switches'] = [residual(current['id'], hours='2')]
+    checked = preview(client, plan)
+    assert checked.status_code == 200, checked.text
+    assert checked.json()['evaluation']['capacity_valid'] is True, checked.json()['evaluation']['issues']
+    assert checked.json()['evaluation']['switches'][0]['total_hours']['exact'] == '2'
+    collision = plan | {'segments': [plan['segments'][0] | {'order': 0}]}
+    assert any(issue['code'] == 'duplicate_order' for issue in preview(client, collision).json()['evaluation']['issues'])
+    ready = {'kind': 'confirm_line_states', 'reason': '现场确认原切机实际完成', 'rows': [{'line_code': 'L', 'effective_at': '2026-10-14T10:00:00+08:00',
+             'recipe_code': 'S', 'source': '完成点检'}]}
+    target = {'kind': 'replace_plan', 'plan': {'segments': [row('ready-target', model='P')]}}
+    checked = preview(client, ready, target)
+    assert checked.status_code == 200, checked.text
+    assert checked.json()['evaluation']['executable'] is True, checked.json()['evaluation']['issues']
+    budget = {'kind': 'confirm_day_capacity', 'observed_at': '2026-10-14T10:00:00+08:00',
+              'confirmations': [{'line_code': 'L', 'current_recipe': 'S', 'remaining_hours': '24'}]}
+    checked = preview(client, ready, budget, target)
+    assert checked.status_code == 200, checked.text
+    assert checked.json()['evaluation']['executable'] is True, checked.json()['evaluation']['issues']
+
+
+def test_backfilled_older_ready_point_cannot_clear_newer_same_day_pending_state(shared_client):
+    from datetime import datetime, timezone
+    client, _, _ = shared_client
+    client.app.state.clock = lambda: datetime(2026, 10, 14, 2, tzinfo=timezone.utc)
+    assert client.post('/auto_plan/api/auth/login', json={'username': 'EDITOR', 'password': 'company-secret'}).status_code == 200
+    progress = unfinished(job_id='actual-s-r', started_at='2026-10-14T08:30:00+08:00',
+                          from_recipe='S', to_recipe='R', remaining_hours='2', standard_hours='2', completed_hours='0')
+    progress['rows'][0]['effective_at'] = '2026-10-14T09:00:00+08:00'
+    assert post(client, 'save', current_command(client, progress)).status_code == 200
+    older = {'kind': 'confirm_line_states', 'rows': [{'line_code': 'L', 'effective_at': '2026-10-14T08:15:00+08:00', 'recipe_code': 'S', 'source': '补录先前点检'}]}
+    assert post(client, 'save', current_command(client, older)).status_code == 200
+    checked = preview(client, patch(row('cannot-reuse-origin', model='P')))
+    assert checked.status_code == 200, checked.text
+    assert checked.json()['evaluation']['capacity_valid'] is False
+    assert any(issue['code'] == 'unfinished_switch' for issue in checked.json()['evaluation']['issues'])
+    future = next(value for value in checked.json()['workspace_view']['line_weeks'] if value['line_code'] == 'L' and value['week'] == '2026-10-19')
+    assert future['state'] == 'unfinished_switch'
+    assert future['recipe_code'] is None

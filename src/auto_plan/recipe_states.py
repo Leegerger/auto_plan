@@ -55,14 +55,16 @@ def analyze_recipe_states(plan: Plan, index: InputIndex, problem=None, *, includ
     initial_records = {}
     ordered = sorted(confirmed_states, key=lambda row: (row.effective_at,getattr(row,'priority',1),row.recorded_at,row.id))
     unique = {(row.line_code,row.effective_at):row for row in ordered}
+    pending_days = {(production_date(record.effective_at),record.line_code) for record in unique.values()
+                    if getattr(record,'unfinished_switch',None) is not None}
     for record in unique.values():
         if window_start is not None and record.effective_at <= production_cutoff(window_start):
             initial_states[record.line_code] = record.recipe_code
             initial_jobs[record.line_code] = getattr(record, 'unfinished_switch', None)
-            initial_records[record.line_code] = getattr(record,'origin_record_id',None) or record.id
+            initial_records[record.line_code] = record
             continue
         day = production_date(record.effective_at)
-        if record.effective_at == production_cutoff(day) or getattr(record, 'unfinished_switch', None) is not None:
+        if record.effective_at == production_cutoff(day) or (day,record.line_code) in pending_days:
             order = -1
             day_starts[day, record.line_code] = record.recipe_code
         else:
@@ -70,6 +72,7 @@ def analyze_recipe_states(plan: Plan, index: InputIndex, problem=None, *, includ
         events[record.line_code].append((day, order, 'confirmation', record, None))
     endings = {}
     transitions = defaultdict(list)
+    from .line_states import matches_residual_job
     all_lines = set(events) | set(initial_states) | {row.line_code for row in plan.ordinary_idle}
     for line in sorted(all_lines):
         state = initial_states.get(line)
@@ -77,15 +80,16 @@ def analyze_recipe_states(plan: Plan, index: InputIndex, problem=None, *, includ
         actual_record = initial_records.get(line)
         pending = actual.job_id if actual is not None else None
         seen_orders = set()
-        for day, order, kind, item, position in sorted(events[line], key=lambda event: (event[0], event[1], event[2])):
+        for day, order, kind, item, position in sorted(events[line], key=lambda event: (event[0], event[1], event[2], event[3].effective_at if event[2]=='confirmation' else None)):
             entering_recipe = state
-            if (day, order) in seen_orders:
-                problem('duplicate_order', '同日线体生产与切机的顺序编号必须唯一', day=day, line=line)
-            seen_orders.add((day, order))
+            if kind != 'confirmation':
+                if (day, order) in seen_orders:
+                    problem('duplicate_order', '同日线体生产与切机的顺序编号必须唯一', day=day, line=line)
+                seen_orders.add((day, order))
             if kind == 'confirmation':
                 state = item.recipe_code
                 actual = getattr(item, 'unfinished_switch', None)
-                actual_record = getattr(item,'origin_record_id',None) or item.id
+                actual_record = item
                 pending = actual.job_id if actual is not None else None
             elif kind == 'production':
                 if item.quantity or Fraction(item.hours):
@@ -98,7 +102,7 @@ def analyze_recipe_states(plan: Plan, index: InputIndex, problem=None, *, includ
                         state = recipe
             else:
                 residual = item.residual_record_id is not None
-                continuing = residual and actual is not None and pending == item.id == actual.job_id and item.residual_record_id == actual_record and (item.from_recipe,item.to_recipe) == (actual.from_recipe,actual.to_recipe)
+                continuing = residual and pending == item.id and matches_residual_job(item,actual_record)
                 blocked = actual is not None and not continuing
                 if position == 0:
                     if pending is not None and not continuing:

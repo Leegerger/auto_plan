@@ -39,7 +39,7 @@ def _confirmed_states(context):
 
 def _unfinished_jobs(context, line, start, end):
     """A projected completed prefix is fixed; elapsed plans prove no progress."""
-    from .line_states import active_unfinished_jobs
+    from .line_states import active_unfinished_jobs, matches_residual_job
     from .production_time import production_date
     record = active_unfinished_jobs(context.snapshot).get(line)
     if record is None:
@@ -50,8 +50,7 @@ def _unfinished_jobs(context, line, start, end):
                 if switch.id == job.job_id]
     allocations = [allocation for switch in arranged for allocation in switch.allocations]
     future = [allocation for allocation in allocations if allocation.date >= today]
-    current = all(switch.residual_record_id == record.id and switch.line_code == line
-                  and (switch.from_recipe, switch.to_recipe) == (job.from_recipe, job.to_recipe) for switch in arranged)
+    current = all(matches_residual_job(switch,record) for switch in arranged)
     if current and future and len(future) == len(allocations) and all(allocation.date < start for allocation in future):
         if sum((Fraction(allocation.hours) for allocation in future), Fraction(0)) == Fraction(job.remaining_hours):
             return []

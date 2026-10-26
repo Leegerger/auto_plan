@@ -99,7 +99,7 @@ def _evaluate_fields(snapshot, *, output_cache=None, json_mode=False):
         recipe = index.models[segment.model_code].recipe_code
         groups[(segment.date, segment.line_code)][recipe].append(segment)
     switch_results = []
-    from .line_states import active_unfinished_jobs, unfinished_job_history
+    from .line_states import active_unfinished_jobs, unfinished_job_history, matches_residual_job
     unfinished = active_unfinished_jobs(snapshot)
     actual_jobs = {identity for identity,(record,resolved) in unfinished_job_history(snapshot).items()
                    if production_date(record.unfinished_switch.started_at)<=snapshot.time.window_end and (resolved is None or resolved>=snapshot.time.window_start)}
@@ -113,7 +113,7 @@ def _evaluate_fields(snapshot, *, output_cache=None, json_mode=False):
         total = Fraction(duration['hours'])
         actual = unfinished.get(switch.line_code)
         residual = switch.residual_record_id is not None
-        verified = residual and actual is not None and actual.id == switch.residual_record_id and actual.unfinished_switch.job_id == switch.id and (actual.unfinished_switch.from_recipe,actual.unfinished_switch.to_recipe)==(switch.from_recipe,switch.to_recipe)
+        verified = residual and matches_residual_job(switch,actual)
         if residual:
             if not verified:
                 problem('residual_reference', '剩余切机须关联当前现场原作业，不能改变线体、原目标 Recipe 或使用过期依据', switch=switch)
@@ -146,8 +146,11 @@ def _evaluate_fields(snapshot, *, output_cache=None, json_mode=False):
             completed_hours=hours(actual.unfinished_switch.completed_hours) if verified and actual.unfinished_switch.completed_hours is not None else None))
 
     from .line_states import calculation_anchors
-    confirmed = [row for row in calculation_anchors(snapshot) if row.effective_at <= snapshot.time.as_of
-                 and (getattr(row,'unfinished_switch',None) is not None or confirmed_day_capacity(snapshot,row.line_code) is None)]
+    anchors = calculation_anchors(snapshot)
+    current_capacities = {line:confirmed_day_capacity(snapshot,line) for line in {row.line_code for row in anchors}}
+    confirmed = [row for row in anchors if row.effective_at <= snapshot.time.as_of and
+                 (current_capacities[row.line_code] is None or current_capacities[row.line_code].residual_record_id is not None
+                  and getattr(row,'unfinished_switch',None) is not None)]
     states = analyze_recipe_states(capacity_plan, index, problem, confirmed_states=confirmed, window_start=snapshot.time.window_start, as_of=snapshot.time.as_of)
     initial_states = states.initial_states
     endings, all_lines = states.endings, states.lines

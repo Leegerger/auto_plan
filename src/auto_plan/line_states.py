@@ -41,6 +41,16 @@ def _job_identity(job):
     return (job.job_id,job.started_at,job.from_recipe,job.to_recipe) if job is not None else None
 
 
+def matches_residual_job(switch, record):
+    """Match only the protected job identity; callers own time, scope and state."""
+    job = getattr(record, 'unfinished_switch', None)
+    if job is None:
+        return False
+    record_id = getattr(record, 'origin_record_id', None) or record.id
+    return (switch.id, switch.line_code, switch.from_recipe, switch.to_recipe, switch.residual_record_id) == (
+        job.job_id, record.line_code, job.from_recipe, job.to_recipe, record_id)
+
+
 def confirm_line_states(plan, command, context):
     lines = {row.code for row in context.inputs.masters.lines if row.active}
     recipes = {row.code for row in context.inputs.masters.recipes if row.active}
@@ -354,7 +364,7 @@ def protect_unfinished_jobs(before, after, snapshot):
                 continue
             if switch.id != job.job_id and switch.residual_record_id != record.id:
                 continue
-            if (switch.id, switch.line_code, switch.from_recipe, switch.to_recipe, switch.residual_record_id) != (job.job_id, record.line_code, job.from_recipe, job.to_recipe, record.id):
+            if not matches_residual_job(switch, record):
                 from .plans import PlanProblem
                 raise PlanProblem(409, '普通计划修改不能重写原切机作业及目标，请通过现场状态更正并预览影响', line_code=record.line_code)
 
