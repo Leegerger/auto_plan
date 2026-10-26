@@ -1,0 +1,68 @@
+{
+  "status": "CPU gate unresolved; retain both failures until measured fix.",
+  "original_limits_seconds": {
+    "selection_week_day": 3,
+    "single_or_batch_preview": 15,
+    "solo_import_or_shared_save": 30,
+    "concurrent_shared_save": 60,
+    "local_compute": 60,
+    "new_week_or_all_replan": 180,
+    "each_opt_in_cpu_preview": 5
+  },
+  "comparison_sla": "No additional comparison threshold is defined. Request and browser observations are separate.",
+  "clock_browser": {
+    "source": "5ef91af",
+    "test_seconds": 4.1,
+    "suite_seconds": 5.6,
+    "result": "pass",
+    "quiet": true
+  },
+  "cpu_gate_prior_attempts": [
+    {
+      "source": "5ef91af",
+      "result": "fail",
+      "gate_elapsed_seconds": 5.0384257435798645,
+      "test_seconds": 16.88,
+      "quantities_correct": true
+    },
+    {
+      "source": "5ef91af",
+      "result": "fail",
+      "public_request_observations": [
+        {
+          "sample": 1,
+          "wall_seconds": 4.87873612344265,
+          "process_cpu_seconds": 4.844653677,
+          "status": 200,
+          "bytes": 12514156,
+          "sha256": "33f8eec3087d9258b787e76a6f558d4db4c0dcb1878775f07ecde34c330dd1e5"
+        },
+        {
+          "sample": 2,
+          "wall_seconds": 4.613329898566008,
+          "process_cpu_seconds": 4.608479093,
+          "status": 200,
+          "bytes": 12514156,
+          "sha256": "33f8eec3087d9258b787e76a6f558d4db4c0dcb1878775f07ecde34c330dd1e5"
+        },
+        {
+          "sample": 3,
+          "wall_seconds": 5.089476719498634,
+          "process_cpu_seconds": 5.070291187999999,
+          "status": 200,
+          "bytes": 12514156,
+          "sha256": "33f8eec3087d9258b787e76a6f558d4db4c0dcb1878775f07ecde34c330dd1e5"
+        }
+      ],
+      "test_seconds": 16.44,
+      "quantities_correct": true,
+      "same_response_sha256": true,
+      "artifact_work_deferred_until_after_assertions": true
+    }
+  ],
+  "notes": [
+    "Second diagnostic invokes the unchanged test through an external public HTTP observer. Its pytest plugin-rewrite warning is instrumentation-only.",
+    "No threshold relaxation or repeated attempts until green. Final performance diagnosis is a separate lane.",
+    "The Oracle composite overlapped the full Python run; its diagnostic timings are not quiet latency measurements."
+  ]
+}

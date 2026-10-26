@@ -1,0 +1,29 @@
+{
+  "measurement": "Public TestClient.post wall and process CPU; artifact work deferred until after all assertions. The unchanged original five-second test assertion remains authoritative.",
+  "samples": [
+    {
+      "sample": 1,
+      "wall_seconds": 4.87873612344265,
+      "process_cpu_seconds": 4.844653677,
+      "status": 200,
+      "bytes": 12514156,
+      "sha256": "33f8eec3087d9258b787e76a6f558d4db4c0dcb1878775f07ecde34c330dd1e5"
+    },
+    {
+      "sample": 2,
+      "wall_seconds": 4.613329898566008,
+      "process_cpu_seconds": 4.608479093,
+      "status": 200,
+      "bytes": 12514156,
+      "sha256": "33f8eec3087d9258b787e76a6f558d4db4c0dcb1878775f07ecde34c330dd1e5"
+    },
+    {
+      "sample": 3,
+      "wall_seconds": 5.089476719498634,
+      "process_cpu_seconds": 5.070291187999999,
+      "status": 200,
+      "bytes": 12514156,
+      "sha256": "33f8eec3087d9258b787e76a6f558d4db4c0dcb1878775f07ecde34c330dd1e5"
+    }
+  ]
+}

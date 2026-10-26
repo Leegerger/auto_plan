@@ -1,0 +1,18 @@
+{
+  "checked_json_files": 118,
+  "blocked_auth_or_connection_keys": [
+    "authorization",
+    "cookie",
+    "cookies",
+    "csrf",
+    "csrf_token",
+    "dsn",
+    "oracle_password",
+    "password",
+    "session_id",
+    "session_token"
+  ],
+  "findings": [],
+  "omitted": "Authentication bodies, headers/cookies/session values and synthetic-authentication source lines in failed pytest logs.",
+  "scope": "Durable artifacts, not committed test fixtures."
+}

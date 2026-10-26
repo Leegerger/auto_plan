@@ -1,0 +1,18 @@
+{
+  "cpu_full_window": {
+    "path": "cpu-full-window.json.gz",
+    "uncompressed_sha256": "9362caf1b21c7f79da85126a12ff9ca83b40d28d06251882e06b5f5f0d5ef76a",
+    "lines": 18,
+    "models": 40,
+    "weeks": 15,
+    "segments": 4200,
+    "switches": 4182,
+    "base_output": 420000,
+    "batch_preview_expected_output": 419960,
+    "expected_final_week_gap": 40
+  },
+  "oracle_composite_initialization": "../observed/oracle/initialization_apply_request.json.gz",
+  "oracle_prerequisite_comparison_initialization": "../observed/prerequisites/comparison/initialization_request.json.gz",
+  "manual_native_frozen_sources": "../observed/api/*-{manual,automatic}.json.gz: source.snapshot",
+  "browser_representative": "Pending final helper public-input/source artifacts."
+}
