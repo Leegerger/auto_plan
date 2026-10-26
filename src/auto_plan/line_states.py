@@ -67,12 +67,13 @@ def confirm_line_states(plan, command, context):
             recipe_code=row.recipe_code, source=row.source, actor=context.actor, recorded_at=context.time.as_of)
         changes.append({'before': old.model_dump(mode='json') if old else None, 'after': record.model_dump(mode='json')})
         records[key] = record
+    resolved=resolved_reviews(records.values(),context.issues)
     if not changes:
-        return ReplayResult(plan)
+        return ReplayResult(plan,resolve_issues=resolved)
     audit = LineStateAudit(action_id=context.action_id, actor=context.actor, recorded_at=context.time.as_of,
                            reason=command.reason.strip() if command.reason else None, changes=changes)
     updated = context.line_states.model_copy(update={'records': list(records.values()), 'audit': context.line_states.audit + [audit]})
-    return ReplayResult(plan, context_updates={'line_states': updated})
+    return ReplayResult(plan, context_updates={'line_states': updated},resolve_issues=resolved)
 
 
 @dataclass(frozen=True)
@@ -145,6 +146,7 @@ def record_is_current(snapshot, record):
 
 def adoption_conditions(snapshot):
     from .execution_rules import confirmed_day_capacity, executed_by_segment
+    from .production_time import production_cutoff
     today = production_date(snapshot.time.as_of)
     executed = executed_by_segment(snapshot.plan, snapshot.execution)
     affected = {}
@@ -156,13 +158,16 @@ def adoption_conditions(snapshot):
         if allocations:
             affected.setdefault(switch.line_code, (min(row.date for row in allocations), None))
     conditions = []
+    anchors=calculation_anchors(snapshot)
     for line, (day, segment) in sorted(affected.items()):
-        records = [row for row in calculation_anchors(snapshot) if row.line_code == line]
+        records = [row for row in anchors if row.line_code == line]
         latest=max(records,key=lambda record:(record.effective_at,getattr(record,'priority',1),record.recorded_at)) if records else None
-        if confirmed_day_capacity(snapshot,line) is not None or latest is not None and record_is_current(snapshot,latest):
+        current_capacity=confirmed_day_capacity(snapshot,line)
+        intraday=latest is not None and day==today and latest.effective_at>production_cutoff(today)
+        if current_capacity is not None or latest is not None and not intraday and record_is_current(snapshot,latest):
             continue
         conditions.append(RuleIssue(code='initial_state_unknown', severity='warning', line_code=line, date=day,
-            segment_id=segment, reason=('现场状态后的历史计划切机或生产尚无执行依据，不能推定已经完成，请重新确认当前线体状态。' if latest is not None else '起点未知或仅有未确认的计划值，首次切机尚未计入。请补充线体状态现场确认后重新预览。')))
+            segment_id=segment, reason=('当日现场状态时点不能替代剩余工时和顺序依据，请确认当前 Recipe 与剩余可用工时后重新预览。' if intraday else '现场状态后的历史计划切机或生产尚无执行依据，不能推定已经完成，请重新确认当前线体状态。' if latest is not None else '起点未知或仅有未确认的计划值，首次切机尚未计入。请补充线体状态现场确认后重新预览。')))
     return conditions
 
 
@@ -181,3 +186,49 @@ def protect_initial_hints(before, after, snapshot):
         if records and max(records, key=lambda record: (record.effective_at,getattr(record,'priority',1),record.recorded_at)).recipe_code != row.recipe_code:
             from .plans import PlanProblem
             raise PlanProblem(409, '普通计划修改不能覆盖线体现场依据，请通过状态更正并预览影响', line_code=row.line_code)
+
+
+def resolved_reviews(records, issues):
+    return [issue['id'] for issue in issues if issue.get('code') == 'line_state_review'
+            and any(record.line_code == issue['line_code'] and record.effective_at >= datetime.fromisoformat(issue['review_after']) for record in records)]
+
+
+def retained_state_reviews(before, after, snapshot):
+    from .production_time import production_cutoff
+    original = snapshot.model_copy(update={'plan': before})
+    changed = snapshot.model_copy(update={'plan': after})
+    latest = {}
+    for record in sorted(calculation_anchors(snapshot), key=lambda row: (row.effective_at,getattr(row,'priority',1),row.recorded_at)):
+        latest[record.line_code] = record
+    reviews = []
+    for line, record in latest.items():
+        if not record_is_current(original, record) and record_is_current(changed, record):
+            since = production_cutoff(production_date(snapshot.time.as_of)).isoformat()
+            identity = 'state-review-' + hashlib.sha256(f'{line}:{since}'.encode()).hexdigest()[:40]
+            reviews.append({'id': identity, 'code': 'line_state_review', 'line_code': line,
+                'review_after': since, 'blocks_adoption': False,
+                'reason': '旧计划中的历史 Recipe 变化尚无执行依据。修改或移除计划不能代替现场确认，请核实当前线体状态。'})
+    return reviews
+
+
+def apply_state_reviews(evaluation, snapshot, issues):
+    from .execution_rules import executed_by_segment, confirmed_day_capacity
+    today = production_date(snapshot.time.as_of)
+    executed = executed_by_segment(snapshot.plan,snapshot.execution)
+    affected = {segment.line_code for segment in snapshot.plan.segments if segment.date >= today and segment.quantity > executed.get(segment.id,0)}
+    affected.update(switch.line_code for switch in snapshot.plan.switches if any(row.date >= today for row in switch.allocations))
+    for issue in issues:
+        if issue.get('code') != 'line_state_review' or issue.get('line_code') not in affected:
+            continue
+        current_capacity=confirmed_day_capacity(snapshot,issue['line_code'])
+        if current_capacity is not None and current_capacity.confirmed_at>=datetime.fromisoformat(issue['review_after']):
+            continue
+        fresh = [record for record in calculation_anchors(snapshot) if record.line_code == issue['line_code']
+                 and record.effective_at >= datetime.fromisoformat(issue['review_after'])]
+        if fresh and record_is_current(snapshot,max(fresh,key=lambda row:(row.effective_at,getattr(row,'priority',1),row.recorded_at))):
+            continue
+        condition = RuleIssue(code='line_state_review',severity='warning',line_code=issue['line_code'],reason=issue['reason']).model_dump(mode='json')
+        evaluation['adoption_conditions'].append(condition)
+        evaluation['issues'].append(condition)
+        evaluation['executable'] = False
+    return evaluation

@@ -293,9 +293,10 @@ class PlanService:
     def __init__(self, store):
         self.store=store
 
-    def _evaluation_json(self,snapshot):
+    def _evaluation_json(self,snapshot,operation_issues=()):
         from .rules import _evaluation_json
-        return _evaluation_json(snapshot,output_cache=getattr(self.store,'output_cache',None))
+        from .line_states import apply_state_reviews
+        return apply_state_reviews(_evaluation_json(snapshot,output_cache=getattr(self.store,'output_cache',None)),snapshot,operation_issues)
 
     @staticmethod
     def _planning_plan(unit,record):
@@ -387,7 +388,7 @@ class PlanService:
         if effects&changed:
             raise PlanProblem(409,'合并后的关联范围已变化',revision=unit.revision,conflicts=sorted(effects&changed))
         protect(unit.plan,merged,merged_snapshot,allow_past_input=initial_import)
-        result=self._evaluation_json(merged_snapshot)
+        result=self._evaluation_json(merged_snapshot,replayed.issues)
         from .workspace_view import workspace_view
         matrix=workspace_view(merged_snapshot,result)
         return {'revision':unit.revision,'input_version':unit.inputs.input_version,'latest_adoption':unit.adoption,
@@ -483,7 +484,7 @@ class PlanService:
             record=unit.get_planning_revision(unit.revision)
             from .reset_operations import refresh_lineage
             lineage=refresh_lineage(record.get('lineage',{})|unit.context.lineage,unit.plan,snapshot)
-            evaluation=self._evaluation_json(snapshot)
+            evaluation=self._evaluation_json(snapshot,record.get('operation_issues',[]))
             from .workspace_view import workspace_view
             return {'workspace_view':workspace_view(snapshot,evaluation),'revision':unit.revision,'latest_adoption':unit.adoption,'input_version':unit.inputs.input_version,
                     'pending':record.get('pending',False), 'kind':record.get('kind','empty'),

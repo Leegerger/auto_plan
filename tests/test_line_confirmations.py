@@ -23,7 +23,7 @@ def test_unknown_state_allows_complete_trial_but_requires_field_evidence_for_ado
     assert post(client, 'adopt', current_command(client)).status_code == 422
     resolved = preview(client, confirm())
     assert resolved.status_code == 200, resolved.text
-    assert resolved.json()['evaluation']['executable'] is True
+    assert resolved.json()['evaluation']['executable'] is True, resolved.json()['evaluation']['issues']
     assert head(client)['context']['line_states']['records'] == []
     adopted = post(client, 'adopt', current_command(client, confirm()))
     assert adopted.status_code == 200, adopted.text
@@ -215,3 +215,88 @@ def test_field_observation_and_execution_carry_at_same_boundary_do_not_create_du
     assert checked.json()['evaluation']['executable'] is True
     assert not any(issue['code'] == 'duplicate_order' for issue in checked.json()['evaluation']['issues'])
     assert len(checked.json()['context']['line_states']['records']) == 1
+
+
+def test_confirmed_origin_participates_in_same_base_recipe_dependency_conflicts(shared_client):
+    client, _, _ = shared_client
+    assert post(client, 'save', current_command(client, confirm('S'))).status_code == 200
+    baseline = head(client)
+    scope = {'start_date': '2026-10-15', 'end_date': '2026-10-15', 'line_codes': ['L'], 'model_codes': []}
+    first = current_command(client, {'kind': 'append_fill', 'model_code': 'M', 'quantity': 100, 'line_code': 'L',
+        'start_date': '2026-10-15', 'end_date': '2026-10-15', 'scope': scope})
+    stale = current_command(client, patch(row('other-editor', model='P', day='2026-10-16')))
+    saved = post(client, 'save', first)
+    assert saved.status_code == 200, saved.text
+    assert head(client)['input_version'] == baseline['input_version']
+    rejected = post(client, 'save', stale)
+    assert rejected.status_code == 409, rejected.text
+    assert ['CAP', 'L', '2026-10-16'] in rejected.json()['conflicts']
+
+
+def test_intraday_state_does_not_backdate_unknown_current_day_production_without_a_remaining_witness(shared_client):
+    from datetime import datetime, timezone
+    client, _, _ = shared_client
+    client.app.state.clock = lambda: datetime(2026, 10, 14, 4, tzinfo=timezone.utc)
+    assert client.post('/auto_plan/api/auth/login', json={'username': 'EDITOR', 'password': 'company-secret'}).status_code == 200
+    observed = {'kind': 'confirm_line_states', 'rows': [{'line_code': 'L', 'effective_at': '2026-10-14T12:00:00+08:00', 'recipe_code': 'R', 'source': '午间点检'}]}
+    production = patch(row(day='2026-10-14'))
+    execution = {'kind': 'record_execution', 'rows': [{'date': '2026-10-14', 'line_code': 'L', 'model_code': 'M', 'quantity': 0}], 'cutoff': '2026-10-14T12:00:00+08:00'}
+    checked = preview(client, execution, observed, production)
+    assert checked.status_code == 200, checked.text
+    assert checked.json()['evaluation']['capacity_valid'] is True
+    assert checked.json()['evaluation']['executable'] is False
+    assert checked.json()['evaluation']['adoption_conditions'][0]['line_code'] == 'L'
+    remaining = {'kind': 'confirm_day_capacity', 'confirmations': [{'line_code': 'L', 'current_recipe': 'R', 'remaining_hours': '4'}],
+                 'observed_at': '2026-10-14T12:00:00+08:00'}
+    resolved = preview(client, execution, observed, production, remaining)
+    assert resolved.status_code == 200, resolved.text
+    assert resolved.json()['evaluation']['executable'] is True, resolved.json()['evaluation']['issues']
+
+
+def test_removing_elapsed_unconfirmed_recipe_changes_keeps_state_review_until_fresh_evidence(shared_client):
+    from datetime import datetime, timezone
+    client, _, _ = shared_client
+    client.app.state.clock = lambda: datetime(2026, 10, 12, tzinfo=timezone.utc)
+    assert client.post('/auto_plan/api/auth/login', json={'username': 'EDITOR', 'password': 'company-secret'}).status_code == 200
+    source = {'segments': [row('future', model='P') | {'order': 1}], 'switches': [{'id': 'elapsed', 'line_code': 'L', 'from_recipe': 'R', 'to_recipe': 'S',
+              'allocations': [{'date': '2026-10-13', 'order': 0, 'hours': '0.95'}]}]}
+    assert post(client, 'save', current_command(client, confirm(), {'kind': 'replace_plan', 'plan': source})).status_code == 200
+    client.app.state.clock = lambda: datetime(2026, 10, 14, tzinfo=timezone.utc)
+    assert client.post('/auto_plan/api/auth/login', json={'username': 'EDITOR', 'password': 'company-secret'}).status_code == 200
+    replacement = {'kind': 'replace_plan', 'plan': {'segments': [row('future-r')]}}
+    checked = preview(client, replacement)
+    assert checked.status_code == 200, checked.text
+    assert checked.json()['evaluation']['capacity_valid'] is True
+    assert checked.json()['evaluation']['executable'] is False
+    assert any(issue['code'] == 'line_state_review' for issue in checked.json()['evaluation']['adoption_conditions'])
+    assert post(client, 'save', current_command(client, replacement)).status_code == 200
+    assert post(client, 'adopt', current_command(client)).status_code == 422
+    assert preview(client, confirm()).json()['evaluation']['executable'] is False
+    fresh = confirm()
+    fresh['rows'][0]['effective_at'] = '2026-10-14T08:00:00+08:00'
+    assert preview(client, fresh).json()['evaluation']['executable'] is True
+
+
+def test_empty_line_can_be_adopted_while_retaining_review_for_future_work_and_current_confirmation_can_resolve_it(shared_client):
+    from datetime import datetime, timezone
+    client, _, _ = shared_client
+    client.app.state.clock = lambda: datetime(2026, 10, 12, tzinfo=timezone.utc)
+    assert client.post('/auto_plan/api/auth/login', json={'username': 'EDITOR', 'password': 'company-secret'}).status_code == 200
+    source = {'switches': [{'id': 'elapsed', 'line_code': 'L', 'from_recipe': 'R', 'to_recipe': 'S',
+              'allocations': [{'date': '2026-10-13', 'order': 0, 'hours': '0.95'}]}]}
+    assert post(client, 'save', current_command(client, confirm(), {'kind': 'replace_plan', 'plan': source})).status_code == 200
+    client.app.state.clock = lambda: datetime(2026, 10, 14, tzinfo=timezone.utc)
+    assert client.post('/auto_plan/api/auth/login', json={'username': 'EDITOR', 'password': 'company-secret'}).status_code == 200
+    empty = {'kind': 'replace_plan', 'plan': {}}
+    adopted = post(client, 'adopt', current_command(client, empty))
+    assert adopted.status_code == 200, adopted.text
+    assert head(client)['evaluation']['executable'] is True
+    assert any(issue['code'] == 'line_state_review' for issue in head(client)['operation_issues'])
+    next_work = patch(row())
+    checked = preview(client, next_work)
+    assert checked.json()['evaluation']['executable'] is False
+    assert post(client, 'adopt', current_command(client, next_work)).status_code == 422
+    current = {'kind': 'confirm_day_capacity', 'confirmations': [{'line_code': 'L', 'current_recipe': 'R', 'remaining_hours': '1'}],
+               'observed_at': '2026-10-14T08:00:00+08:00'}
+    assert preview(client, current, next_work).json()['evaluation']['executable'] is True
+    assert post(client, 'adopt', current_command(client, current, next_work)).status_code == 200

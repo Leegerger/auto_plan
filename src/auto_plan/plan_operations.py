@@ -115,10 +115,16 @@ def replay_result(plan, operations, context):
         model, apply = OPERATIONS[raw['kind']]
         value = apply(result.plan, model.model_validate({key:value for key,value in raw.items() if key!='action_id'}), operation_context)
         candidate=Plan.model_validate(value.plan if isinstance(value,ReplayResult) else value)
+        protected_reviews={issue['id']:issue for issue in result.issues if issue.get('code')=='line_state_review'}
+        from .line_states import retained_state_reviews
+        new_reviews=retained_state_reviews(result.plan,candidate,operation_context.snapshot) if candidate!=result.plan and raw['kind']!='confirm_line_states' else []
+        protected_reviews.update({issue['id']:issue for issue in new_reviews})
         if candidate!=result.plan:
             from .plans import protect
             protect(result.plan,candidate,operation_context.snapshot,allow_past_input=inherited.allow_past_input)
         if isinstance(value, ReplayResult):
+            if raw['kind']!='confirm_line_states':
+                value.resolve_issues=[identity for identity in value.resolve_issues if identity not in protected_reviews]
             if set(value.context_updates)-{'locks','preferences','execution','reset','line_states'}:
                 raise ValueError('未知计划上下文变更')
             result.context_updates.update(value.context_updates)
@@ -137,6 +143,10 @@ def replay_result(plan, operations, context):
             result.lineage.update(value.lineage)
         else:
             result.plan=Plan.model_validate(value)
+        resolved=set(value.resolve_issues) if isinstance(value,ReplayResult) and raw['kind']=='confirm_line_states' else set()
+        current={issue['id']:issue for issue in result.issues}
+        current.update({identity:issue for identity,issue in protected_reviews.items() if identity not in resolved})
+        result.issues=list(current.values())
     identities=[row.id for row in result.plan.segments]+[row.id for row in result.plan.switches]
     if len(identities)!=len(set(identities)):
         raise ValueError('生产段和切机识别号必须唯一')

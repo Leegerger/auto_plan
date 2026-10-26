@@ -109,7 +109,8 @@ def enumerate_local(search, plan, *, recipe=None, maximum=512):
                 continue
             from .rules import evaluate
             result = evaluate(search.snapshot.model_copy(update={'plan': trial}))
-            if not result.executable or not search.eligible(trial):
+            trial_valid = result.capacity_valid and result.computation_complete and not any(issue.severity == 'error' for issue in result.issues)
+            if not trial_valid or not search.eligible(trial):
                 continue
             score = objective(result)
             identity = (tuple(score), tuple((r.date, r.line_code, r.model_code, r.quantity, r.order) for r in trial.segments))
