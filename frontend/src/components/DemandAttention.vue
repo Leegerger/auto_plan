@@ -2,6 +2,7 @@
 import { computed } from 'vue'
 import DemandTrialPanel from './DemandTrialPanel.vue'
 import type { DemandAttention, MissingDemandInput, OutputAttribution } from '../outputTypes'
+import type { DemandGoal } from '../demandTrialTypes'
 import { useSharedPlan } from '../useSharedPlan'
 
 const props = defineProps<{ shared: ReturnType<typeof useSharedPlan> }>()
@@ -22,9 +23,17 @@ const categories: Record<string, string> = { line_yields: '线体良率', model_
 function choose(row: DemandAttention) { view.model_code = row.model_code; view.week = row.week }
 function openTrial(){
   const trial=props.shared.workspace.demandTrial
-  if(trial.modelCode!==view.model_code || trial.demandWeek!==view.week || !trial.actionId){
-    trial.modelCode=view.model_code;trial.demandWeek=view.week;trial.targetOutput=selected.value?.unarranged_output ?? '';trial.actionId=crypto.randomUUID();trial.result=null;trial.notice=''
+  if(trial.goalId || trial.modelCode!==view.model_code || trial.demandWeek!==view.week || !trial.actionId){
+    trial.goalId='';trial.modelCode=view.model_code;trial.demandWeek=view.week;trial.targetOutput=selected.value?.unarranged_output ?? '';trial.actionId=crypto.randomUUID();trial.result=null;trial.notice=''
   }
+  trial.startDate ||= props.shared.workspace.scope.start_date;trial.endDate ||= props.shared.workspace.scope.end_date;trial.open=true
+}
+function continueGoal(goal:DemandGoal){
+  if(props.shared.readonly.value || props.shared.needsPreview.value || goal.remaining_output_target==null || goal.remaining_output_target<=0)return
+  const trial=props.shared.workspace.demandTrial
+  view.model_code=goal.model_code;view.week=goal.demand_week
+  trial.goalId=goal.id;trial.modelCode=goal.model_code;trial.demandWeek=goal.demand_week;trial.targetOutput=goal.remaining_output_target
+  trial.actionId=crypto.randomUUID();trial.result=null;trial.requestKey='';trial.notice='';trial.lineCode=''
   trial.startDate ||= props.shared.workspace.scope.start_date;trial.endDate ||= props.shared.workspace.scope.end_date;trial.open=true
 }
 function output(value:number|null){return props.shared.needsPreview.value ? '待重新预览' : value===null ? '待完成计算' : `${value} 片合格产出`}
@@ -59,7 +68,7 @@ function locate(row: OutputAttribution) {
     </div>
     <section v-if="goals.length && shared.workspace.demandTrial.goalsExpanded" aria-label="补排目标余额" class="demand-selection">
       <p class="demand-note">余额按合格产出核算，与未分配投入和重置调整量分别保留。安排完成仍须核对物料、出货及其他采用条件。</p>
-      <article v-for="goal in goals" :key="goal.id"><strong>{{goal.model_code}} · 需求周 {{goal.demand_week}}</strong><p>原覆盖目标 {{goal.requested_output}} 片合格产出 · 剩余补排目标 {{output(goal.remaining_output_target)}}</p><p v-if="!shared.needsPreview.value">{{({pending:'仍有产出待安排',complete:'补排安排完成',incomplete:'核算未完成',unavailable:'当前窗口外'} as Record<string,string>)[goal.status]}} · 有效按时覆盖 {{output(goal.on_time)}} · 待物料确认 {{output(goal.pending_material)}} · 待出货确认 {{output(goal.pending_shipping)}}</p><details><summary>已接受投入安排</summary><p v-for="(action,id) in goal.accepted_actions" :key="id">线体 {{action.line_code}} · {{action.start_date}} 至 {{action.end_date}} · {{action.suggested_input}} 片投入</p></details></article>
+      <article v-for="goal in goals" :key="goal.id"><strong>{{goal.model_code}} · 需求周 {{goal.demand_week}}</strong><p>原覆盖目标 {{goal.requested_output}} 片合格产出 · 剩余补排目标 {{output(goal.remaining_output_target)}}</p><p v-if="!shared.needsPreview.value">{{({pending:'仍有产出待安排',complete:'补排安排完成',incomplete:'核算未完成',unavailable:'当前窗口外'} as Record<string,string>)[goal.status]}} · 有效按时覆盖 {{output(goal.on_time)}} · 待物料确认 {{output(goal.pending_material)}} · 待出货确认 {{output(goal.pending_shipping)}}</p><el-button v-if="shared.editor.value && (shared.needsPreview.value || (goal.remaining_output_target ?? 0)>0)" :disabled="shared.readonly.value || shared.needsPreview.value" :aria-label="`继续补排 ${goal.model_code} ${goal.demand_week}`" @click="continueGoal(goal)">继续补排</el-button><details><summary>已接受投入安排</summary><p>目标来源 {{goal.id}} · 共享修订 {{goal.origin_revision}} / 输入版本 {{goal.origin_input_version}}</p><p v-for="(action,id) in goal.accepted_actions" :key="id">动作 {{id}} · 线体 {{action.line_code}} · {{action.start_date}} 至 {{action.end_date}} · {{action.suggested_input}} 片投入</p></details></article>
     </section>
     <section v-if="view.model_code" aria-label="所选需求摘要" class="demand-selection">
       <div><strong>{{ view.model_code }} · 需求周 {{ view.week }}</strong><span v-if="selected"> · 截止 {{ selected.deadline.slice(0, 16).replace('T', ' ') }} 北京时间</span></div>

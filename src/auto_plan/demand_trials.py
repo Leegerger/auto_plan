@@ -8,13 +8,14 @@ from .plans import PlanCommand, PlanProblem, protect
 from .plan_models import EvaluationSnapshot
 from .editing_scope import EditingScope
 from .input_lookup import InputIndex
-from .demand_operations import place_input, on_time_violation, output_tail_crosses_deadline, model_accounting_complete, active_goal_matches
+from .demand_operations import DemandGoal, place_input, on_time_violation, output_tail_crosses_deadline, model_accounting_complete, active_goal_matches
 
 
 class DemandTrial(PlanCommand):
     action_id: Code
     model_code: Code
     demand_week: date
+    goal_id: Code | None = None
     target_output: Pieces | None = None
     mode: str = 'on_time'
     line_code: Code
@@ -62,9 +63,10 @@ def confirmation_requirements(evaluation, model, weeks):
     return result
 
 
-def trial_in_unit(planner, unit, request, actor, now):
+def trial_in_unit(planner, unit, request, actor, now, *, prepared=None):
     command = PlanCommand.model_validate(request.model_dump(include=set(PlanCommand.model_fields)))
-    prepared = planner._prepare(unit, command, now, actor)
+    if prepared is None:
+        prepared = planner._prepare(unit, command, now, actor)
     snapshot = EvaluationSnapshot.model_validate(prepared['snapshot'])
     index = InputIndex(snapshot.inputs)
     model, line = request.model_code, request.line_code
@@ -82,13 +84,23 @@ def trial_in_unit(planner, unit, request, actor, now):
     selected = weekly(before, model, request.demand_week)
     if selected is None:
         raise PlanProblem(422, '所选机种需求周不存在')
-    for goal in prepared.get('lineage', {}).get('demand_goals', {}).values():
-        if active_goal_matches(goal, model, request.demand_week):
+    goals = prepared.get('lineage', {}).get('demand_goals', {})
+    continued_goal = goals.get(request.goal_id) if request.goal_id else None
+    if request.goal_id:
+        if continued_goal is None or (continued_goal['model_code'], continued_goal['demand_week']) != (model, str(request.demand_week)):
+            raise PlanProblem(422, '请选择同一机种及需求周的原补排目标')
+        if continued_goal.get('remaining_output_target') is None:
+            raise PlanProblem(422, '原补排目标尚未完成当前核算，请补齐资料后重新预览')
+        if request.action_id in continued_goal.get('accepted_actions', {}):
+            raise PlanProblem(422, '继续补排须使用新的动作编号，请勿重复接受原安排')
+    for goal in goals.values():
+        if goal['id'] != request.goal_id and active_goal_matches(goal, model, request.demand_week):
             raise PlanProblem(422, '此机种需求周已有补排目标，请保留原目标处理', goal_id=goal['id'])
     unarranged = max(selected['demand'] - selected['attributed'], 0)
-    target = unarranged if request.target_output is None else request.target_output
-    if target > unarranged:
-        raise PlanProblem(422, '补排合格产出目标不可超过当前尚无归属安排的数量', unarranged_output=unarranged)
+    available_target = continued_goal['remaining_output_target'] if continued_goal else unarranged
+    target = available_target if request.target_output is None else request.target_output
+    if target > available_target:
+        raise PlanProblem(422, '补排合格产出目标不可超过当前剩余目标', unarranged_output=unarranged, remaining_output_target=available_target)
     scope = request.scope.model_copy(update={'line_codes': [line]})
     echoed = request.model_dump(mode='json', exclude=set(PlanCommand.model_fields)) | {'target_output': target, 'placement_scope': scope.model_dump(mode='json')}
     digest = hashlib.sha256(json.dumps({'snapshot': prepared['snapshot'], 'lineage': prepared['lineage'], 'operations': command.operations},
@@ -139,8 +151,13 @@ def trial_in_unit(planner, unit, request, actor, now):
                 day += timedelta(days=1)
                 continue
             capacity = index.capacity(day.strftime('%Y-%m'), recipe, line)
-            if capacity['state'] != 'known' or not capacity['pieces']:
-                block('recipe_capacity', '所选日期没有已知、允许且大于零的全日产能', day)
+            if capacity['state'] != 'known':
+                code, reason = {
+                    'missing': ('missing_capacity', f'{day:%Y-%m} 缺少 {line} / {recipe} 全日产能，尚不能计算'),
+                    'zero': ('zero_capacity', f'{day:%Y-%m} {line} / {recipe} 全日产能明确为零'),
+                    'forbidden': ('recipe_forbidden', f'{line} 明确禁止生产 Recipe {recipe}'),
+                }[capacity['state']]
+                block(code, reason, day)
                 day += timedelta(days=1)
                 continue
             prefix = result_plan
@@ -202,17 +219,17 @@ def trial_in_unit(planner, unit, request, actor, now):
             if physical(result_eval, model, request.demand_week) - baseline_on_time >= target:
                 break
             day += timedelta(days=1)
-    incomplete = incomplete or not placements and any(row['code'] in ('missing_parameters', 'incomplete_output') for row in blockers)
+    incomplete = incomplete or not placements and any(row['code'] in ('missing_parameters', 'missing_capacity', 'incomplete_output') for row in blockers)
     if placements and on_time_violation(before, result_eval, model, request.demand_week, {row['date'] for row in placements}):
         block('on_time_deadline', '此部分目标会使已有较晚产出新归属到目标周，本次按时模式保留目标并要求重新选择')
         placements = []
-    goal = {'id': request.action_id, 'model_code': model, 'demand_week': str(request.demand_week), 'requested_output': target,
+    goal = DemandGoal.model_validate({key: continued_goal[key] for key in DemandGoal.model_fields}).model_dump(mode='json') if continued_goal else {'id': request.action_id, 'model_code': model, 'demand_week': str(request.demand_week), 'requested_output': target,
             'baseline_attributed': selected['attributed'], 'desired_attributed': selected['attributed'] + target,
             'origin_revision': prepared['revision'], 'origin_input_version': prepared['input_version']}
     operation = {'kind': 'supplement_demand', 'action_id': request.action_id, 'model_code': model, 'demand_week': str(request.demand_week),
                  'mode': request.mode, 'line_code': line, 'start_date': str(request.start_date), 'end_date': str(request.end_date),
                  'scope': scope.model_dump(mode='json'), 'placements': placements, 'goal': goal}
-    retain = operation | {'placements': []} if target and baseline_complete else None
+    retain = operation | {'placements': []} if target and baseline_complete and not continued_goal else None
     accepted = operation if placements else None
     preview = planner._prepare(unit, command.model_copy(update={'operations': command.operations + [accepted]}), now, actor) if accepted else prepared
     after = preview['evaluation']
@@ -232,7 +249,9 @@ def trial_in_unit(planner, unit, request, actor, now):
     return {'status': 'incomplete' if incomplete else 'complete' if target and not remaining else 'partial' if actual else 'blocked',
         'basis': basis, 'request': echoed, 'suggested_input': None if incomplete else sum(row['quantity'] for row in actual),
         'scheduled_on_time_output': None if incomplete else gain, 'valid_on_time_output': None if incomplete else final_selected['on_time'] - selected['on_time'],
-        'remaining_output_target': None if incomplete else remaining, 'placements': actual,
+        'remaining_output_target': None if incomplete else remaining,
+        'goal_remaining_output_target': preview.get('lineage', {}).get('demand_goals', {}).get(goal['id'], {}).get('remaining_output_target', None if incomplete else remaining),
+        'placements': actual,
         'switch_effects': {'before': before['switches'], 'after': after['switches']}, 'week_effects': changed_weeks,
         'required_confirmations': confirmation_requirements(after, model, {str(request.demand_week)} | {row['week'] for row in changed_weeks}),
         'blockers': blockers + after['adoption_conditions'] + [issue for issue in after['issues']
