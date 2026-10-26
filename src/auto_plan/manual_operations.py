@@ -320,7 +320,9 @@ def append_fill(plan,command,context):
         if entry is None or entry.get('model_code')!=command.model_code or entry.get('quantity')!=command.quantity:
             raise ValueError('未分配量已变化，请按原记录继续处理')
         resolved=[command.continue_id]
-    result=plan.model_copy(deep=True)
+    # Rows are immutable; insertion owns its list and certificates replace all
+    # changed collections. Never clone the unrelated full-window row graph.
+    result=plan.model_copy(update={'segments':list(plan.segments)})
     recipe=index.models[command.model_code].recipe_code
     day=command.start_date
     allowed=False
@@ -342,14 +344,18 @@ def append_fill(plan,command,context):
         position=neighbors[-1]+1 if neighbors else len(daily)
         identity=derived_id(context,f'append:{day}:{command.line_code}')
         def candidate(quantity):
-            working=result.model_copy(deep=True)
             from .plan_models import ProductionSegment
             added=ProductionSegment(id=identity,date=day,line_code=command.line_code,order=0,model_code=command.model_code,quantity=quantity,hours='0')
-            working.segments.append(added); working=_ordered_insert(working,added,position)
+            working=result.model_copy(update={'segments':[*result.segments,added]})
+            working=_ordered_insert(working,added,position)
             _authorize_change(result,working,command.scope,context,allow_certificate=True)
             return bounded_certificate(working,context,command.scope)
-        low,high=0,min(remaining,capacity['pieces']+1)
-        best=None
+        high=min(remaining,capacity['pieces']+1)
+        try:
+            best=candidate(high)
+            low=high
+        except CapacityWitnessError:
+            low,high,best=0,high-1,None
         while low<high:
             amount=(low+high+1)//2
             try: proposed=candidate(amount)

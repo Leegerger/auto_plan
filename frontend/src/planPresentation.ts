@@ -32,7 +32,7 @@ export function operationDescription(operation:BusinessOperation):string{
   if(Array.isArray(value.segment_ids))parts.push(`所选 ${value.segment_ids.length} 段`)
   if(value.segment_id)parts.push('所选生产段')
   if(operation.kind==='confirm_line_states' && Array.isArray(value.rows))parts.push(value.rows.map((row:Record<string,unknown>)=>`${row.line_code} / ${row.effective_at} / ${lineStateDescription(row)}`).join('；'))
-  if(operation.kind==='supplement_demand')parts.push(`需求周 ${value.demand_week}`,'按时覆盖')
+  if(operation.kind==='supplement_demand')parts.push(`需求周 ${value.demand_week}`,value.mode==='late'?'显式迟交方案':'按时覆盖')
   if(operation.kind==='confirm_switch_continuity')parts.push(`原作业 ${value.job_id}`,String(value.source ?? ''))
   if(operation.kind==='patch_plan' && Array.isArray(value.switches))parts.push(value.switches.filter((row:Record<string,unknown>)=>row.residual_record_id).map((row:Record<string,unknown>)=>`剩余作业 ${row.id} / ${row.from_recipe} → ${row.to_recipe}`).join('；'))
   return parts.filter(Boolean).join(' / ')

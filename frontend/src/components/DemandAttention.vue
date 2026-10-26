@@ -24,7 +24,7 @@ function choose(row: DemandAttention) { view.model_code = row.model_code; view.w
 function openTrial(){
   const trial=props.shared.workspace.demandTrial
   if(trial.goalId || trial.modelCode!==view.model_code || trial.demandWeek!==view.week || !trial.actionId){
-    trial.goalId='';trial.modelCode=view.model_code;trial.demandWeek=view.week;trial.targetOutput=selected.value?.unarranged_output ?? '';trial.actionId=crypto.randomUUID();trial.result=null;trial.notice=''
+    trial.goalId='';trial.mode='on_time';trial.modelCode=view.model_code;trial.demandWeek=view.week;trial.targetOutput=selected.value?.unarranged_output ?? '';trial.actionId=crypto.randomUUID();trial.result=null;trial.notice=''
   }
   trial.startDate ||= props.shared.workspace.scope.start_date;trial.endDate ||= props.shared.workspace.scope.end_date;trial.open=true
 }
@@ -32,7 +32,7 @@ function continueGoal(goal:DemandGoal){
   if(props.shared.readonly.value || props.shared.needsPreview.value || goal.remaining_output_target==null || goal.remaining_output_target<=0)return
   const trial=props.shared.workspace.demandTrial
   view.model_code=goal.model_code;view.week=goal.demand_week
-  trial.goalId=goal.id;trial.modelCode=goal.model_code;trial.demandWeek=goal.demand_week;trial.targetOutput=goal.remaining_output_target
+  trial.goalId=goal.id;trial.mode='on_time';trial.modelCode=goal.model_code;trial.demandWeek=goal.demand_week;trial.targetOutput=goal.remaining_output_target
   trial.actionId=crypto.randomUUID();trial.result=null;trial.requestKey='';trial.notice='';trial.lineCode=''
   trial.open=true
 }
