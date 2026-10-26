@@ -97,12 +97,16 @@ def test_current_preview_and_viewer_read_the_same_authoritative_demand_rows_with
     before = client.get('/auto_plan/api/plans/current').json()
     current = before['evaluation']['demand_attention'][0]
     assert (current['unarranged_output'], current['pending_material']) == (0, 600)
+    current_day = next(day for day in before['workspace_view']['days'] if day['date'] == '2026-10-15' and day['line_code'] == 'L')
+    assert current_day['production_hours']['exact'] == '24'
     changed = post(client, 'preview', {key: value for key, value in command(
         {'kind': 'patch_plan', 'segments': [source | {'quantity': 600, 'hours': '15'}]}, base=1, version=version
     ).items() if key not in {'operation_id', 'pending'}})
     assert changed.status_code == 200, changed.text
     proposed = changed.json()['evaluation']['demand_attention'][0]
     assert (proposed['unarranged_output'], proposed['pending_material']) == (400, 200)
+    proposed_day = next(day for day in changed.json()['workspace_view']['days'] if day['date'] == '2026-10-15' and day['line_code'] == 'L')
+    assert proposed_day['production_hours']['exact'] == '15'
     assert client.get('/auto_plan/api/plans/current').json() == before
     client.app.state.access_store.users['VIEWER'] = {'user_id': 'VIEWER', 'roles': ['viewer'], 'active': True}
     assert client.post('/auto_plan/api/auth/login', json={'username': 'VIEWER', 'password': 'company-secret'}).status_code == 200
