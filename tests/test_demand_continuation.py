@@ -233,3 +233,70 @@ def test_continuation_keeps_earlier_fifo_coverage_and_its_still_required_confirm
     assert (earlier['physical_late_before'], earlier['physical_late_after'], earlier['after']['pending_shipping']) == (300, 300, 300)
     assert {row['week']: (row['kind'], row['pending_output']) for row in result['required_confirmations']} == {
         '2026-10-19': ('shipping', 300), '2026-11-02': ('material', 300)}
+
+
+def test_explicit_goal_only_retention_can_later_continue_on_a_user_selected_line_and_date(shared_client):
+    client, _, inputs = shared_client
+    cross_month(inputs)
+    data = inputs.read().model_dump(mode='json')
+    for row in data['parameters']['capacities']:
+        if row['line_code'] == 'L' and row['month'] == '2026-10':
+            row['pieces'] = 0
+    inputs.versions[1] = InputSnapshot.model_validate(data)
+    initial = trial(client, demand_week='2026-11-02', target_output=1000, start_date='2026-10-30', end_date='2026-10-30',
+        scope={'start_date': '2026-10-30', 'end_date': '2026-10-30', 'line_codes': ['L'], 'model_codes': ['M']})
+    assert initial.status_code == 200, initial.text
+    retained = initial.json()['retain_operation']
+    assert retained['placements'] == []
+    assert post(client, 'save', current_command(client, retained)).status_code == 200
+
+    response = continuation(client, retained['goal']['id'], start_date='2026-10-31', end_date='2026-10-31',
+        scope={'start_date': '2026-10-31', 'end_date': '2026-10-31', 'line_codes': ['B'], 'model_codes': ['M']})
+
+    assert response.status_code == 200, response.text
+    result = response.json()
+    assert (result['suggested_input'], result['scheduled_on_time_output'], result['remaining_output_target']) == (1000, 1000, 0)
+    assert result['operation']['goal'] == retained['goal']
+    goal = result['preview']['lineage']['demand_goals'][retained['goal']['id']]
+    assert len(goal['accepted_actions']) == 2
+    assert goal['accepted_actions'][retained['action_id']]['suggested_input'] == 0
+    assert result['preview']['unallocated'] == []
+
+
+def test_existing_historical_goals_reactivated_by_yield_change_can_continue_without_double_production(shared_client):
+    client, _, inputs = shared_client
+    configure(inputs, demand=1000, week='2026-11-02', line_yield='100', model_yield='100', capacity=10000)
+    first = trial(client, demand_week='2026-11-02', target_output=200).json()['operation']
+    assert post(client, 'save', current_command(client, first)).status_code == 200
+    second_response = trial(client, demand_week='2026-11-02', target_output=800, line_code='B', start_date='2026-10-16', end_date='2026-10-16',
+        scope={'start_date': '2026-10-16', 'end_date': '2026-10-16', 'line_codes': ['B'], 'model_codes': ['M']})
+    assert second_response.status_code == 200, second_response.text
+    second = second_response.json()['operation']
+    assert post(client, 'save', current_command(client, second)).status_code == 200
+    changed = client.post('/auto_plan/api/inputs/apply', json={'base_version': head(client)['input_version'],
+        'changes': {'model_yields': [{'month': '2026-10', 'model_code': 'M', 'percent': '10'}]}})
+    assert changed.status_code == 200, changed.text
+    before = head(client)
+    first_id, second_id = first['goal']['id'], second['goal']['id']
+    assert {identity: goal['remaining_output_target'] for identity, goal in before['lineage']['demand_goals'].items()} == {first_id: 100, second_id: 900}
+    fields = dict(demand_week='2026-11-02', target_output=None, line_code='L', start_date='2026-10-17', end_date='2026-10-17',
+        scope={'start_date': '2026-10-17', 'end_date': '2026-10-17', 'line_codes': ['L'], 'model_codes': ['M']})
+    assert trial(client, **fields).status_code == 422
+
+    response = trial(client, goal_id=second_id, **fields)
+
+    assert response.status_code == 200, response.text
+    result = response.json()
+    assert (result['request']['target_output'], result['suggested_input'], result['scheduled_on_time_output']) == (900, 8991, 900)
+    assert result['operation']['goal'] == second['goal']
+    goals = result['preview']['lineage']['demand_goals']
+    assert {identity: goal['remaining_output_target'] for identity, goal in goals.items()} == {first_id: 0, second_id: 0}
+    assert (len(goals[first_id]['accepted_actions']), len(goals[second_id]['accepted_actions'])) == (1, 2)
+    selected, = result['preview']['evaluation']['weekly_results']
+    assert (selected['attributed'], selected['pending_material']) == (1000, 1000)
+    assert sorted(row['quantity'] for row in result['preview']['plan']['segments']) == [200, 800, 8991]
+    assert post(client, 'save', current_command(client, result['operation'])).status_code == 200
+    repeated = trial(client, goal_id=second_id, **fields)
+    assert repeated.status_code == 200, repeated.text
+    assert repeated.json()['operation'] is None
+    assert repeated.json()['suggested_input'] == 0

@@ -94,7 +94,7 @@ def trial_in_unit(planner, unit, request, actor, now, *, prepared=None):
         if request.action_id in continued_goal.get('accepted_actions', {}):
             raise PlanProblem(422, '继续补排须使用新的动作编号，请勿重复接受原安排')
     for goal in goals.values():
-        if goal['id'] != request.goal_id and active_goal_matches(goal, model, request.demand_week):
+        if continued_goal is None and active_goal_matches(goal, model, request.demand_week):
             raise PlanProblem(422, '此机种需求周已有补排目标，请保留原目标处理', goal_id=goal['id'])
     unarranged = max(selected['demand'] - selected['attributed'], 0)
     available_target = continued_goal['remaining_output_target'] if continued_goal else unarranged
