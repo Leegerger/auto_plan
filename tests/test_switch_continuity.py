@@ -340,3 +340,86 @@ def test_frozen_confirmation_survives_source_reads_and_cannot_hide_missing_compu
     assert checked.json()['computation_complete'] is True
     assert checked.json()['executable'] is False
     assert {issue['code'] for issue in checked.json()['adoption_conditions']} == {'remaining_switch_continuity'}
+
+
+@pytest.mark.parametrize('newer_observation',[False,True],ids=['same-progress-reference','newer-progress-stale-reference'])
+def test_intraday_remaining_work_needs_fresh_progress_after_it_elapses_even_if_moved_or_deleted(shared_client,newer_observation):
+    from datetime import datetime, timezone
+    client, _, _ = shared_client
+    client.app.state.clock = lambda: datetime(2026, 10, 14, 2, tzinfo=timezone.utc)
+    assert client.post('/auto_plan/api/auth/login', json={'username': 'EDITOR', 'password': 'company-secret'}).status_code == 200
+    progress = unfinished()
+    progress['rows'][0]['effective_at'] = '2026-10-14T08:30:00+08:00'
+    assert post(client, 'save', current_command(client, progress)).status_code == 200
+    record = head(client)['context']['line_states']['records'][0]
+    execution = {'kind': 'record_execution', 'rows': [{'date': '2026-10-14', 'line_code': 'L', 'model_code': 'P', 'quantity': 0}],
+                 'cutoff': '2026-10-14T09:00:00+08:00'}
+    budget = {'kind': 'confirm_day_capacity', 'observed_at': '2026-10-14T09:00:00+08:00',
+              'confirmations': [{'line_code': 'L', 'residual_record_id': record['id'], 'remaining_hours': '4'}]}
+    assert post(client, 'save', current_command(client, execution, budget)).status_code == 200
+    dto = head(client)['workspace_view']['switch_continuity'][0]
+    assert post(client, 'adopt', current_command(client, confirmation(dto))).status_code == 200
+    amount='2' if newer_observation else '4'
+    if newer_observation:
+        newer=unfinished(remaining_hours='2',completed_hours='10')
+        newer['rows'][0]['effective_at']='2026-10-14T09:00:00+08:00'
+        assert post(client,'save',current_command(client,newer)).status_code==200
+        current=head(client)
+        active_id=current['workspace_view']['switch_continuity'][0]['source_record_id']
+        record=next(row for row in current['context']['line_states']['records'] if row['id']==active_id)
+    client.app.state.clock = lambda: datetime(2026, 10, 15, 2, tzinfo=timezone.utc)
+    assert client.post('/auto_plan/api/auth/login', json={'username': 'EDITOR', 'password': 'company-secret'}).status_code == 200
+    current = head(client)
+    assert next(row for row in current['workspace_view']['line_weeks'] if row['line_code'] == 'L')['current_confirmation']['valid'] is False
+    moved = patch(row('future-target', model='P', day='2026-10-16') | {'order': 1})
+    moved['switches'] = [residual(record['id'], hours=amount,day='2026-10-16')]
+    dto = preview(client, moved).json()['workspace_view']['switch_continuity'][0]
+    recheck = confirmation(dto, expected_confirmation_id=dto['confirmation']['id'], reason='仅核对周五连续时段，实际进度未核实')
+    checked = preview(client, moved, recheck)
+    assert checked.status_code == 200, checked.text
+    assert checked.json()['evaluation']['executable'] is False
+    assert {issue['code'] for issue in checked.json()['evaluation']['adoption_conditions']} == {'line_state_review'}
+    assert post(client, 'adopt', current_command(client, moved, recheck)).status_code == 422
+    assert post(client, 'adopt', current_command(client, {'kind': 'patch_plan', 'remove_switches': ['actual-r-s']})).status_code == 200
+    dto = preview(client, moved).json()['workspace_view']['switch_continuity'][0]
+    recheck = confirmation(dto, expected_confirmation_id=dto['confirmation']['id'], reason='删除过期安排后仅核对连续时段')
+    assert preview(client, moved, recheck).json()['evaluation']['executable'] is False
+    fresh = unfinished(remaining_hours=amount,completed_hours='10' if newer_observation else '8')
+    fresh['rows'][0]['effective_at'] = '2026-10-15T10:00:00+08:00'
+    fresh_record = preview(client, fresh).json()['workspace_view']['switch_continuity'][0]['source_record_id']
+    moved['switches'][0]['residual_record_id'] = fresh_record
+    dto = preview(client, fresh, moved).json()['workspace_view']['switch_continuity'][0]
+    recheck = confirmation(dto, expected_confirmation_id=dto['confirmation']['id'], reason='按新实际进度重新核对连续条件')
+    assert post(client, 'adopt', current_command(client, fresh, moved, recheck)).status_code == 200
+
+
+def test_earlier_distinct_job_and_ready_point_do_not_make_later_pending_progress_uncertain(shared_client):
+    from datetime import datetime, timezone
+    client, _, _=shared_client
+    client.app.state.clock=lambda:datetime(2026,10,14,2,tzinfo=timezone.utc)
+    assert client.post('/auto_plan/api/auth/login',json={'username':'EDITOR','password':'company-secret'}).status_code==200
+    earlier=unfinished(job_id='earlier-job',remaining_hours='1/4',completed_hours='47/4')
+    earlier['rows'][0]['effective_at']='2026-10-14T08:00:00+08:00'
+    assert post(client,'save',current_command(client,earlier)).status_code==200
+    old=head(client)['context']['line_states']['records'][0]
+    old_plan={'kind':'patch_plan','switches':[residual(old['id'],id='earlier-job',hours='1/4',day='2026-10-14')]}
+    assert post(client,'save',current_command(client,old_plan)).status_code==200
+    ready={'kind':'confirm_line_states','reason':'现场确认前一作业已经完成','rows':[
+        {'line_code':'L','effective_at':'2026-10-14T08:30:00+08:00','recipe_code':'S','source':'完成点检'}]}
+    later=unfinished(job_id='later-job',started_at='2026-10-14T08:45:00+08:00',from_recipe='S',to_recipe='R',
+                     remaining_hours='2',standard_hours='9/4',completed_hours='1/4')
+    later['rows'][0]['effective_at']='2026-10-14T09:00:00+08:00'
+    assert post(client,'save',current_command(client,ready,later)).status_code==200
+    client.app.state.clock=lambda:datetime(2026,10,15,2,tzinfo=timezone.utc)
+    assert client.post('/auto_plan/api/auth/login',json={'username':'EDITOR','password':'company-secret'}).status_code==200
+    current=head(client)
+    assert next(row for row in current['workspace_view']['line_weeks'] if row['line_code']=='L')['current_confirmation']['valid'] is True
+    active_id=current['workspace_view']['switch_continuity'][0]['source_record_id']
+    new_plan=patch(row('later-target',model='M',day='2026-10-16')|{'order':1})
+    new_plan['remove_switches']=['earlier-job']
+    new_plan['switches']=[residual(active_id,id='later-job',from_recipe='S',to_recipe='R',hours='2',day='2026-10-16')]
+    dto=preview(client,new_plan).json()['workspace_view']['switch_continuity'][0]
+    checked=preview(client,new_plan,confirmation(dto))
+    assert checked.status_code==200,checked.text
+    assert checked.json()['evaluation']['adoption_conditions']==[]
+    assert post(client,'adopt',current_command(client,new_plan,confirmation(dto))).status_code==200

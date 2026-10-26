@@ -48,14 +48,21 @@ def _day_after_observation(record, day):
     return day>first or day==first and record.effective_at==production_cutoff(first)
 
 
-def matches_residual_job(switch, record):
-    """Match only the protected job identity; callers own time, scope and state."""
+def matches_actual_job(switch, record):
+    """Recognize the physical job independently of its progress observation."""
     job = getattr(record, 'unfinished_switch', None)
     if job is None:
         return False
+    return (switch.id, switch.line_code, switch.from_recipe, switch.to_recipe) == (
+        job.job_id, record.line_code, job.from_recipe, job.to_recipe)
+
+
+def matches_residual_job(switch, record):
+    """Match the physical job and the exact progress evidence used to arrange it."""
+    if not matches_actual_job(switch,record):
+        return False
     record_id = getattr(record, 'origin_record_id', None) or record.id
-    return (switch.id, switch.line_code, switch.from_recipe, switch.to_recipe, switch.residual_record_id) == (
-        job.job_id, record.line_code, job.from_recipe, job.to_recipe, record_id)
+    return switch.residual_record_id == record_id
 
 
 def confirm_line_states(plan, command, context):
@@ -271,7 +278,10 @@ def record_is_current(snapshot, record):
             and fact.date<=production_date(cutoff) and _day_after_observation(record,fact.date) for fact in snapshot.execution.facts)
         elapsed_work=any(row.line_code==record.line_code and row.date<today and _day_after_observation(record,row.date)
             and (row.quantity or getattr(row,'hours','0')!='0') for row in snapshot.plan.segments)
-        elapsed_switch=any(switch.line_code==record.line_code and row.date<today and _day_after_observation(record,row.date)
+        # Same-day residual buckets concern the physical job even when a newer
+        # progress observation has made their original reference stale.
+        elapsed_switch=any(switch.line_code==record.line_code and row.date<today
+            and (_day_after_observation(record,row.date) or row.date==first and switch.residual_record_id is not None and matches_actual_job(switch,record))
             and (switch.residual_record_id is None or Fraction(row.hours)) for switch in snapshot.plan.switches for row in switch.allocations)
         return not (actual or elapsed_work or elapsed_switch)
     models = {row.code: row.recipe_code for row in snapshot.inputs.masters.models}
@@ -332,8 +342,9 @@ def adoption_conditions(snapshot):
     continuous={row['line_code'] for row in continuity_details(snapshot) if row['status']=='valid'}
     for line,(day,segment) in sorted(affected.items()):
         if line in reviews:
+            explanation=' 当前实际剩余状态仍需核对。' if line in pending else ' 当前起点待核对，首次切机尚未计入。'
             conditions.append(RuleIssue(code='line_state_review',severity='warning',line_code=line,date=day,
-                segment_id=segment,reason=reviews[line].reason+' 当前起点待核对，首次切机尚未计入。'))
+                segment_id=segment,reason=reviews[line].reason+explanation))
             if line not in pending:
                 continue
         if line in pending:
