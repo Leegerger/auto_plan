@@ -130,11 +130,17 @@ def test_complete_candidate_reference_survives_reopen_application_and_expiry(dur
     from auto_plan.job_process import JobController
     from tests.test_initialization import initial_payload
     from tests.job_http_support import calculate
+    from tests.line_state_support import confirm_states
     client,jobs,access,plans=durable_jobs
     initial=initial_payload();initial['segments']=[];initial['demands'][0]['quantity']=5
     initial['reset']['models'][0]['net_balance']=0
     response=client.post('/auto_plan/api/initialization/apply',json=initial|{'operation_id':str(uuid4())})
     assert response.status_code==200,response.text
+    current=client.get('/auto_plan/api/plans/current').json()
+    confirmed=client.post('/auto_plan/api/plans/save',json={
+        'base_revision':current['revision'],'input_version':current['input_version'],'latest_adoption':current['latest_adoption'],
+        'operation_id':str(uuid4()),'pending':True,'operations':[confirm_states()]})
+    assert confirmed.status_code==200,confirmed.text
     controller=JobController(jobs,workers=1,clock=client.app.state.clock)
     client.app.state.job_controller=controller
     controller.recover_startup();controller.start()

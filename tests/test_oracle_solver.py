@@ -15,6 +15,7 @@ from tests.job_http_support import calculate
 from tests.oracle_namespace import disposable_business_namespace
 from tests.support import CompanyAuthentication
 from tests.test_initialization import initial_payload
+from tests.line_state_support import confirm_states
 
 pytestmark = [pytest.mark.oracle, pytest.mark.skipif(os.getenv('AUTO_PLAN_TEST_ORACLE') != '1', reason='Opt-in PLAN_TEST AP_* only')]
 NOW = datetime(2026, 10, 14, tzinfo=timezone.utc)
@@ -49,6 +50,9 @@ def test_real_shared_freeze_candidate_patch_and_changed_context_guard():
                 def guard():
                     current = head()
                     return {name: current[name] for name in ('input_version', 'latest_adoption')} | {'base_revision': current['revision']}
+                confirmed = client.post('/auto_plan/api/plans/save', json=guard() | {
+                    'operation_id':str(uuid4()),'pending':True,'operations':[confirm_states()]})
+                assert confirmed.status_code == 200, confirmed.text
                 source = guard()
                 response = calculate(client, source | {
                     'request': {'scope': {'start_date': '2026-10-15', 'end_date': '2026-10-15', 'line_codes': ['L']}}})
@@ -56,13 +60,13 @@ def test_real_shared_freeze_candidate_patch_and_changed_context_guard():
                 candidate = response.json()['candidates'][0]
                 assert candidate['objective'][:30] == ['0'] * 30
                 assert candidate['input_version'] == source['input_version']
-                assert head()['revision'] == 1 and head()['latest_adoption'] == 0
+                assert head()['revision'] == source['base_revision'] and head()['latest_adoption'] == 0
                 # A patch replays on the server; it is not persisted by preview.
                 saved = client.post('/auto_plan/api/plans/save', json=source | {
                     'operation_id': str(uuid4()), 'pending': False, 'operations': candidate['server_reference']['operations']})
                 assert saved.status_code == 200, saved.text
                 current = head()
-                assert current['revision'] == 2 and current['latest_adoption'] == 0
+                assert current['revision'] == source['base_revision'] + 1 and current['latest_adoption'] == 0
                 assert current['plan'] == candidate['plan']
                 locked = client.post('/auto_plan/api/plans/save', json=guard() | {'operation_id': str(uuid4()), 'pending': False,
                     'operations': [{'kind': 'lock_cells', 'cells': [{'date': '2026-10-15', 'line_code': 'L', 'model_code': 'M', 'quantity': 5}]}]})
