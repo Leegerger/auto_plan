@@ -1,0 +1,114 @@
+[
+  {
+    "source_name": "review-fix-red.log",
+    "stored": "logs/red.log.gz",
+    "source_sha256": "3414e94e5a8471edcc5e3841903bfe7a4ee2d21c6d2a1adaf66da79aecb4849e",
+    "stored_sha256": "9252ae519fa9da182fd4819c3bc0bd81a79d96028a0c917269b5703e05ebd84e",
+    "source_bytes": 2688,
+    "stored_bytes": 1181
+  },
+  {
+    "source_name": "review-fix-build.log",
+    "stored": "logs/build.log.gz",
+    "source_sha256": "ac258bf5006d77a5e4cf3a1dc84896cb87680a29ba99099287e574dec1568c68",
+    "stored_sha256": "89e767191ca870a551d5e56c185f9592c3e0f3be077ef9319e9992f227977f1f",
+    "source_bytes": 758,
+    "stored_bytes": 473
+  },
+  {
+    "source_name": "review-fix-incomplete-green.log",
+    "stored": "logs/authoring-maintenance-return.log.gz",
+    "source_sha256": "c2036f2b3a75cbc90bdbb2dc97a899967e5bcf683eef7870bd987111183abbcd",
+    "stored_sha256": "2d512e082cfd2bc59193a1cbef6b8d3df545e633c7e4ebb4dbbff7cb5af530aa",
+    "source_bytes": 3208,
+    "stored_bytes": 1340
+  },
+  {
+    "source_name": "review-fix-incomplete-final.log",
+    "stored": "logs/authoring-preview-drawer.log.gz",
+    "source_sha256": "f47691f404e1e1af30c5b52731c635add9d513afdfabe035535a8340a1e51736",
+    "stored_sha256": "c1cce29041b2af65879b23f4e5cb1046df69ed786d6ac62b176aa6afb91a61a4",
+    "source_bytes": 1695,
+    "stored_bytes": 717
+  },
+  {
+    "source_name": "review-fix-incomplete-green-final.log",
+    "stored": "logs/incomplete-green.log.gz",
+    "source_sha256": "ee610c674a536d6855e6702f48c749aca647f8fdef61dbd67e6ae91b698b0453",
+    "stored_sha256": "b34df77670623a2a90c79a8959f00fa994fb686c9c1e5f741a029f82f5aaa8ae",
+    "source_bytes": 1086,
+    "stored_bytes": 613
+  },
+  {
+    "source_name": "review-fix-attention.log",
+    "stored": "logs/attention.log.gz",
+    "source_sha256": "b859da86b59f3b6f349673fca1f13031bcd9764e5197447d952b37c72ac0568d",
+    "stored_sha256": "06b7e9edd447bced63d4e564ce5672cd19c4a3119423eefbd9f9e50ae5786382",
+    "source_bytes": 1691,
+    "stored_bytes": 880
+  },
+  {
+    "source_name": "review-fix-trial.log",
+    "stored": "logs/trial.log.gz",
+    "source_sha256": "2c963bfceff439a3a1be4d924383d6ceaabd6f9e98fdce9c2c51684ffee9335d",
+    "stored_sha256": "4885b1cdcc6acf9ec3026436c89617ba62495f188a64d0381a2f91385692f52c",
+    "source_bytes": 1016,
+    "stored_bytes": 605
+  },
+  {
+    "source_name": "review-fix-comparison.log",
+    "stored": "logs/comparison.log.gz",
+    "source_sha256": "de544ed50c32b470ab82ba042b27c745ec09e9cdebe733d5495ea45823efc0ea",
+    "stored_sha256": "05d1be1b0a35fea30f1319034fe5b5577b6dbe22b9fccb292c9ac05b7b05b543",
+    "source_bytes": 1125,
+    "stored_bytes": 605
+  },
+  {
+    "source_name": "review-fix-continuation.log",
+    "stored": "logs/continuation.log.gz",
+    "source_sha256": "25be7607d0740d97edb56660374b076184f77800eea32e5877d8ba75bc9d90b9",
+    "stored_sha256": "926f5740b609f1e0e372169088464f2689600641712550a010de95e88a03893a",
+    "source_bytes": 931,
+    "stored_bytes": 564
+  },
+  {
+    "source_name": "review-fix-late.log",
+    "stored": "logs/late.log.gz",
+    "source_sha256": "b8bda305f0aa6dd49dce3013e5881e7ffe0a2fac90051ff8d132e1ebdb7d532d",
+    "stored_sha256": "3423adc4d9c0784ca538c32808886a44969f47c55cf7abe895dfdec856917e3c",
+    "source_bytes": 877,
+    "stored_bytes": 531
+  },
+  {
+    "source_name": "review-fix-clock.log",
+    "stored": "logs/clock.log.gz",
+    "source_sha256": "86d23c759ad0120087a4dc987f65c30e95884f010357240f6ef5827962f5c80e",
+    "stored_sha256": "42cdf0d4047e1abec254bf0d321f9beaa22418dff043c26446bbf8ab5fbf0946",
+    "source_bytes": 428,
+    "stored_bytes": 312
+  },
+  {
+    "source_name": "current.json",
+    "stored": "red/current.json.gz",
+    "source_sha256": "1467563b538da2d9b8f7887a2997490a62aaa63d5517cdf77d5a9eeb1971abbe",
+    "stored_sha256": "17185c52a56314babe4bf3f23a8fd7fc3bf7d62f435e511b7ee980713cc18f44",
+    "source_bytes": 242322,
+    "stored_bytes": 5361
+  },
+  {
+    "source_name": "current.json",
+    "stored": "green/current.json.gz",
+    "source_sha256": "1467563b538da2d9b8f7887a2997490a62aaa63d5517cdf77d5a9eeb1971abbe",
+    "stored_sha256": "17185c52a56314babe4bf3f23a8fd7fc3bf7d62f435e511b7ee980713cc18f44",
+    "source_bytes": 242322,
+    "stored_bytes": 5361
+  },
+  {
+    "source_name": "responses.json",
+    "stored": "clock/responses.json.gz",
+    "source_sha256": "bdac6ec33c0e701a8fde7b72e11f3a41073d106a6229359dcdb2daaaf33a8daa",
+    "stored_sha256": "c487d17deb9334277126596366c15257de01021bf28c7f80fe157f0d4ee4f199",
+    "source_bytes": 273608,
+    "stored_bytes": 8224
+  }
+]

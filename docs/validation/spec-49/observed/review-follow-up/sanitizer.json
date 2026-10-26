@@ -1,0 +1,19 @@
+{
+  "checked_json_files": 286,
+  "blocked_auth_or_connection_keys": [
+    "authorization",
+    "cookie",
+    "cookies",
+    "csrf",
+    "csrf_token",
+    "dsn",
+    "oracle_password",
+    "password",
+    "session_id",
+    "session_token"
+  ],
+  "findings": [],
+  "compression_mappings_verified": 251,
+  "scope": "Recursive captured JSON records across the complete spec-49 evidence tree. Earlier sanitizer remains the immutable #62 handoff record; this follow-up includes the newer records.",
+  "source_exception": "Exact previously retained reproduction Python sources are labeled test source separately and are not captured authentication records."
+}

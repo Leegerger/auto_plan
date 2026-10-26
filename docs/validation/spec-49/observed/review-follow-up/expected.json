@@ -1,0 +1,54 @@
+{
+  "source": "Independent literal expectations agreed before the summary fix. Existing browser specifications retain their own independent literals.",
+  "incomplete_source": {
+    "model": "N",
+    "demand_week": "2026-10-12",
+    "weekly_demand": 1000,
+    "planned_input": 100,
+    "input_date": "2026-10-15",
+    "missing_parameter": "Cycle Time"
+  },
+  "summary": {
+    "known_quantity": "周出货需求 1000 片",
+    "computed_labels": [
+      "尚无产出安排",
+      "按时覆盖",
+      "待物料确认",
+      "待出货确认",
+      "已确认迟交预计覆盖",
+      "未补足缺口"
+    ],
+    "computed_value": "待完成计算",
+    "forbidden_display": "Any definite quantity, including 0, for one of these incomplete computed amounts."
+  },
+  "maintenance_and_intent": {
+    "parameter_category": "cycle_times",
+    "model": "N",
+    "week": "2026-10-12",
+    "append_start": "2026-10-22",
+    "quantity_form": "123",
+    "selected_segment": "incomplete-existing",
+    "local_actions": 1,
+    "action_selected": true,
+    "hours_before": "3",
+    "hours_after": "4",
+    "shared_revision_changed": false
+  },
+  "request_contract": {
+    "trial": "Common fields plus its explicit selected mode and line_code.",
+    "comparison": "Common fields plus explicit on_time mode, without a selected line_code.",
+    "common_fields": "Selected queued operations, original command versions, action_id, optional goal_id, model/week, optional numeric target, selected dates and copied authorized scope arrays.",
+    "excluded_fields": [
+      "operation_id",
+      "pending"
+    ],
+    "fingerprint": [
+      "actor",
+      "request",
+      "revision",
+      "input_version",
+      "latest_adoption",
+      "as_of"
+    ]
+  }
+}
