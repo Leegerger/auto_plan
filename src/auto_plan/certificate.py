@@ -21,13 +21,17 @@ class CertificateError(Exception):
 
 
 def construct_hour_certificate(inputs: InputSnapshot, segments: list[SourceSegment],
-                               initial_states: Sequence[InitialRecipeState] = (), *, window_start=None, day_limits=None, confirmed_states=()) -> Plan:
+                               initial_states: Sequence[InitialRecipeState] = (), *, window_start=None, day_limits=None, confirmed_states=(),
+                               unfinished_jobs=(), end_date=None, unfinished_start=None) -> Plan:
     """Return a lossless certificate; callers still evaluate the full snapshot."""
     index = InputIndex(inputs)
     initial = {row.line_code: row.recipe_code for row in initial_states}
     ordered_lines = defaultdict(list)
     groups = defaultdict(list)
     errors = []
+    unfinished = {record.line_code: record for record in unfinished_jobs}
+    for line in unfinished:
+        ordered_lines[line]
     seen_ids, seen_orders = set(), set()
     for row in segments:
         if row.model_code not in index.models or row.line_code not in index.lines:
@@ -42,12 +46,15 @@ def construct_hour_certificate(inputs: InputSnapshot, segments: list[SourceSegme
         groups[(row.date, row.line_code, recipe)].append(row)
     if errors:
         raise CertificateError(errors)
-    if not segments:
+    if not segments and not unfinished:
         return Plan(initial_states=list(initial_states))
     first_date = window_start or min(row.date for row in segments)
-    if first_date > min(row.date for row in segments):
+    last_date = max((row.date for row in segments), default=end_date)
+    if last_date is None or last_date < first_date:
+        raise CertificateError([RuleIssue(code='certificate_range', reason='剩余切机工时依据需要明确的授权起止日期')])
+    if segments and first_date > min(row.date for row in segments):
         raise CertificateError([RuleIssue(code='certificate_range', reason='工时依据起日不能晚于已排投入')])
-    if (max(row.date for row in segments) - first_date).days >= 105:
+    if (last_date - first_date).days >= 105:
         raise CertificateError([RuleIssue(code='certificate_range', reason='工时依据仅构造冻结的十五周排程窗口')])
     lower, quantities = {}, {}
     group_keys = defaultdict(list)
@@ -76,7 +83,8 @@ def construct_hour_certificate(inputs: InputSnapshot, segments: list[SourceSegme
                 final_orders[row.id] = position * 2 + 1
         dates = []
         current = first_date
-        while current <= rows[-1].date:
+        line_end = max((row.date for row in rows), default=end_date)
+        while current <= line_end:
             dates.append(current)
             current += timedelta(days=1)
         positions = {day: position for position, day in enumerate(dates)}
@@ -93,16 +101,38 @@ def construct_hour_certificate(inputs: InputSnapshot, segments: list[SourceSegme
         observations=sorted((record for record in confirmed_states if record.line_code==line),key=lambda record:(record.effective_at,getattr(record,'priority',1),record.recorded_at))
         observation_position=0
         state_since=first_date
+        pending_record = unfinished.get(line)
+        pending_job = pending_record.unfinished_switch if pending_record is not None else None
+        pending_start = max(first_date, unfinished_start or first_date, production_date(pending_record.effective_at)) if pending_record is not None else None
+        def append_unfinished(target):
+            nonlocal state, previous, state_since, pending_job
+            if pending_job is None:
+                return
+            deadline = target.date if target is not None else line_end
+            if pending_start > deadline:
+                raise CertificateError([RuleIssue(code='certificate_range', reason='不能在现场剩余切机状态时点之前安排作业', date=deadline, line_code=line)])
+            jobs.append({'source': None, 'target': target, 'from': pending_job.from_recipe, 'to': pending_job.to_recipe,
+                         'start': positions[pending_start], 'end': positions[deadline],
+                         'total': Fraction(pending_job.remaining_hours), 'record': pending_record})
+            state = pending_job.to_recipe
+            state_since = pending_start
+            previous = None
+            pending_job = None
         for row in rows:
             if not row.quantity:
                 continue
             while observation_position<len(observations):
                 record=observations[observation_position]
+                if getattr(record, 'unfinished_switch', None) is not None:
+                    observation_position += 1
+                    continue
                 observed_day=production_date(record.effective_at)
                 applicable=observed_day if record.effective_at==production_cutoff(observed_day) else observed_day+timedelta(days=1)
                 if applicable>row.date: break
                 state=record.recipe_code;state_since=max(first_date,applicable);previous=None
                 observation_position+=1
+            if pending_job is not None and row.date >= pending_start:
+                append_unfinished(row)
             recipe = index.models[row.model_code].recipe_code
             if state is not None and state != recipe:
                 switch = index.switch(state, recipe)
@@ -111,6 +141,8 @@ def construct_hour_certificate(inputs: InputSnapshot, segments: list[SourceSegme
                              'total': Fraction(switch['hours'])})
             state = recipe
             previous = row
+        if pending_job is not None:
+            append_unfinished(None)
         # Hall's interval inequalities are exact for jobs with consecutive day
         # eligibility. Reserve half the tightest positive margin per productive
         # day, giving every Recipe a strict (not epsilon-based) lower bound.
@@ -170,7 +202,7 @@ def construct_hour_certificate(inputs: InputSnapshot, segments: list[SourceSegme
                 amount = min(pending, remaining[day_position])
                 if amount or not job['total'] and day_position == job['end']:
                     day = dates[day_position]
-                    if day == job['target'].date:
+                    if job['target'] is not None and day == job['target'].date:
                         order = final_orders[job['target'].id] - 1
                     elif job['source'] and day == job['source'].date:
                         order = final_orders[job['source'].id] + 1
@@ -182,7 +214,13 @@ def construct_hour_certificate(inputs: InputSnapshot, segments: list[SourceSegme
                 if not pending and allocations:
                     break
             if pending:
-                raise CertificateError([RuleIssue(code='certificate_capacity', reason='切机未能在相邻生产之间分配完成', date=job['target'].date, line_code=line)])
+                raise CertificateError([RuleIssue(code='certificate_capacity', reason='切机未能在相邻生产之间分配完成', date=dates[job['end']], line_code=line)])
+            if 'record' in job:
+                record = job['record']
+                switch_rows.append(RecipeSwitch(id=record.unfinished_switch.job_id, line_code=line,
+                    from_recipe=job['from'], to_recipe=job['to'], residual_record_id=record.id, allocations=allocations))
+                seen_ids.add(record.unfinished_switch.job_id)
+                continue
             switch_id = f'certificate-switch-{switch_sequence}'
             while switch_id in seen_ids:
                 switch_sequence += 1
@@ -190,6 +228,23 @@ def construct_hour_certificate(inputs: InputSnapshot, segments: list[SourceSegme
             seen_ids.add(switch_id)
             switch_sequence += 1
             switch_rows.append(RecipeSwitch(id=switch_id, line_code=line, from_recipe=job['from'], to_recipe=job['to'], allocations=allocations))
+        # A remainder followed by a return switch can precede the same first
+        # production. Give those distinct ordered positions without merging jobs.
+        for day in dates:
+            events = [(final_orders[row.id], 'production', row.id, None) for row in rows if row.date == day]
+            events += [(allocation.order, 'switch', position, ordinal)
+                       for position, switch in enumerate(switch_rows) if switch.line_code == line
+                       for ordinal, allocation in enumerate(switch.allocations) if allocation.date == day]
+            if len({event[0] for event in events}) == len(events):
+                continue
+            for order, (_, kind, identity, ordinal) in enumerate(sorted(events, key=lambda event: (event[0], event[1] == 'production', event[2]))):
+                if kind == 'production':
+                    final_orders[identity] = order
+                else:
+                    switch = switch_rows[identity]
+                    allocations = list(switch.allocations)
+                    allocations[ordinal] = allocations[ordinal].model_copy(update={'order': order})
+                    switch_rows[identity] = switch.model_copy(update={'allocations': allocations})
     production = []
     for row in segments:
         key = (row.date, row.line_code, index.models[row.model_code].recipe_code)
