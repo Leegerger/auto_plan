@@ -1,6 +1,6 @@
 """Accepted qualified-output intent, replayed through ordinary input placement."""
 from copy import deepcopy
-from datetime import date
+from datetime import date, timedelta
 from typing import Literal
 from pydantic import Field, model_validator
 from .input_models import InputRow, Code, Pieces
@@ -79,9 +79,25 @@ def refresh_demand_goals(lineage, evaluation, time):
     return refreshed
 
 
+def on_time_violation(before, after, model, week, input_dates):
+    cutoff = str(week + timedelta(days=7))
+    tails = any(portion['quantity'] and portion['date'] >= cutoff
+                for source in after['output_sources'] if source['kind'] == 'input' and source['model_code'] == model and source['input_date'] in input_dates
+                for portion in source['portions'])
+    def late(evaluation):
+        return sum(row['quantity'] for row in evaluation['attributions'] if row['model_code'] == model
+                   and row['demand_week'] == str(week) and row['date'] >= cutoff)
+    return tails or late(after) > late(before)
+
+
 def supplement_demand(plan, command, context):
-    goals = deepcopy(context.lineage.get('demand_goals', {}))
+    from .input_lookup import InputIndex
+    from .rules import _evaluation_json
+    before_evaluation = _evaluation_json(context.snapshot) if command.placements or context.lineage.get('demand_goals') else None
+    goals = deepcopy(refresh_demand_goals(context.lineage, before_evaluation, context.time).get('demand_goals', {})) if before_evaluation is not None else {}
     existing = goals.get(command.goal.id)
+    if existing is not None and any(existing.get(key) != value for key, value in command.goal.model_dump(mode='json').items()):
+        raise ValueError('原补排目标及归属基准已变化，请保留原目标重新试算')
     if existing is not None and context.action_id in existing.get('accepted_actions', {}):
         raise ValueError('此补排动作已经接受，请勿重复安排')
     for identity, goal in goals.items():
@@ -89,19 +105,30 @@ def supplement_demand(plan, command, context):
             raise ValueError('此机种需求周已有补排目标，请保留原目标处理')
     result = plan
     actual = []
+    index = InputIndex(context.inputs)
     for row in sorted(command.placements, key=lambda row: row.date):
+        if any(value['state'] == 'missing' for value in index.critical_parameters(row.date.strftime('%Y-%m'), command.model_code).values()):
+            raise ValueError('接受的补排日期缺少关键产出参数，请补齐资料后重新试算')
         before = {segment.id for segment in result.segments}
         placed = place_input(result, context.snapshot, command.scope, command.model_code, command.line_code,
                              row.date, row.quantity, context.action_id)
         result = placed.plan
         actual.extend(segment.model_dump(mode='json') for segment in result.segments if segment.id not in before)
+    if actual:
+        after_evaluation = _evaluation_json(context.snapshot.model_copy(update={'plan': result}))
+        if on_time_violation(before_evaluation, after_evaluation, command.model_code, command.demand_week, {row['date'] for row in actual}):
+            raise ValueError('接受的按时补排会跨过目标需求截止点，请重新试算，不自动引入迟交')
     record = command.goal.model_dump(mode='json') | {'mode': command.mode, 'accepted_actions': deepcopy((existing or {}).get('accepted_actions', {}))}
     record['accepted_actions'][context.action_id] = {
         'line_code': command.line_code, 'start_date': command.start_date.isoformat(), 'end_date': command.end_date.isoformat(),
         'mode': command.mode, 'placements': [row.model_dump(mode='json') for row in command.placements],
         'actual_placements': actual, 'suggested_input': sum(row['quantity'] for row in actual)}
     goals[command.goal.id] = record
-    return ReplayResult(result, lineage={'demand_goals': goals})
+    requested = sum(row.quantity for row in command.placements)
+    placed = sum(row['quantity'] for row in actual)
+    issues = [] if placed == requested else [{'code': 'demand_placement_partial', 'reason': f'原接受投入 {requested} 片，本次按当前约束仅安排 {placed} 片，请核对剩余合格产出目标',
+        'model_code': command.model_code, 'demand_week': str(command.demand_week), 'goal_id': command.goal.id, 'requested_input': requested, 'placed_input': placed, 'blocks_adoption': False}]
+    return ReplayResult(result, lineage={'demand_goals': goals}, issues=issues)
 
 
 register_operation('supplement_demand', SupplementDemand, supplement_demand)

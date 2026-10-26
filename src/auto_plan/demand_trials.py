@@ -8,7 +8,7 @@ from .plans import PlanCommand, PlanProblem, protect
 from .plan_models import EvaluationSnapshot
 from .editing_scope import EditingScope
 from .input_lookup import InputIndex
-from .demand_operations import place_input
+from .demand_operations import place_input, on_time_violation
 
 
 class DemandTrial(PlanCommand):
@@ -82,13 +82,17 @@ def trial_in_unit(planner, unit, request, actor, now):
     selected = weekly(before, model, request.demand_week)
     if selected is None:
         raise PlanProblem(422, '所选机种需求周不存在')
+    for goal in prepared.get('lineage', {}).get('demand_goals', {}).values():
+        if (goal['model_code'], goal['demand_week']) == (model, str(request.demand_week)) and goal.get('remaining_output_target') != 0:
+            raise PlanProblem(422, '此机种需求周已有补排目标，请保留原目标处理', goal_id=goal['id'])
     unarranged = max(selected['demand'] - selected['attributed'], 0)
     target = unarranged if request.target_output is None else request.target_output
     if target > unarranged:
         raise PlanProblem(422, '补排合格产出目标不可超过当前尚无归属安排的数量', unarranged_output=unarranged)
     scope = request.scope.model_copy(update={'line_codes': [line]})
     echoed = request.model_dump(mode='json', exclude=set(PlanCommand.model_fields)) | {'target_output': target, 'placement_scope': scope.model_dump(mode='json')}
-    digest = hashlib.sha256(json.dumps(prepared['snapshot'], ensure_ascii=False, sort_keys=True, separators=(',', ':')).encode()).hexdigest()
+    digest = hashlib.sha256(json.dumps({'snapshot': prepared['snapshot'], 'lineage': prepared['lineage'], 'operations': command.operations},
+        ensure_ascii=False, sort_keys=True, separators=(',', ':')).encode()).hexdigest()
     basis = {key: prepared[key] for key in ('revision', 'input_version', 'latest_adoption')} | {
         'as_of': snapshot.time.as_of.isoformat(), 'window_start': str(snapshot.time.window_start), 'digest': digest}
     blockers = []
@@ -105,9 +109,28 @@ def trial_in_unit(planner, unit, request, actor, now):
     elif not target:
         block('already_attributed', '已有产出归属覆盖此需求，请处理确认，无须重复新增生产')
     else:
+        from .production_time import production_date
+        from .execution_rules import confirmed_day_capacity
         recipe = index.models[model].recipe_code
+        today = production_date(snapshot.time.as_of)
         day = request.start_date
         while day <= request.end_date:
+            if day < today:
+                block('past_input', '已过去的生产日不能新增投入', day)
+                day += timedelta(days=1)
+                continue
+            if day == today and confirmed_day_capacity(snapshot, line) is None:
+                block('day_capacity_unconfirmed', '当日补排须先确认适用的剩余工时和当前现场状态依据', day)
+                day += timedelta(days=1)
+                continue
+            if any(row.date == day and row.line_code == line and row.model_code == model for row in snapshot.locks):
+                block('locked_cell', '所选日期、线体和机种的投入数量已锁定，须先显式解锁', day)
+                day += timedelta(days=1)
+                continue
+            if not index.day(day, line)['available_hours']:
+                block('calendar_capacity', '所选日期受 Holiday、保养或实验占用，没有可用工时', day)
+                day += timedelta(days=1)
+                continue
             parameters = index.critical_parameters(day.strftime('%Y-%m'), model)
             missing = [kind for kind, value in parameters.items() if value['state'] == 'missing']
             if missing:
@@ -138,10 +161,7 @@ def trial_in_unit(planner, unit, request, actor, now):
                 block('no_remaining_capacity', '所选日期受到剩余容量、执行依据或数量锁限制，未新增投入', day)
                 day += timedelta(days=1)
                 continue
-            tails = [portion for source in maximum_eval['output_sources'] if source['kind'] == 'input'
-                     and source['model_code'] == model and source['input_date'] == str(day)
-                     for portion in source['portions'] if portion['quantity'] and portion['date'] >= cutoff]
-            if tails or physical(maximum_eval, model, request.demand_week, late=True) > physical(before, model, request.demand_week, late=True):
+            if on_time_violation(before, maximum_eval, model, request.demand_week, {str(day)}):
                 block('on_time_deadline', '所选投入会跨过目标需求截止点，本次按时模式不自动安排迟交', day)
                 day += timedelta(days=1)
                 continue
@@ -173,13 +193,17 @@ def trial_in_unit(planner, unit, request, actor, now):
             if physical(result_eval, model, request.demand_week) - baseline_on_time >= target:
                 break
             day += timedelta(days=1)
+    incomplete = incomplete or not placements and any(row['code'] == 'missing_parameters' for row in blockers)
+    if placements and on_time_violation(before, result_eval, model, request.demand_week, {row['date'] for row in placements}):
+        block('on_time_deadline', '此部分目标会使已有较晚产出新归属到目标周，本次按时模式保留目标并要求重新选择')
+        placements = []
     goal = {'id': request.action_id, 'model_code': model, 'demand_week': str(request.demand_week), 'requested_output': target,
             'baseline_attributed': selected['attributed'], 'desired_attributed': selected['attributed'] + target,
             'origin_revision': prepared['revision'], 'origin_input_version': prepared['input_version']}
     operation = {'kind': 'supplement_demand', 'action_id': request.action_id, 'model_code': model, 'demand_week': str(request.demand_week),
                  'mode': request.mode, 'line_code': line, 'start_date': str(request.start_date), 'end_date': str(request.end_date),
                  'scope': scope.model_dump(mode='json'), 'placements': placements, 'goal': goal}
-    retain = operation | {'placements': []} if target else None
+    retain = operation | {'placements': []} if target and selected['computation_complete'] else None
     accepted = operation if placements else None
     preview = planner._prepare(unit, command.model_copy(update={'operations': command.operations + [accepted]}), now, actor) if accepted else prepared
     after = preview['evaluation']
