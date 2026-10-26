@@ -5,15 +5,14 @@ import hashlib
 from typing import Literal
 from pydantic import Field, field_validator
 from .input_models import InputRow, Code
-from .plan_models import LineStateRecord, LineStateAudit, LineStateReview, RuleIssue
+from .plan_models import LineStateRecord, LineStateValue, LineStateAudit, LineStateReview, RuleIssue
 from .plan_operations import register_operation, ReplayResult
 from .production_time import production_date
 
 
-class StateConfirmation(InputRow):
+class StateConfirmation(LineStateValue):
     line_code: Code
     effective_at: datetime
-    recipe_code: Code
     source: str = Field(min_length=1, max_length=500)
     expected_record_id: Code | None = None
 
@@ -47,13 +46,16 @@ def confirm_line_states(plan, command, context):
         raise ValueError('线体状态确认包含重复线体和对应时点')
     changes = []
     for row in command.rows:
-        if row.line_code not in lines or row.recipe_code not in recipes:
+        endpoints = [row.recipe_code] if row.state == 'retained_recipe' else [row.unfinished_switch.from_recipe, row.unfinished_switch.to_recipe]
+        if row.line_code not in lines or any(recipe not in recipes for recipe in endpoints):
             raise ValueError('请选择有效线体和 Recipe')
         if row.effective_at > context.time.as_of:
             raise ValueError('不能确认未来时点的现场状态')
+        if row.unfinished_switch is not None and row.unfinished_switch.started_at > row.effective_at:
+            raise ValueError('原切机开始时点不能晚于状态对应时点')
         key = row.line_code, row.effective_at
         old = records.get(key)
-        if old and (old.recipe_code, old.source) == (row.recipe_code, row.source):
+        if old and (old.state, old.recipe_code, old.unfinished_switch, old.source) == (row.state, row.recipe_code, row.unfinished_switch, row.source):
             continue
         prior_capacity = next((value for value in context.execution.day_capacities
             if value.line_code == row.line_code and value.confirmed_at == row.effective_at and value.current_recipe != row.recipe_code), None)
@@ -68,7 +70,8 @@ def confirm_line_states(plan, command, context):
             raise ValueError('更正来源状态不存在，请重新核对')
         identity = 'state-' + hashlib.sha256(f'{context.action_id}:{row.line_code}:{row.effective_at.isoformat()}'.encode()).hexdigest()[:40]
         record = LineStateRecord(id=identity, line_code=row.line_code, effective_at=row.effective_at,
-            recipe_code=row.recipe_code, source=row.source, actor=context.actor, recorded_at=context.time.as_of)
+            state=row.state, recipe_code=row.recipe_code, unfinished_switch=row.unfinished_switch,
+            source=row.source, actor=context.actor, recorded_at=context.time.as_of)
         change = {'before': old.model_dump(mode='json') if old else None, 'after': record.model_dump(mode='json')}
         if prior_capacity is not None:
             change['previous_capacity'] = prior_capacity.model_dump(mode='json')
@@ -91,6 +94,27 @@ class RecipeAnchor:
     recipe_code: str | None
     recorded_at: datetime
     priority: int = 0
+
+
+def active_unfinished_jobs(snapshot):
+    """Resolve current actual prerequisites without treating elapsed plans as facts."""
+    latest = {}
+    for record in sorted(snapshot.line_states.records, key=lambda row: (row.effective_at, row.recorded_at, row.id)):
+        if record.effective_at <= snapshot.time.as_of:
+            latest[record.line_code] = record
+    jobs = {line: record for line, record in latest.items() if record.state == 'unfinished_switch'}
+    cutoff = snapshot.execution.cutoff
+    if cutoff is None or cutoff > snapshot.time.as_of:
+        return jobs
+    models = {row.code: row.recipe_code for row in snapshot.inputs.masters.models}
+    today = production_date(snapshot.time.as_of)
+    for line, record in list(jobs.items()):
+        actual_days = {fact.date for fact in snapshot.execution.facts if fact.line_code == line and fact.quantity
+                       and production_date(record.effective_at) < fact.date < today and fact.date <= production_date(cutoff)}
+        if any({models.get(fact.model_code) for fact in snapshot.execution.facts
+                if fact.line_code == line and fact.date == day and fact.quantity} == {record.unfinished_switch.to_recipe} for day in actual_days):
+            del jobs[line]
+    return jobs
 
 
 def _known_anchors(snapshot):

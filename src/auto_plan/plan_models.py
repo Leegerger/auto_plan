@@ -32,6 +32,7 @@ class RecipeSwitch(InputRow):
     from_recipe: Code
     to_recipe: Code
     allocations: list[SwitchAllocation] = Field(min_length=1)
+    residual_record_id: Code | None = Field(default=None, exclude_if=lambda value: value is None)
 
 
 class InitialRecipeState(InputRow):
@@ -39,11 +40,44 @@ class InitialRecipeState(InputRow):
     recipe_code: Code | None = None
 
 
-class LineStateRecord(InputRow):
+class UnfinishedSwitch(InputRow):
+    job_id: Code
+    started_at: datetime
+    from_recipe: Code
+    to_recipe: Code
+    remaining_hours: Exact
+    standard_hours: Exact | None = Field(default=None, exclude_if=lambda value: value is None)
+    completed_hours: Exact | None = Field(default=None, exclude_if=lambda value: value is None)
+
+    @model_validator(mode='after')
+    def observed_job(self):
+        from fractions import Fraction
+        if self.started_at.tzinfo is None or self.started_at.utcoffset() is None:
+            raise ValueError('原切机开始时点必须包含时区')
+        if self.from_recipe == self.to_recipe or Fraction(self.remaining_hours) <= 0:
+            raise ValueError('未完成切机须有不同原目标 Recipe 及正数实际剩余工时')
+        return self
+
+
+class LineStateValue(InputRow):
+    state: Literal['retained_recipe', 'unfinished_switch'] = 'retained_recipe'
+    recipe_code: Code | None = None
+    unfinished_switch: UnfinishedSwitch | None = None
+
+    @model_validator(mode='after')
+    def state_variant(self):
+        if self.state == 'retained_recipe':
+            if self.recipe_code is None or self.unfinished_switch is not None:
+                raise ValueError('保留 Recipe 状态须填写 Recipe，不能同时填写未完成切机')
+        elif self.recipe_code is not None or self.unfinished_switch is None:
+            raise ValueError('未完成切机须填写原作业和剩余工时，目标 Recipe 尚未就绪')
+        return self
+
+
+class LineStateRecord(LineStateValue):
     id: Code
     line_code: Code
     effective_at: datetime
-    recipe_code: Code
     source: str = Field(min_length=1, max_length=500)
     actor: str
     recorded_at: datetime
@@ -153,9 +187,16 @@ class CurrentDayCapacity(InputRow):
     date: ProductionDate
     line_code: Code
     remaining_hours: Exact
-    current_recipe: Code
+    current_recipe: Code | None = None
+    residual_record_id: Code | None = Field(default=None, exclude_if=lambda value: value is None)
     confirmed_at: datetime
     basis_digest: str
+
+    @model_validator(mode='after')
+    def observation_variant(self):
+        if (self.current_recipe is None) == (self.residual_record_id is None):
+            raise ValueError('当日剩余工时须关联当前 Recipe 或未完成切机现场记录')
+        return self
 
 
 class ExecutionContext(InputRow):
@@ -341,6 +382,11 @@ class SwitchEvaluation(InputRow):
     allocated_hours: Hours
     idle_hours: Hours
     extra_hours: Hours
+    kind: Literal['planned', 'residual'] = 'planned'
+    job_id: Code | None = None
+    residual_record_id: Code | None = None
+    standard_hours: Hours | None = None
+    completed_hours: Hours | None = None
 
 
 class InitialStateEvaluation(InputRow):
