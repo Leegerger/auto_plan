@@ -21,7 +21,7 @@ class CertificateError(Exception):
 
 
 def construct_hour_certificate(inputs: InputSnapshot, segments: list[SourceSegment],
-                               initial_states: Sequence[InitialRecipeState] = (), *, window_start=None, day_limits=None) -> Plan:
+                               initial_states: Sequence[InitialRecipeState] = (), *, window_start=None, day_limits=None, confirmed_states=()) -> Plan:
     """Return a lossless certificate; callers still evaluate the full snapshot."""
     index = InputIndex(inputs)
     initial = {row.line_code: row.recipe_code for row in initial_states}
@@ -89,14 +89,25 @@ def construct_hour_certificate(inputs: InputSnapshot, segments: list[SourceSegme
         jobs = []
         state = initial.get(line)
         previous = None
+        from .production_time import production_date, production_cutoff
+        observations=sorted((record for record in confirmed_states if record.line_code==line),key=lambda record:(record.effective_at,getattr(record,'priority',1),record.recorded_at))
+        observation_position=0
+        state_since=first_date
         for row in rows:
             if not row.quantity:
                 continue
+            while observation_position<len(observations):
+                record=observations[observation_position]
+                observed_day=production_date(record.effective_at)
+                applicable=observed_day if record.effective_at==production_cutoff(observed_day) else observed_day+timedelta(days=1)
+                if applicable>row.date: break
+                state=record.recipe_code;state_since=max(first_date,applicable);previous=None
+                observation_position+=1
             recipe = index.models[row.model_code].recipe_code
             if state is not None and state != recipe:
                 switch = index.switch(state, recipe)
                 jobs.append({'source': previous, 'target': row, 'from': state, 'to': recipe,
-                             'start': positions[previous.date if previous else first_date], 'end': positions[row.date],
+                             'start': positions[max(previous.date if previous else first_date,state_since)], 'end': positions[row.date],
                              'total': Fraction(switch['hours'])})
             state = recipe
             previous = row

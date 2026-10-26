@@ -119,7 +119,7 @@ def replay_result(plan, operations, context):
             from .plans import protect
             protect(result.plan,candidate,operation_context.snapshot,allow_past_input=inherited.allow_past_input)
         if isinstance(value, ReplayResult):
-            if set(value.context_updates)-{'locks','preferences','execution','reset'}:
+            if set(value.context_updates)-{'locks','preferences','execution','reset','line_states'}:
                 raise ValueError('未知计划上下文变更')
             result.context_updates.update(value.context_updates)
             result.plan=candidate
@@ -156,3 +156,5 @@ from . import execution_operations  # noqa: E402,F401
 from . import reset_operations  # noqa: E402,F401
 from . import candidate_operations  # noqa: E402,F401
 from . import history_operations  # noqa: E402,F401
+
+from . import line_states  # noqa: E402,F401

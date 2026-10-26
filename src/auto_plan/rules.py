@@ -126,7 +126,11 @@ def _evaluate_fields(snapshot, *, output_cache=None, json_mode=False):
             from_recipe=switch.from_recipe, to_recipe=switch.to_recipe, duration_state=duration['state'],
             total_hours=hours(total), allocated_hours=hours(allocated), idle_hours=hours(idle), extra_hours=hours(max(total - idle, 0))))
 
-    states = analyze_recipe_states(capacity_plan, index, problem)
+    from .line_states import calculation_anchors
+    confirmed = [row for row in calculation_anchors(snapshot) if row.effective_at <= snapshot.time.as_of
+                 and confirmed_day_capacity(snapshot,row.line_code) is None]
+    states = analyze_recipe_states(capacity_plan, index, problem, confirmed_states=confirmed, window_start=snapshot.time.window_start)
+    initial_states = states.initial_states
     endings, all_lines = states.endings, states.lines
 
     result_days = []
@@ -193,7 +197,10 @@ def _evaluate_fields(snapshot, *, output_cache=None, json_mode=False):
             issues.append(RuleIssue(code='stability_tolerance',reason=f'第{week.number}周变化率{week.rate_display}超过容忍度{week.tolerance_percent}%，可核对后明确采用',severity='warning',demand_week=week.week))
         elif week.state=='zero_baseline':
             issues.append(RuleIssue(code='stability_zero_addition',reason=f'原计划为零，新增 {week.added} 片，请核对',severity='warning',demand_week=week.week))
+    from .line_states import adoption_conditions
+    conditions = adoption_conditions(snapshot)
+    issues.extend(conditions)
     complete = not any(i.severity == 'incomplete' for i in issues)
-    return dict(time=snapshot.time, capacity_valid=valid, computation_complete=complete, executable=not any(i.severity == 'error' for i in issues) and complete,
+    return dict(time=snapshot.time, capacity_valid=valid, computation_complete=complete, executable=not any(i.severity == 'error' for i in issues) and complete and not conditions, adoption_conditions=conditions,
         issues=issues, days=result_days, switches=switch_results, initial_states=initial,
         switch_count=sum(s.from_recipe != s.to_recipe for s in snapshot.plan.switches), stability=stability, **output)

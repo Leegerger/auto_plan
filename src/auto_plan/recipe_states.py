@@ -24,9 +24,10 @@ class RecipeStates:
     endings: dict[tuple[date, str], str | None]
     lines: set[str]
     transitions: dict[str, list[RecipeTransition]] = field(default_factory=dict)
+    day_starts: dict[tuple[date, str], str] = field(default_factory=dict)
 
 
-def analyze_recipe_states(plan: Plan, index: InputIndex, problem=None, *, include_transitions=False) -> RecipeStates:
+def analyze_recipe_states(plan: Plan, index: InputIndex, problem=None, *, include_transitions=False, confirmed_states=(), window_start=None) -> RecipeStates:
     """Walk ordered events, retaining the state across every empty date.
 
     A scope comparison needs these states without output attribution or capacity
@@ -43,6 +44,21 @@ def analyze_recipe_states(plan: Plan, index: InputIndex, problem=None, *, includ
     for switch in plan.switches:
         for position, allocation in enumerate(sorted(switch.allocations, key=lambda row: (row.date, row.order))):
             events[switch.line_code].append((allocation.date, allocation.order, 'switch', switch, position))
+    from .production_time import production_date, production_cutoff
+    day_starts = {}
+    ordered = sorted(confirmed_states, key=lambda row: (row.effective_at,getattr(row,'priority',1),row.recorded_at,row.id))
+    unique = {(row.line_code,row.effective_at):row for row in ordered}
+    for record in unique.values():
+        if window_start is not None and record.effective_at <= production_cutoff(window_start):
+            initial_states[record.line_code] = record.recipe_code
+            continue
+        day = production_date(record.effective_at)
+        if record.effective_at == production_cutoff(day):
+            order = -1
+            day_starts[day, record.line_code] = record.recipe_code
+        else:
+            order = max((event[1] for event in events[record.line_code] if event[0] == day), default=-1) + 1
+        events[record.line_code].append((day, order, 'confirmation', record, None))
     endings = {}
     transitions = defaultdict(list)
     all_lines = set(events) | set(initial_states) | {row.line_code for row in plan.ordinary_idle}
@@ -55,7 +71,10 @@ def analyze_recipe_states(plan: Plan, index: InputIndex, problem=None, *, includ
             if (day, order) in seen_orders:
                 problem('duplicate_order', '同日线体生产与切机的顺序编号必须唯一', day=day, line=line)
             seen_orders.add((day, order))
-            if kind == 'production':
+            if kind == 'confirmation':
+                state = item.recipe_code
+                pending = None
+            elif kind == 'production':
                 if item.quantity or Fraction(item.hours):
                     recipe = index.models[item.model_code].recipe_code
                     if pending is not None:
@@ -79,4 +98,4 @@ def analyze_recipe_states(plan: Plan, index: InputIndex, problem=None, *, includ
             endings[(day, line)] = state
             if include_transitions:
                 transitions[line].append(RecipeTransition(day, order, kind, item.id, entering_recipe, state, pending))
-    return RecipeStates(initial_states, endings, all_lines, dict(transitions))
+    return RecipeStates(initial_states, endings, all_lines, dict(transitions), day_starts)

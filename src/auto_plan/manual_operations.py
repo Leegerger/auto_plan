@@ -32,8 +32,15 @@ def derived_id(context,suffix):
     return 'edit-'+hashlib.sha256(f'{context.action_id}:{suffix}'.encode()).hexdigest()[:40]
 
 
+def _confirmed_states(context):
+    from .line_states import calculation_anchors
+    return calculation_anchors(context.snapshot)
+
+
 def _state_before(plan,index,line,day,states=None):
     states=states if states is not None else analyze_recipe_states(plan,index)
+    if (day,line) in states.day_starts:
+        return states.day_starts[day,line]
     endings=[(production_day,state) for (production_day,production_line),state in states.endings.items()
              if production_line==line and production_day<day]
     return max(endings,key=lambda value:value[0])[1] if endings else states.initial_states.get(line)
@@ -75,7 +82,7 @@ def _bounded_certificate(plan,context,scope):
     # rows and nested allocations are only read, including fixed outside rows.
     output=plan.model_copy()
     original=context.plan
-    original_states=analyze_recipe_states(original,index)
+    original_states=analyze_recipe_states(original,index,confirmed_states=_confirmed_states(context),window_start=context.time.window_start)
     original_switch_documents={switch.model_dump_json() for switch in original.switches}
     for line in scope.line_codes:
         if line not in index.lines: raise ValueError('线体编码不存在')
@@ -85,7 +92,7 @@ def _bounded_certificate(plan,context,scope):
         incoming=_state_before(original,index,line,scope.start_date,original_states)
         sources=[SourceSegment.model_validate(r.model_dump(exclude={'hours'})) for r in inside]
         try:
-            certificate=construct_hour_certificate(context.inputs,sources,[InitialRecipeState(line_code=line,recipe_code=incoming)],window_start=scope.start_date)
+            certificate=construct_hour_certificate(context.inputs,sources,[InitialRecipeState(line_code=line,recipe_code=incoming)],window_start=scope.start_date,confirmed_states=_confirmed_states(context))
         except CertificateError as error:
             # Pending drafts may contain an unrelated impossible day. Try the
             # actual changed block while keeping every other event exact.
@@ -134,7 +141,7 @@ def _local_certificate(output,original,context,index,scope,line,incoming,inside)
         if switch.line_code==line and any(first<=a.date<=last for a in switch.allocations) and any(not first<=a.date<=last for a in switch.allocations): return None
     sources=[SourceSegment.model_validate(r.model_dump(exclude={'hours'})) for r in inside if first<=r.date<=last]
     try:
-        local=construct_hour_certificate(context.inputs,sources,[InitialRecipeState(line_code=line,recipe_code=_state_before(original,index,line,first))],window_start=first)
+        local=construct_hour_certificate(context.inputs,sources,[InitialRecipeState(line_code=line,recipe_code=_state_before(original,index,line,first,analyze_recipe_states(original,index,confirmed_states=_confirmed_states(context),window_start=context.time.window_start)))],window_start=first,confirmed_states=_confirmed_states(context))
     except CertificateError: return None
     preserved=[s for s in original.switches if s.line_code==line and all(scope.start_date<=a.date<=scope.end_date for a in s.allocations) and not any(first<=a.date<=last for a in s.allocations)]
     certificate=local.model_copy(update={'segments':[r for r in inside if not first<=r.date<=last]+local.segments,
@@ -146,7 +153,7 @@ def _local_certificate(output,original,context,index,scope,line,incoming,inside)
         def problem(code,reason,**where):
             row=where.get('segment');switch=where.get('switch')
             problems.add((code,str(where.get('day') or (row.date if row else '')),where.get('line') or (row.line_code if row else switch.line_code if switch else ''),row.id if row else ''))
-        analyze_recipe_states(plan,index,problem)
+        analyze_recipe_states(plan,index,problem,confirmed_states=_confirmed_states(context),window_start=context.time.window_start)
         return problems
     if recipe_problems(combined)-recipe_problems(original): return None
     return certificate

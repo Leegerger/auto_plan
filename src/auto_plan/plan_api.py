@@ -45,7 +45,7 @@ def preview_certificate(payload: CertificatePreview, request: Request, principal
     frozen_time = source.time or EvaluationTime.at(request.app.state.clock())
     try:
         plan = construct_hour_certificate(source.inputs, source.plan.segments, source.plan.initial_states,
-                                          window_start=frozen_time.window_start)
+                                          window_start=frozen_time.window_start,confirmed_states=[row for row in source.line_states.records if row.effective_at<=frozen_time.as_of])
     except CertificateError as error:
         return CertificatePreviewResult(plan=None, evaluation=None, issues=error.issues)
     snapshot = frozen_snapshot(source, request, plan=plan)

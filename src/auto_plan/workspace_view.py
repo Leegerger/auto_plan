@@ -5,7 +5,7 @@ from fractions import Fraction
 from .exact import hours
 from .input_lookup import InputIndex
 from .execution_rules import confirmed_day_capacity
-from .production_time import production_date
+from .production_time import production_date, production_cutoff
 from .recipe_states import analyze_recipe_states
 
 
@@ -31,7 +31,8 @@ def workspace_view(snapshot, evaluation):
     zero = _hours(0)
     days = []
     weeks = []
-    analysis = analyze_recipe_states(plan, index, include_transitions=True)
+    from .line_states import calculation_anchors
+    analysis = analyze_recipe_states(plan, index, include_transitions=True, confirmed_states=calculation_anchors(snapshot),window_start=snapshot.time.window_start)
     today = production_date(snapshot.time.as_of)
     for line in lines:
         confirmation = confirmed_day_capacity(snapshot, line)
@@ -39,6 +40,13 @@ def workspace_view(snapshot, evaluation):
         observed = max(observations, key=lambda row: row.confirmed_at) if observations else None
         current = {'observed_at': observed.confirmed_at.isoformat(), 'recipe_code': observed.current_recipe,
                    'valid': observed == confirmation} if observed else None
+        records=[record for record in snapshot.line_states.records if record.line_code==line and record.effective_at<=snapshot.time.as_of]
+        latest=max(records,key=lambda record:(record.effective_at,record.recorded_at)) if records else None
+        if latest is not None and (confirmation is None or latest.effective_at>=confirmation.confirmed_at):
+            from .line_states import record_is_current
+            current={'observed_at':latest.effective_at.isoformat(),'effective_at':latest.effective_at.isoformat(),
+                     'recipe_code':latest.recipe_code,'source':latest.source,'actor':latest.actor,
+                     'recorded_at':latest.recorded_at.isoformat(),'record_id':latest.id,'valid':record_is_current(snapshot,latest)}
         weeks.extend(_line_weeks(snapshot, index, evaluation, line, analysis, current))
         for offset in range(105):
             day = snapshot.time.window_start + timedelta(days=offset)
@@ -111,7 +119,7 @@ def _line_weeks(snapshot, index, evaluation, line, analysis, current):
         pending_switch = switches.get(pending)
         rows.append({'week': week.isoformat(), 'line_code': line, 'recipe_code': state,
                      'state': 'planned_switch' if pending_switch else 'retained_recipe' if state else 'unknown',
-                     'source': 'window_plan_start' if number == 0 else 'plan_projection',
+                     'source': ('confirmed_state' if any(record.line_code==line and record.effective_at<=production_cutoff(week) for record in snapshot.line_states.records) else 'window_plan_start') if number == 0 else 'plan_projection',
                      'planned_switch': {'id': pending_switch.id, 'from_recipe': pending_switch.from_recipe,
                                         'to_recipe': pending_switch.to_recipe} if pending_switch else None,
                      'current_confirmation': current, 'first_production': link})

@@ -39,6 +39,36 @@ class InitialRecipeState(InputRow):
     recipe_code: Code | None = None
 
 
+class LineStateRecord(InputRow):
+    id: Code
+    line_code: Code
+    effective_at: datetime
+    recipe_code: Code
+    source: str = Field(min_length=1, max_length=500)
+    actor: str
+    recorded_at: datetime
+
+    @field_validator('effective_at', 'recorded_at')
+    @classmethod
+    def aware_time(cls, value):
+        if value.tzinfo is None or value.utcoffset() is None:
+            raise ValueError('线体状态时点必须包含时区')
+        return value
+
+
+class LineStateAudit(InputRow):
+    action_id: str
+    actor: str
+    recorded_at: datetime
+    reason: str | None = None
+    changes: list[dict] = Field(default_factory=list)
+
+
+class LineStateContext(InputRow):
+    records: list[LineStateRecord] = Field(default_factory=list)
+    audit: list[LineStateAudit] = Field(default_factory=list)
+
+
 class OrdinaryIdle(InputRow):
     date: ProductionDate
     line_code: Code
@@ -232,6 +262,7 @@ class EvaluationTime(InputRow):
 
 
 class EvaluationSnapshot(InputRow):
+    line_states: LineStateContext = Field(default_factory=LineStateContext)
     time: EvaluationTime
     inputs: InputSnapshot
     plan: Plan
@@ -408,6 +439,7 @@ class OutputTotals(InputRow):
 
 
 class EvaluationResult(InputRow):
+    adoption_conditions: list[RuleIssue] = Field(default_factory=list)
     time: EvaluationTime
     capacity_valid: bool
     computation_complete: bool
