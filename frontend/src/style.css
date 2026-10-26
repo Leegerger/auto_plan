@@ -224,12 +224,12 @@ small{font-size:12px}
 details{margin-top:6px}
 summary{cursor:pointer}
 .matrix-scroll{max-height:min(520px,calc(100vh - 280px));overflow:auto}
-.weekly-grid{table-layout:fixed;min-width:1120px}
+.weekly-grid{table-layout:fixed;min-width:1200px}
 .weekly-grid thead th{top:0;z-index:2}
 .weekly-grid tbody th{left:0;top:auto;z-index:1}
 .weekly-grid thead th:first-child{left:0;z-index:3}
 .weekly-grid td{padding:0;vertical-align:top;min-width:0;width:auto}
-.weekly-grid th:first-child{width:180px;white-space:normal}
+.weekly-grid th:first-child{width:260px;white-space:normal}
 .weekly-grid th{white-space:nowrap;min-width:0;width:auto;padding:7px 4px;font-size:12px}
 .plan-cell{display:block;width:100%;min-height:74px;border:0;padding:9px;text-align:left;background:transparent;color:var(--body);cursor:pointer;font-size:12px;line-height:1.45}
 .plan-cell:hover{background:var(--surface-soft);color:var(--ink)}
@@ -304,3 +304,12 @@ input:focus-visible,select:focus-visible,textarea:focus-visible,button:focus-vis
   .workbench-grid{grid-template-columns:minmax(0,1fr) 260px}
   .metrics div{padding:0 12px}
 }
+
+.line-week-state,.matrix-day-state{display:grid;gap:4px;line-height:1.45;font-size:12px;font-weight:400;margin-top:6px;white-space:normal;overflow-wrap:anywhere}
+.line-week-state strong{font-weight:600}
+.state-provenance,.matrix-day-state{color:var(--muted)}
+.state-attention,.hidden-production{color:var(--warning)}
+.hidden-production{display:block;margin:5px 0;font-size:12px}
+.inspector-line-state{padding:12px 0;border-bottom:1px solid var(--hairline-soft)}
+.inspector-line-state h4{margin:0 0 8px}
+.inspector-line-state p{margin:6px 0}
