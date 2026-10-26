@@ -14,5 +14,8 @@
   "oracle_composite_initialization": "../observed/oracle/initialization_apply_request.json.gz",
   "oracle_prerequisite_comparison_initialization": "../observed/prerequisites/comparison/initialization_request.json.gz",
   "manual_native_frozen_sources": "../observed/api/*-{manual,automatic}.json.gz: source.snapshot",
-  "browser_representative": "Pending final helper public-input/source artifacts."
+  "browser_representative": "../observed/browser/representative/composition/{1280,1440}/inputs.json.gz",
+  "oracle_composite_after_performance": "../observed/oracle-after-performance/initialization_apply_request.json.gz",
+  "final_runtime_commit": "efdc2341b5613ca8ab849475b5c5ab6591ca33a2",
+  "production_src_tree": "5a24fa53c385525fd9bf1d4affbab26159a47666"
 }

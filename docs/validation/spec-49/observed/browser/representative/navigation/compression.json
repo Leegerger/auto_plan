@@ -1,0 +1,40 @@
+{
+  "encoding": "JSON/text/profile originals gzip-compressed; existing gzip and PNG bytes unchanged. Source manifests refer to original filenames/bytes.",
+  "artifacts": [
+    {
+      "path": "1280/navigation-selected.png",
+      "original_path": "1280/navigation-selected.png",
+      "original_artifact_sha256": "f0299b2eeb7581f59b1fedda06122b263f75a5a4f937fd3ff7a596cdf66cbd84",
+      "stored_sha256": "f0299b2eeb7581f59b1fedda06122b263f75a5a4f937fd3ff7a596cdf66cbd84",
+      "original_artifact_bytes": 174525
+    },
+    {
+      "path": "1280/navigation-timings.json.gz",
+      "original_path": "1280/navigation-timings.json",
+      "original_artifact_sha256": "77f4e4cb14ea42918bb7e11b82a956b70c1d7bf1b5c3a366e777767ae83d4c4d",
+      "stored_sha256": "a51906d3241946fdc082dae041d2b6feaa23a4e0409e7a237a80836a3edf777f",
+      "original_artifact_bytes": 403
+    },
+    {
+      "path": "1440/navigation-selected.png",
+      "original_path": "1440/navigation-selected.png",
+      "original_artifact_sha256": "29cb8305d23f83de229820f54facaeee157ac6757bb30f846ae08d39bb921bcd",
+      "stored_sha256": "29cb8305d23f83de229820f54facaeee157ac6757bb30f846ae08d39bb921bcd",
+      "original_artifact_bytes": 187989
+    },
+    {
+      "path": "1440/navigation-timings.json.gz",
+      "original_path": "1440/navigation-timings.json",
+      "original_artifact_sha256": "a50d50a59c715c0cb2da4eb1b3c9c0555f2e479ff245be5ee9188cd390a34c40",
+      "stored_sha256": "33916cd650b33aac551803c65a812d8060ae301a286c415435509a4778c2b350",
+      "original_artifact_bytes": 403
+    },
+    {
+      "path": "source-provenance.json.gz",
+      "original_path": "source-provenance.json",
+      "original_artifact_sha256": "5bc6ce44ea6c661dac702fc32e2c6ce2a6cfc8f1d0a09c8330256dc6465ea744",
+      "stored_sha256": "cf241a85eca7155af553490517a334c90c1901f8988b10e6186ce0754b302247",
+      "original_artifact_bytes": 682
+    }
+  ]
+}
