@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+import DemandTrialPanel from './DemandTrialPanel.vue'
 import type { DemandAttention, MissingDemandInput, OutputAttribution } from '../outputTypes'
 import { useSharedPlan } from '../useSharedPlan'
 
@@ -7,6 +8,8 @@ const props = defineProps<{ shared: ReturnType<typeof useSharedPlan> }>()
 const view = props.shared.workspace.demand
 const rows = computed(() => props.shared.evaluation.value?.demand_attention ?? [])
 const models = computed(() => [...new Set(rows.value.map(row => row.model_code))].sort())
+const goals = computed(() => Object.values(props.shared.lineage.value.demand_goals ?? {}))
+const activeGoal = computed(() => goals.value.find(goal => goal.model_code===view.model_code && goal.demand_week===view.week && (props.shared.needsPreview.value || goal.remaining_output_target!==0)))
 const selected = computed(() => rows.value.find(row => row.model_code === view.model_code && row.week === view.week))
 const filtered = computed(() => rows.value.filter(row => (!view.modelFilter || row.model_code === view.modelFilter)
   && (!view.weekFilter || row.week === view.weekFilter) && (!view.reasonFilter || row.reasons.includes(view.reasonFilter))))
@@ -17,6 +20,15 @@ const reasons: Record<string, string> = {
 }
 const categories: Record<string, string> = { line_yields: '线体良率', model_yields: '机种良率', cycle_times: 'Cycle Time', capacities: '全日产能' }
 function choose(row: DemandAttention) { view.model_code = row.model_code; view.week = row.week }
+function openTrial(){
+  const trial=props.shared.workspace.demandTrial
+  if(trial.modelCode!==view.model_code || trial.demandWeek!==view.week || !trial.actionId){
+    trial.modelCode=view.model_code;trial.demandWeek=view.week;trial.targetOutput=selected.value?.unarranged_output ?? '';trial.actionId=crypto.randomUUID();trial.result=null;trial.notice=''
+  }
+  trial.startDate ||= props.shared.workspace.scope.start_date;trial.endDate ||= props.shared.workspace.scope.end_date;trial.open=true
+}
+function output(value:number|null){return props.shared.needsPreview.value ? '待重新预览' : value===null ? '待完成计算' : `${value} 片合格产出`}
+
 function maintenance(kind: 'material' | 'shipping') {
   return { path: '/data/base', query: { category: 'confirmations', model: view.model_code, week: view.week, confirmation: kind, from: 'schedule' } }
 }
@@ -41,9 +53,14 @@ function locate(row: OutputAttribution) {
       <strong>十五周需求</strong>
       <span v-if="shared.evaluation.value">{{ rows.length }} 项待处理需求</span>
       <span v-else>待重新预览</span>
+      <button v-if="goals.length" type="button" class="demand-goal-toggle" :aria-expanded="shared.workspace.demandTrial.goalsExpanded" @click="shared.workspace.demandTrial.goalsExpanded=!shared.workspace.demandTrial.goalsExpanded">补排目标 {{goals.length}}</button>
       <button type="button" class="demand-toggle" :aria-expanded="view.expanded" aria-controls="demand-attention-list"
         :aria-label="view.expanded ? '收起待处理需求' : '展开待处理需求'" @click="view.expanded = !view.expanded">{{ view.expanded ? '收起清单' : '展开清单' }}</button>
     </div>
+    <section v-if="goals.length && shared.workspace.demandTrial.goalsExpanded" aria-label="补排目标余额" class="demand-selection">
+      <p class="demand-note">余额按合格产出核算，与未分配投入和重置调整量分别保留。安排完成仍须核对物料、出货及其他采用条件。</p>
+      <article v-for="goal in goals" :key="goal.id"><strong>{{goal.model_code}} · 需求周 {{goal.demand_week}}</strong><p>原覆盖目标 {{goal.requested_output}} 片合格产出 · 剩余补排目标 {{output(goal.remaining_output_target)}}</p><p v-if="!shared.needsPreview.value">{{({pending:'仍有产出待安排',complete:'补排安排完成',incomplete:'核算未完成',unavailable:'当前窗口外'} as Record<string,string>)[goal.status]}} · 有效按时覆盖 {{output(goal.on_time)}} · 待物料确认 {{output(goal.pending_material)}} · 待出货确认 {{output(goal.pending_shipping)}}</p><details><summary>已接受投入安排</summary><p v-for="(action,id) in goal.accepted_actions" :key="id">线体 {{action.line_code}} · {{action.start_date}} 至 {{action.end_date}} · {{action.suggested_input}} 片投入</p></details></article>
+    </section>
     <section v-if="view.model_code" aria-label="所选需求摘要" class="demand-selection">
       <div><strong>{{ view.model_code }} · 需求周 {{ view.week }}</strong><span v-if="selected"> · 截止 {{ selected.deadline.slice(0, 16).replace('T', ' ') }} 北京时间</span></div>
       <template v-if="selected">
@@ -58,6 +75,8 @@ function locate(row: OutputAttribution) {
         <p v-if="selected.pending && !selected.unarranged_output" class="demand-note">已有归属产出待确认，请先处理确认。尚无产出安排与未补足缺口分别核算。</p>
         <p v-if="selected.late" class="demand-note">迟交为预计覆盖，不表示已经实际出货。已有覆盖不需要重复补排或确认。</p>
         <div class="demand-actions">
+          <el-button v-if="shared.editor.value && selected.unarranged_output!==0 && !activeGoal" :disabled="shared.readonly.value" @click="openTrial">按需补排</el-button>
+          <span v-if="activeGoal">此需求已有补排目标 <button type="button" @click="shared.workspace.demandTrial.goalsExpanded=true">查看补排目标</button></span>
           <router-link v-if="selected.pending_material || selected.reasons.includes('forbidden_material')" :to="maintenance('material')">{{ selected.reasons.includes('forbidden_material') ? '处理物料禁令' : shared.editor.value ? '补物料确认' : '查看物料确认' }}</router-link>
           <router-link v-if="selected.pending_shipping || selected.reasons.includes('forbidden_shipping')" :to="maintenance('shipping')">{{ selected.reasons.includes('forbidden_shipping') ? '处理出货禁令' : shared.editor.value ? '补出货确认' : '查看出货确认' }}</router-link>
           <router-link v-for="item in selected.missing_inputs" :key="`${item.category}/${item.month}`" :to="parameter(item)">{{ shared.editor.value ? '补' : '查看' }}{{ item.month ? `${item.month} ` : '' }}{{ categories[item.category] ?? item.category }}</router-link>
@@ -71,6 +90,7 @@ function locate(row: OutputAttribution) {
       </template>
       <p v-else class="demand-note">{{ shared.needsPreview.value ? '旧试算已失效，保留需求选择，请重新预览。' : '当前已无此项待处理原因，需求选择保留。' }}</p>
     </section>
+    <DemandTrialPanel v-if="shared.workspace.demandTrial.open" :shared="shared" />
     <div v-show="view.expanded" id="demand-attention-list">
       <div class="demand-filters">
         <label>机种 <select v-model="view.modelFilter" aria-label="待处理需求机种"><option value="">全部机种</option><option v-for="model in models" :key="model" :value="model">{{ model }}</option></select></label>
@@ -96,6 +116,7 @@ function locate(row: OutputAttribution) {
 .demand-attention{border:1px solid var(--hairline);border-radius:7px;background:var(--canvas);margin:0 0 10px;font-size:12px;min-width:0}
 .demand-heading{display:flex;align-items:center;gap:12px;padding:8px 12px;min-height:38px}
 .demand-heading strong{font-size:13px}.demand-heading>span{color:var(--muted)}
+.demand-goal-toggle{border:0;background:none;color:var(--accent);font-size:12px;cursor:pointer;white-space:nowrap}
 .demand-toggle{margin-left:auto;border:0;background:none;color:var(--accent);font-size:12px;cursor:pointer;padding:3px 8px}
 .demand-selection{border-top:1px solid var(--hairline-soft);padding:8px 12px;color:var(--body)}
 .demand-selection>div:first-child{font-size:12px}.demand-selection>div:first-child>span{color:var(--muted)}

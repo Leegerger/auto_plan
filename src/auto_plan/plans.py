@@ -170,9 +170,10 @@ def effect_keys(before, after, context):
 
 def result_effect_keys(before, after, snapshot):
     keys=set()
-    for attribute in ('unallocated','operation_issues'):
-        old={entry['id']:entry for entry in before.get(attribute,[])}
-        new={entry['id']:entry for entry in after.get(attribute,[])}
+    collections=[({entry['id']:entry for entry in before.get(attribute,[])},
+                  {entry['id']:entry for entry in after.get(attribute,[])}) for attribute in ('unallocated','operation_issues')]
+    collections.append((before.get('lineage',{}).get('demand_goals',{}),after.get('lineage',{}).get('demand_goals',{})))
+    for old,new in collections:
         touched=[entry for identity in old.keys()|new.keys() if old.get(identity)!=new.get(identity)
                  for entry in (old.get(identity),new.get(identity)) if entry]
         for entry in touched:
@@ -357,7 +358,7 @@ class PlanService:
         plan_effects=frozenset(map(tuple,effect_keys(base_plan,proposed,snapshot)))
         effects=set(plan_effects)
         effects|=context_effect_keys(unit.context,original_result.context_updates,snapshot)
-        effects|=result_effect_keys(base,{'unallocated':original_result.unallocated,'operation_issues':original_result.issues},snapshot)
+        effects|=result_effect_keys(base,{'unallocated':original_result.unallocated,'operation_issues':original_result.issues,'lineage':original_result.lineage},snapshot)
         changed=unit.effects_since(command.base_revision)
         intersection=effects&changed
         if intersection:
@@ -381,13 +382,13 @@ class PlanService:
             replayed.context_updates.setdefault('execution',snapshot.execution)
         merged_context=unit.context.model_copy(update=replayed.context_updates)
         if {'execution','reset'}&replayed.context_updates.keys():
-            merged_context=merged_context.model_copy(update={'lineage':unit.context.lineage|replayed.lineage})
+            merged_context=merged_context.model_copy(update={'lineage':{key:value for key,value in (unit.context.lineage|replayed.lineage).items() if key!='demand_goals'}})
         from .line_states import review_records
         merged_snapshot=snapshot.model_copy(update={'plan':merged,**replayed.context_updates,'state_reviews':review_records(replayed.issues)})
         from .reset_operations import refresh_lineage
         replayed.lineage=refresh_lineage(replayed.lineage,merged,merged_snapshot)
         if {'execution','reset'}&replayed.context_updates.keys():
-            merged_context=merged_context.model_copy(update={'lineage':unit.context.lineage|replayed.lineage})
+            merged_context=merged_context.model_copy(update={'lineage':{key:value for key,value in (unit.context.lineage|replayed.lineage).items() if key!='demand_goals'}})
         # effect_keys reads only the two plans, inputs and window time. The
         # pinned owned current plan and original replay have not been mutated;
         # context/lineage effects, both conflict checks and protection stay fresh.
@@ -397,11 +398,13 @@ class PlanService:
             effects|=plan_effects
         else:
             effects|=set(map(tuple,effect_keys(unit.plan,merged,merged_snapshot)))
-        effects|=result_effect_keys(current,{'unallocated':replayed.unallocated,'operation_issues':replayed.issues},merged_snapshot)
+        effects|=result_effect_keys(current,{'unallocated':replayed.unallocated,'operation_issues':replayed.issues,'lineage':replayed.lineage},merged_snapshot)
         if effects&changed:
             raise PlanProblem(409,'合并后的关联范围已变化',revision=unit.revision,conflicts=sorted(effects&changed))
         protect(unit.plan,merged,merged_snapshot,allow_past_input=initial_import)
         result=self._evaluation_json(merged_snapshot,replayed.issues)
+        from .demand_operations import refresh_demand_goals
+        replayed.lineage=refresh_demand_goals(replayed.lineage,result,merged_snapshot.time)
         from .workspace_view import workspace_view
         matrix=workspace_view(merged_snapshot,result)
         return {'revision':unit.revision,'input_version':unit.inputs.input_version,'latest_adoption':unit.adoption,
@@ -423,6 +426,10 @@ class PlanService:
 
     def preview(self, command, actor, now):
         return self.store.read(actor,lambda unit:self._prepare(unit,command,now,actor))
+
+    def demand_trial(self, command, actor, now):
+        from .demand_trials import trial_in_unit
+        return self.store.read(actor, lambda unit: trial_in_unit(self, unit, command, actor, now))
 
     def _adopted_coverage(self,unit,prepared):
         from .production_time import production_week
@@ -498,6 +505,8 @@ class PlanService:
             from .reset_operations import refresh_lineage
             lineage=refresh_lineage(record.get('lineage',{})|unit.context.lineage,unit.plan,snapshot)
             evaluation=self._evaluation_json(snapshot,record.get('operation_issues',[]))
+            from .demand_operations import refresh_demand_goals
+            lineage=refresh_demand_goals(lineage,evaluation,snapshot.time)
             from .workspace_view import workspace_view
             return {'workspace_view':workspace_view(snapshot,evaluation),'revision':unit.revision,'latest_adoption':unit.adoption,'input_version':unit.inputs.input_version,
                     'pending':record.get('pending',False), 'kind':record.get('kind','empty'),

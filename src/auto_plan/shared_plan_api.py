@@ -76,6 +76,14 @@ def preview(payload:PlanCommand,request:Request,principal=Depends(require_editor
     return invoke(lambda:JSONResponse(service(request).preview(payload,principal.user_id,request.app.state.clock())))
 
 
+from .demand_trials import DemandTrial
+
+
+@router.post('/plans/demand-trial')
+def demand_trial(payload:DemandTrial,request:Request,principal=Depends(require_editor)):
+    return invoke(lambda:JSONResponse(service(request).demand_trial(payload,principal.user_id,request.app.state.clock())))
+
+
 @router.post('/plans/save')
 def save(payload:SubmitPlan,request:Request,principal=Depends(require_editor)):
     return invoke(lambda:service(request).submit(payload,principal.user_id,request.app.state.clock(),'save'))

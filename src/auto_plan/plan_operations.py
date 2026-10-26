@@ -167,6 +167,7 @@ from . import execution_operations  # noqa: E402,F401
 from . import reset_operations  # noqa: E402,F401
 from . import candidate_operations  # noqa: E402,F401
 from . import history_operations  # noqa: E402,F401
+from . import demand_operations  # noqa: E402,F401
 
 from . import line_states  # noqa: E402,F401
 from . import switch_continuity  # noqa: E402,F401
