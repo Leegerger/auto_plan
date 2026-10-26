@@ -302,12 +302,12 @@ class PlanService:
     def __init__(self, store):
         self.store=store
 
-    def _evaluation_json(self,snapshot,operation_issues=None):
+    def _evaluation_json(self,snapshot,operation_issues=None,*,view=True):
         from .rules import _evaluation_json
         from .line_states import review_records
         if operation_issues is not None:
             snapshot=snapshot.model_copy(update={'state_reviews':review_records(operation_issues)})
-        return _evaluation_json(snapshot,output_cache=getattr(self.store,'output_cache',None))
+        return _evaluation_json(snapshot,output_cache=getattr(self.store,'output_cache',None),demand_view=view)
 
     @staticmethod
     def _planning_plan(unit,record):
@@ -334,7 +334,7 @@ class PlanService:
         record=lineage.get('resets',{}).get(snapshot.time.window_start.isoformat())
         return {'current':selected(unit.adoption),'correction':selected(record['source_adoption']) if record and record.get('effective_adoption') else None}
 
-    def _prepare(self, unit, command, now, actor=''):
+    def _prepare(self, unit, command, now, actor='', *, view=True):
         if command.input_version!=unit.inputs.input_version:
             try: old=unit.get_inputs(command.input_version).model_dump(mode='json')
             except KeyError: old={}
@@ -402,27 +402,30 @@ class PlanService:
         if effects&changed:
             raise PlanProblem(409,'合并后的关联范围已变化',revision=unit.revision,conflicts=sorted(effects&changed))
         protect(unit.plan,merged,merged_snapshot,allow_past_input=initial_import)
-        result=self._evaluation_json(merged_snapshot,replayed.issues)
+        result=self._evaluation_json(merged_snapshot,replayed.issues,view=view)
         from .demand_operations import refresh_demand_goals
         replayed.lineage=refresh_demand_goals(replayed.lineage,result,merged_snapshot.time)
-        from .workspace_view import workspace_view
-        matrix=workspace_view(merged_snapshot,result)
-        return {'revision':unit.revision,'input_version':unit.inputs.input_version,'latest_adoption':unit.adoption,
+        prepared={'revision':unit.revision,'input_version':unit.inputs.input_version,'latest_adoption':unit.adoption,
                 'context':merged_context.model_dump(mode='json'),
+                'plan':merged.model_dump(mode='json'),'snapshot':merged_snapshot.model_dump(mode='json'),
+                'evaluation':result,'effects':[list(k) for k in sorted(effects)],
+                'unallocated':replayed.unallocated, 'operation_issues':replayed.issues,
+                'adoption_blocked':any(issue.get('blocks_adoption',issue.get('severity')=='error') for issue in replayed.issues), 'merged':command.base_revision!=unit.revision,
+                'parent_revision':unit.revision, 'base_revision':command.base_revision,
+                'lineage':unit.get_planning_revision(unit.revision).get('lineage',{})|unit.context.lineage|replayed.lineage}
+        if not view:
+            return prepared
+        from .workspace_view import workspace_view
+        return prepared | {'workspace_view':workspace_view(merged_snapshot,result),
                 'execution_segments':execution_segments(merged,merged_snapshot.execution),
                 'execution_surplus':execution_surplus(merged,merged_snapshot.execution),
                 'reset_preview':replayed.lineage.get('reset_preview'),
                 'reset_participants':self._reset_participants(unit,merged_snapshot,unit.context.lineage|replayed.lineage),
                 'reset_reference':replayed.lineage.get('reset_reference'),
                 'context_changes':differences(unit.context.model_dump(mode='json'),merged_context.model_dump(mode='json')),
-                'plan':merged.model_dump(mode='json'),'snapshot':merged_snapshot.model_dump(mode='json'),'hour_display':plan_hour_display(merged),
-                'workspace_view':matrix,'evaluation':result,'effects':[list(k) for k in sorted(effects)],
+                'hour_display':plan_hour_display(merged),
                 'changes':plan_differences(unit.plan.model_dump(mode='json'),merged.model_dump(mode='json')),
-                'unallocated':replayed.unallocated, 'operation_issues':replayed.issues,
-                'adoption_blocked':any(issue.get('blocks_adoption',issue.get('severity')=='error') for issue in replayed.issues), 'merged':command.base_revision!=unit.revision,
-                'coverage':[r.model_dump(mode='json') for r in unit.context.coverage],
-                'parent_revision':unit.revision, 'base_revision':command.base_revision,
-                'lineage':unit.get_planning_revision(unit.revision).get('lineage',{})|unit.context.lineage|replayed.lineage}
+                'coverage':[r.model_dump(mode='json') for r in unit.context.coverage]}
 
     def preview(self, command, actor, now):
         return self.store.read(actor,lambda unit:self._prepare(unit,command,now,actor))
@@ -430,6 +433,10 @@ class PlanService:
     def demand_trial(self, command, actor, now):
         from .demand_trials import trial_in_unit
         return self.store.read(actor, lambda unit: trial_in_unit(self, unit, command, actor, now))
+
+    def demand_comparison(self, command, actor, now):
+        from .demand_comparison import comparison_in_unit
+        return self.store.read(actor, lambda unit: comparison_in_unit(self, unit, command, actor, now))
 
     def _adopted_coverage(self,unit,prepared):
         from .production_time import production_week

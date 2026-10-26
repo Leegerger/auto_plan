@@ -69,7 +69,7 @@ def confirmation_requirements(evaluation, model, weeks):
     return result
 
 
-def trial_in_unit(planner, unit, request, actor, now, *, prepared=None, probe_evaluation=None):
+def trial_in_unit(planner, unit, request, actor, now, *, prepared=None, probe_evaluation=None, preview_view=True):
     command = PlanCommand.model_validate(request.model_dump(include=set(PlanCommand.model_fields)))
     if prepared is None:
         prepared = planner._prepare(unit, command, now, actor)
@@ -239,7 +239,7 @@ def trial_in_unit(planner, unit, request, actor, now, *, prepared=None, probe_ev
                  'scope': scope.model_dump(mode='json'), 'placements': placements, 'goal': goal}
     retain = operation | {'placements': []} if target and baseline_complete and not continued_goal else None
     accepted = operation if placements else None
-    preview = planner._prepare(unit, command.model_copy(update={'operations': command.operations + [accepted]}), now, actor) if accepted else prepared
+    preview = planner._prepare(unit, command.model_copy(update={'operations': command.operations + [accepted]}), now, actor, view=preview_view) if accepted else prepared
     after = preview['evaluation']
     gain = physical_coverage(after, model, request.demand_week, request.mode) - baseline_coverage
     remaining = max(target - gain, 0)

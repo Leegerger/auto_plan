@@ -108,6 +108,14 @@ if __name__ == '__main__':
                     if row['model_code']=='M' and row['month']=='2026-11':
                         row['percent']='80'
                 data['business'] = {'demands':[{'model_code':'M','week':'2026-11-02','quantity':1000}]}
+            if os.getenv('AUTO_PLAN_BROWSER_DEMAND_COMPARISON_FIXTURE') == '1':
+                data['masters']['lines'] += [{'code':code,'name':name,'active':True} for code,name in
+                    [('B','高产能线'),('C','已占满线'),('D','零产能线'),('E','缺产能线'),('F','禁排线')]]
+                data['masters']['capabilities']=[{'recipe_code':'R','line_code':'F','allowed':False}]
+                data['parameters']['capacities']=[row|{'line_code':code,'pieces':0 if code=='D' else 1000 if code in ('B','F') else 600}
+                    for code in ('L','B','C','D','E','F') for row in list(data['parameters']['capacities'])
+                    if row['line_code']=='L' and not(code=='E' and row['recipe_code']=='R')]
+                data['business']={'demands':[{'model_code':model,'week':'2026-10-12','quantity':1000} for model in ('M','N')]}
             inputs.versions[1] = InputSnapshot.model_validate(data)
             inputs.version = 1
             plans = MemoryPlanStore(inputs)
@@ -127,6 +135,9 @@ if __name__ == '__main__':
                 plan = {'segments':[]}
                 if os.getenv('AUTO_PLAN_BROWSER_DEMAND_LATE_INCOMPLETE_FIXTURE') == '1':
                     plan = {'segments':[{'id':'incomplete-existing','date':'2026-10-15','line_code':'L','model_code':'N','quantity':100,'hours':'3','order':0}]}
+            if os.getenv('AUTO_PLAN_BROWSER_DEMAND_COMPARISON_FIXTURE') == '1':
+                plan = {'segments':[{'id':'comparison-full','date':'2026-10-15','line_code':'C','order':0,
+                                     'model_code':'N','quantity':600,'hours':'24'}]}
             initial_operations=[]
             if os.getenv('AUTO_PLAN_BROWSER_MATRIX_FIXTURE') == '1':
                 plan={'initial_states':[{'line_code':'L','recipe_code':'R'},{'line_code':'F','recipe_code':'R'}],

@@ -105,7 +105,9 @@ def on_time_violation(before, after, model, week, input_dates):
 def supplement_demand(plan, command, context):
     from .input_lookup import InputIndex
     from .rules import _evaluation_json
-    before_evaluation = _evaluation_json(context.snapshot) if command.placements or context.lineage.get('demand_goals') else None
+    # Replay needs the complete ledger/issues, while final preview builds the
+    # demand presentation after all retained reviews and context updates.
+    before_evaluation = _evaluation_json(context.snapshot, demand_view=False) if command.placements or context.lineage.get('demand_goals') else None
     goals = deepcopy(refresh_demand_goals(context.lineage, before_evaluation, context.time).get('demand_goals', {})) if before_evaluation is not None else {}
     existing = goals.get(command.goal.id)
     if existing is not None and any(existing.get(key) != value for key, value in command.goal.model_dump(mode='json').items()):
@@ -127,7 +129,7 @@ def supplement_demand(plan, command, context):
         result = placed.plan
         actual.extend(segment.model_dump(mode='json') for segment in result.segments if segment.id not in before)
     if actual:
-        after_evaluation = _evaluation_json(context.snapshot.model_copy(update={'plan': result}))
+        after_evaluation = _evaluation_json(context.snapshot.model_copy(update={'plan': result}), demand_view=False)
         if command.mode == 'on_time' and on_time_violation(before_evaluation, after_evaluation, command.model_code, command.demand_week, {row['date'] for row in actual}):
             raise ValueError('接受的按时补排会跨过目标需求截止点，请重新试算，不自动引入迟交')
     record = command.goal.model_dump(mode='json') | {'mode': command.mode, 'accepted_actions': deepcopy((existing or {}).get('accepted_actions', {}))}

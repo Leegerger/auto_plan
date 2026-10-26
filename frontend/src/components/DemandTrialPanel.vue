@@ -4,6 +4,7 @@ import { api, principal } from '../api'
 import type { DemandTrialResult } from '../demandTrialTypes'
 import type { useSharedPlan } from '../useSharedPlan'
 import DemandTrialDetails from './DemandTrialDetails.vue'
+import DemandComparisonPanel from './DemandComparisonPanel.vue'
 const props=defineProps<{shared:ReturnType<typeof useSharedPlan>}>()
 const form=props.shared.workspace.demandTrial, scope=props.shared.workspace.scope
 const options=ref<{lines:{code:string;name:string}[];models:{code:string;name:string}[]}>({lines:[],models:[]})
@@ -67,6 +68,7 @@ async function accept(retain=false){
       </fieldset>
     </form>
     <p v-if="form.mode==='late'">迟交方案仅使用上方已选日期、线体和授权范围；请核对物料、出货确认及原需求截止点。</p>
+    <DemandComparisonPanel v-if="form.mode==='on_time'" :shared="shared" />
     <p v-if="busy" role="status">正在按当前计划与资料试算…</p><p v-if="error" role="alert">{{error}}</p><p v-if="form.notice" role="status">{{form.notice}}</p>
     <DemandTrialDetails v-if="result" :result="result" :shared="shared" @accept="accept" />
   </section>

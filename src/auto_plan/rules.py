@@ -11,16 +11,16 @@ def evaluate(snapshot: EvaluationSnapshot, *, output_cache=None) -> EvaluationRe
     return EvaluationResult(**_evaluate_fields(snapshot, output_cache=output_cache))
 
 
-def _evaluation_json(snapshot, *, output_cache=None):
+def _evaluation_json(snapshot, *, output_cache=None, demand_view=True):
     """Private service assembly; every returned JSON container is owned."""
-    values = _evaluate_fields(snapshot, output_cache=output_cache, json_mode=True)
+    values = _evaluate_fields(snapshot, output_cache=output_cache, json_mode=True, demand_view=demand_view)
     fields = ('output_sources', 'attributions', 'weekly_results')
     derived = {field: values.pop(field) for field in fields}
     result = EvaluationResult(**values).model_dump(mode='json')
     return result | derived
 
 
-def _evaluate_fields(snapshot, *, output_cache=None, json_mode=False):
+def _evaluate_fields(snapshot, *, output_cache=None, json_mode=False, demand_view=True):
     index = InputIndex(snapshot.inputs)
     issues: list[RuleIssue] = []
 
@@ -222,4 +222,4 @@ def _evaluate_fields(snapshot, *, output_cache=None, json_mode=False):
         issues=issues, days=result_days, switches=switch_results, initial_states=initial,
         switch_count=len({('actual',s.id) if s.residual_record_id else ('planned',s.id) for s in snapshot.plan.switches if s.from_recipe != s.to_recipe}
                          | {('actual',identity) for identity in actual_jobs}), stability=stability,
-        demand_attention=demand_attention(snapshot,output,issues,index), **output)
+        demand_attention=demand_attention(snapshot,output,issues,index) if demand_view else [], **output)
