@@ -365,3 +365,35 @@ def test_daily_actual_does_not_prove_state_after_a_later_same_day_planned_switch
     assert checked.status_code == 200, checked.text
     assert checked.json()['evaluation']['executable'] is False
     assert post(client, 'adopt', current_command(client, execution, future)).status_code == 422
+
+
+def test_removing_later_switch_does_not_promote_the_same_old_daily_actual_into_fresh_evidence(shared_client):
+    from datetime import datetime, timezone
+    client, _, _ = shared_client
+    client.app.state.clock = lambda: datetime(2026, 10, 12, tzinfo=timezone.utc)
+    assert client.post('/auto_plan/api/auth/login', json={'username': 'EDITOR', 'password': 'company-secret'}).status_code == 200
+    actual = row('actual-r', day='2026-10-13')
+    source = {'segments': [actual, row('future', model='P')], 'switches': [{'id': 'later-switch', 'line_code': 'L', 'from_recipe': 'R', 'to_recipe': 'S',
+        'allocations': [{'date': '2026-10-13', 'order': 1, 'hours': '0.95'}]}]}
+    assert post(client, 'save', current_command(client, confirm(), {'kind': 'replace_plan', 'plan': source})).status_code == 200
+    client.app.state.clock = lambda: datetime(2026, 10, 14, tzinfo=timezone.utc)
+    assert client.post('/auto_plan/api/auth/login', json={'username': 'EDITOR', 'password': 'company-secret'}).status_code == 200
+    execution = {'kind': 'record_execution', 'rows': [{'date': '2026-10-13', 'line_code': 'L', 'model_code': 'M', 'quantity': 100}],
+        'cutoff': '2026-10-14T08:00:00+08:00'}
+    changed = {'kind': 'replace_plan', 'plan': {'segments': [actual, row('future')]}}
+    checked = preview(client, execution, changed)
+    assert checked.status_code == 200, checked.text
+    assert any(issue['code'] == 'line_state_review' for issue in checked.json()['operation_issues'])
+    assert checked.json()['evaluation']['executable'] is False
+    assert post(client, 'adopt', current_command(client, execution, changed)).status_code == 422
+    assert post(client, 'save', current_command(client, execution, changed)).status_code == 200
+    assert head(client)['evaluation']['executable'] is False
+    assert preview(client, confirm()).json()['evaluation']['executable'] is False
+    client.app.state.clock = lambda: datetime(2026, 10, 16, tzinfo=timezone.utc)
+    assert client.post('/auto_plan/api/auth/login', json={'username': 'EDITOR', 'password': 'company-secret'}).status_code == 200
+    new_actual = {'kind': 'record_execution', 'rows': [{'date': '2026-10-15', 'line_code': 'L', 'model_code': 'M', 'quantity': 100}],
+        'cutoff': '2026-10-16T08:00:00+08:00'}
+    established = preview(client, new_actual, patch(row('genuinely-later', day='2026-10-17')))
+    assert established.status_code == 200, established.text
+    assert established.json()['evaluation']['executable'] is True
+    assert len(established.json()['context']['line_states']['audit']) == 1

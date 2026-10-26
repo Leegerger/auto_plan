@@ -139,7 +139,8 @@ def active_state_reviews(snapshot):
         capacity=confirmed_day_capacity(snapshot,review.line_code)
         if capacity is not None and capacity.confirmed_at>=review.review_after:
             continue
-        fresh=[record for record in anchors if record.line_code==review.line_code and record.effective_at>=review.review_after]
+        fresh=[record for record in anchors if record.line_code==review.line_code
+               and (record.effective_at>review.review_after if isinstance(record,RecipeAnchor) else record.effective_at>=review.review_after)]
         if fresh and record_is_current(snapshot,max(fresh,key=lambda row:(row.effective_at,getattr(row,'priority',1),row.recorded_at))):
             continue
         active.append(review)
