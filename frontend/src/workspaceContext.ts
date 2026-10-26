@@ -1,4 +1,5 @@
 import type { DemandTrialResult } from './demandTrialTypes'
+import type { DemandComparisonResult } from './demandComparisonTypes'
 import type { LineStateRecord } from './lineStateTypes'
 export function createWorkspaceContext() {
   return {
@@ -8,7 +9,8 @@ export function createWorkspaceContext() {
     lineFilter: '',
     modelFilter: '',
     demand: { expanded: false, modelFilter: '', weekFilter: '', reasonFilter: '', model_code: '', week: '' },
-    demandTrial: {open:false,goalsExpanded:false,goalId:'',modelCode:'',demandWeek:'',targetOutput:'' as string|number,startDate:'',endDate:'',lineCode:'',actionId:'',result:null as DemandTrialResult|null,requestKey:'',notice:''},
+    demandTrial: {open:false,goalsExpanded:false,goalId:'',mode:'on_time' as 'on_time'|'late',modelCode:'',demandWeek:'',targetOutput:'' as string|number,startDate:'',endDate:'',lineCode:'',actionId:'',result:null as DemandTrialResult|null,requestKey:'',notice:''},
+    demandComparison: {result:null as DemandComparisonResult|null,selectedLine:'',requestKey:'',notice:''},
     selected: [] as string[],
     panelOpen: true,
     panelObject: 'day' as 'day' | 'line_state',
