@@ -1,3 +1,4 @@
+import type { SwitchContinuityView } from './switchContinuityTypes'
 import type { ObservedUnfinishedSwitch, UnfinishedSwitch } from './lineStateTypes'
 import type { ExactHoursValue } from './outputTypes'
 
@@ -56,6 +57,7 @@ export interface WorkspaceCapacity {
 }
 
 export interface WorkspaceView {
+  switch_continuity?: SwitchContinuityView[]
   days: WorkspaceDay[]
   line_weeks: WorkspaceLineWeek[]
   capacities: WorkspaceCapacity[]

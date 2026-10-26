@@ -1,6 +1,7 @@
 """Audited field Recipe evidence and adoption prerequisites."""
 from dataclasses import dataclass
 from datetime import datetime, timedelta
+from fractions import Fraction
 import hashlib
 from typing import Literal
 from pydantic import Field, field_validator
@@ -41,14 +42,27 @@ def _job_identity(job):
     return (job.job_id,job.started_at,job.from_recipe,job.to_recipe) if job is not None else None
 
 
-def matches_residual_job(switch, record):
-    """Match only the protected job identity; callers own time, scope and state."""
+def _day_after_observation(record, day):
+    from .production_time import production_cutoff
+    first=production_date(record.effective_at)
+    return day>first or day==first and record.effective_at==production_cutoff(first)
+
+
+def matches_actual_job(switch, record):
+    """Recognize the physical job independently of its progress observation."""
     job = getattr(record, 'unfinished_switch', None)
     if job is None:
         return False
+    return (switch.id, switch.line_code, switch.from_recipe, switch.to_recipe) == (
+        job.job_id, record.line_code, job.from_recipe, job.to_recipe)
+
+
+def matches_residual_job(switch, record):
+    """Match the physical job and the exact progress evidence used to arrange it."""
+    if not matches_actual_job(switch,record):
+        return False
     record_id = getattr(record, 'origin_record_id', None) or record.id
-    return (switch.id, switch.line_code, switch.from_recipe, switch.to_recipe, switch.residual_record_id) == (
-        job.job_id, record.line_code, job.from_recipe, job.to_recipe, record_id)
+    return switch.residual_record_id == record_id
 
 
 def confirm_line_states(plan, command, context):
@@ -132,7 +146,6 @@ class RecipeAnchor:
 
 def unfinished_job_history(snapshot):
     """Observed jobs and the day by which later actual evidence resolves them."""
-    from .production_time import production_cutoff
     jobs = {}
     records = sorted((row for row in snapshot.line_states.records if row.effective_at <= snapshot.time.as_of),
                      key=lambda row: (row.effective_at, row.recorded_at, row.id))
@@ -149,9 +162,8 @@ def unfinished_job_history(snapshot):
                     and row.effective_at >= record.effective_at and row.id != record.id
                     and (row.unfinished_switch is None or row.unfinished_switch.job_id != identity)]
         if cutoff is not None and cutoff <= snapshot.time.as_of:
-            first = production_date(record.effective_at)
             days = {fact.date for fact in snapshot.execution.facts if fact.line_code == record.line_code and fact.quantity
-                    and (fact.date > first or fact.date == first and record.effective_at == production_cutoff(first))
+                    and _day_after_observation(record,fact.date)
                     and fact.date < today and fact.date <= production_date(cutoff)}
             resolved.extend(day for day in days if {models.get(fact.model_code) for fact in snapshot.execution.facts
                 if fact.line_code == record.line_code and fact.date == day and fact.quantity} == {job.to_recipe})
@@ -260,6 +272,18 @@ def record_is_current(snapshot, record):
     from collections import defaultdict
     today = production_date(snapshot.time.as_of)
     first = production_date(record.effective_at)
+    if getattr(record,'unfinished_switch',None) is not None:
+        cutoff=snapshot.execution.cutoff
+        actual=cutoff is not None and cutoff<=snapshot.time.as_of and any(fact.line_code==record.line_code and fact.quantity
+            and fact.date<=production_date(cutoff) and _day_after_observation(record,fact.date) for fact in snapshot.execution.facts)
+        elapsed_work=any(row.line_code==record.line_code and row.date<today and _day_after_observation(record,row.date)
+            and (row.quantity or getattr(row,'hours','0')!='0') for row in snapshot.plan.segments)
+        # Same-day residual buckets concern the physical job even when a newer
+        # progress observation has made their original reference stale.
+        elapsed_switch=any(switch.line_code==record.line_code and row.date<today
+            and (_day_after_observation(record,row.date) or row.date==first and switch.residual_record_id is not None and matches_actual_job(switch,record))
+            and (switch.residual_record_id is None or Fraction(row.hours)) for switch in snapshot.plan.switches for row in switch.allocations)
+        return not (actual or elapsed_work or elapsed_switch)
     models = {row.code: row.recipe_code for row in snapshot.inputs.masters.models}
     planned = defaultdict(set)
     switches = defaultdict(list)
@@ -314,16 +338,23 @@ def adoption_conditions(snapshot):
     conditions=[]
     anchors=calculation_anchors(snapshot)
     pending=active_unfinished_jobs(snapshot)
+    from .switch_continuity import continuity_details
+    continuous={row['line_code'] for row in continuity_details(snapshot) if row['status']=='valid'}
     for line,(day,segment) in sorted(affected.items()):
         if line in reviews:
+            explanation=' 当前实际剩余状态仍需核对。' if line in pending else ' 当前起点待核对，首次切机尚未计入。'
             conditions.append(RuleIssue(code='line_state_review',severity='warning',line_code=line,date=day,
-                segment_id=segment,reason=reviews[line].reason+' 当前起点待核对，首次切机尚未计入。'))
+                segment_id=segment,reason=reviews[line].reason+explanation))
             if line not in pending:
                 continue
         if line in pending:
             job=pending[line].unfinished_switch
-            conditions.append(RuleIssue(code='remaining_switch_continuity',severity='warning',line_code=line,date=day,
-                segment_id=segment,reason=f'原切机 {job.job_id} 尚余 {job.remaining_hours} 小时，日级容量不能证明连续条件，须核对后才能采用。'))
+            if line not in reviews and not record_is_current(snapshot,pending[line]):
+                conditions.append(RuleIssue(code='line_state_review',severity='warning',line_code=line,date=day,segment_id=segment,
+                    reason='现场进度之后已有执行或过期未确认作业，请重新核对实际剩余状态；连续性确认不能代替当前进度依据。'))
+            if line not in continuous:
+                conditions.append(RuleIssue(code='remaining_switch_continuity',severity='warning',line_code=line,date=day,
+                    segment_id=segment,reason=f'原切机 {job.job_id} 尚余 {job.remaining_hours} 小时，日级容量不能证明连续条件，须核对后才能采用。'))
             continue
         records=[record for record in anchors if record.line_code==line]
         latest=max(records,key=lambda record:(record.effective_at,getattr(record,'priority',1),record.recorded_at)) if records else None
@@ -383,12 +414,13 @@ def retained_state_reviews(before, after, snapshot):
         latest[record.line_code] = record
     reviews = []
     for line, record in latest.items():
-        if record.recipe_code is None:
+        if record.recipe_code is None and getattr(record,'unfinished_switch',None) is None:
             continue
         if not record_is_current(original, record) and record_is_current(changed, record):
             since = production_cutoff(production_date(snapshot.time.as_of)).isoformat()
             identity = 'state-review-' + hashlib.sha256(f'{line}:{since}'.encode()).hexdigest()[:40]
             reviews.append({'id': identity, 'code': 'line_state_review', 'line_code': line,
                 'review_after': since, 'blocks_adoption': False,
-                'reason': '旧计划中的历史 Recipe 变化尚无执行依据。修改或移除计划不能代替现场确认，请核实当前线体状态。'})
+                'reason': ('原切机之后的计划作业尚无实际完成依据。移动或移除过期安排不能代替当前剩余进度确认。' if getattr(record,'unfinished_switch',None) is not None else
+                           '旧计划中的历史 Recipe 变化尚无执行依据。修改或移除计划不能代替现场确认，请核实当前线体状态。')})
     return reviews

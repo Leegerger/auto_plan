@@ -93,7 +93,8 @@ def workspace_view(snapshot, evaluation):
                   for month in months for line in lines
                   for recipe, master in sorted(index.recipes.items()) if master.active
                   for capacity in [index.capacity(month, recipe, line)]]
-    return {'days': days, 'line_weeks': weeks, 'capacities': capacities}
+    from .switch_continuity import continuity_details
+    return {'days': days, 'line_weeks': weeks, 'capacities': capacities,'switch_continuity':continuity_details(snapshot)}
 
 
 def _line_weeks(snapshot, index, evaluation, line, analysis, current, history):

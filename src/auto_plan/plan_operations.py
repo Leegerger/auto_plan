@@ -126,7 +126,7 @@ def replay_result(plan, operations, context):
         if isinstance(value, ReplayResult):
             if raw['kind']!='confirm_line_states':
                 value.resolve_issues=[identity for identity in value.resolve_issues if identity not in protected_reviews]
-            if set(value.context_updates)-{'locks','preferences','execution','reset','line_states'}:
+            if set(value.context_updates)-{'locks','preferences','execution','reset','line_states','switch_continuity'}:
                 raise ValueError('未知计划上下文变更')
             result.context_updates.update(value.context_updates)
             result.plan=candidate
@@ -169,3 +169,4 @@ from . import candidate_operations  # noqa: E402,F401
 from . import history_operations  # noqa: E402,F401
 
 from . import line_states  # noqa: E402,F401
+from . import switch_continuity  # noqa: E402,F401
