@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, ref, toRefs, watch } from 'vue'
 import { useSharedPlan } from '../useSharedPlan'
 
 const props=defineProps<{
@@ -7,12 +7,14 @@ const props=defineProps<{
   selected:string[]
   scope:{start_date:string;end_date:string;line_codes:string[];model_codes:string[]}
 }>()
-const quantity=ref(0), deadline=ref(''), error=ref('')
+const values=props.shared.workspace.quantityChange
+const {quantity,deadline}=toRefs(values), error=ref('')
 const chosen=computed(()=>props.selected.length===1 ? props.shared.rows.value.find(row=>row.id===props.selected[0]) : undefined)
 watch(()=>props.selected.join(','),()=>{
-  if(chosen.value) quantity.value=chosen.value.quantity
+  const key=props.selected.join(',')
+  if(key!==values.selection){if(chosen.value)quantity.value=chosen.value.quantity;values.selection=key}
   error.value=''
-})
+},{immediate:true})
 watch(()=>props.scope.end_date,value=>{if(!deadline.value)deadline.value=value},{immediate:true})
 async function stage(){
   error.value=''

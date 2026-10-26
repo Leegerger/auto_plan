@@ -47,11 +47,25 @@ if __name__ == '__main__':
                 data['business'] = {'demands': [
                     {'model_code':'M','week':'2026-10-12','quantity':1000},
                     {'model_code':'P','week':'2026-10-12','quantity':500}]}
+            if os.getenv('AUTO_PLAN_BROWSER_WORKSPACE_FIXTURE') == '1':
+                from datetime import date, timedelta
+                data['masters']['lines'] = [{'code':'L' if n==0 else f'L{n+1:02d}','name':f'线体 {n+1}','active':True} for n in range(18)]
+                data['masters']['models'] += [{'code':f'X{n:02d}','name':f'机种 {n}','recipe_code':'R','active':True} for n in range(1,38)]
+                months=['2026-10','2026-11','2026-12','2027-01']
+                data['parameters']['capacities']=[{'month':month,'recipe_code':recipe,'line_code':line['code'],'pieces':1000} for month in months for recipe in ('R','S') for line in data['masters']['lines']]
+                for category in ('line_yields','model_yields'):
+                    data['parameters'][category]=[{'month':month,'model_code':model['code'],'percent':'100'} for month in months for model in data['masters']['models']]
+                data['parameters']['cycle_times']=[{'model_code':model['code'],'days':'0'} for model in data['masters']['models']]
+                data['business']={'demands':[{'week':(date(2026,10,12)+timedelta(weeks=week)).isoformat(),'model_code':model['code'],'quantity':100} for week in range(15) for model in data['masters']['models']]}
             inputs.versions[1] = InputSnapshot.model_validate(data)
             inputs.version = 1
             plans = MemoryPlanStore(inputs)
             plan = snapshot()['plan']
             for row in plan['segments']: row['date']='2026-10-15'
+            if os.getenv('AUTO_PLAN_BROWSER_WORKSPACE_FIXTURE') == '1':
+                models=[model['code'] for model in data['masters']['models'] if model['recipe_code']=='R']
+                plan={'initial_states':[{'line_code':line['code'],'recipe_code':'R'} for line in data['masters']['lines']],
+                      'segments':[{'id':f'workspace-{week}-{n}','date':(date(2026,10,12)+timedelta(weeks=week,days=3 if week==0 else 0)).isoformat(),'line_code':line['code'],'model_code':models[(week*18+n)%len(models)],'quantity':20,'hours':'1','order':0} for week in range(15) for n,line in enumerate(data['masters']['lines'])]}
             now = datetime(2026,10,14,tzinfo=timezone.utc)
             PlanService(plans).submit(SubmitPlan(base_revision=0,input_version=1,latest_adoption=0,
                 operations=[{'kind':'replace_plan','plan':plan}],operation_id=uuid4(),pending=True),'SHARED_EDITOR',now)
