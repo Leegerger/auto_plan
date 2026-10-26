@@ -69,7 +69,7 @@ def confirmation_requirements(evaluation, model, weeks):
     return result
 
 
-def trial_in_unit(planner, unit, request, actor, now, *, prepared=None):
+def trial_in_unit(planner, unit, request, actor, now, *, prepared=None, probe_evaluation=None):
     command = PlanCommand.model_validate(request.model_dump(include=set(PlanCommand.model_fields)))
     if prepared is None:
         prepared = planner._prepare(unit, command, now, actor)
@@ -170,7 +170,9 @@ def trial_in_unit(planner, unit, request, actor, now, *, prepared=None):
             def candidate(quantity):
                 placed = place_input(prefix, snapshot, scope, model, line, day, quantity, request.action_id)
                 protect(prefix, placed.plan, snapshot.model_copy(update={'plan': prefix}))
-                evaluation = planner._evaluation_json(snapshot.model_copy(update={'plan': placed.plan}), prepared['operation_issues'])
+                proposed = snapshot.model_copy(update={'plan': placed.plan})
+                evaluation = (probe_evaluation(proposed, index) if probe_evaluation is not None else
+                              planner._evaluation_json(proposed, prepared['operation_issues']))
                 return placed.plan, evaluation
             try:
                 maximum, maximum_eval = candidate(capacity['pieces'] + 1)
