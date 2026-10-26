@@ -33,6 +33,7 @@ function changedState(code:string,old:LineStateRecord){
   const next=statePayload(code).unfinished_switch,previous=old.unfinished_switch
   return !previous || !next || Object.entries(next).some(([key,value])=>value!==previous[key as keyof typeof previous]) || (!!previous.completed_hours && !next.completed_hours) || (!!previous.standard_hours && !next.standard_hours)
 }
+function inspectable(row:LineStateRecord){return props.shared.matrixView.value?.switch_continuity?.some(value=>value.line_code===row.line_code && value.source_record_id===row.id) ?? false}
 function arrange(row:LineStateRecord){
   const job=row.unfinished_switch
   if(!job)return
@@ -71,8 +72,10 @@ onMounted(async()=>{
 <template>
   <section aria-label="现场线体状态">
     <p>状态对应时点与录入时间分别保留。确认先进入本机动作，预览后共享保存或正式采用。</p>
-    <div class="input-table-scroll"><table class="input-table" aria-label="现场线体状态记录"><thead><tr><th>线体</th><th>已确认状态与来源</th><th v-if="shared.editor.value">更正</th></tr></thead><tbody><tr v-for="row in records" :key="row.id"><td>{{row.line_code}}</td><td><template v-if="row.state==='unfinished_switch' && row.unfinished_switch"><strong>未完成切机 {{row.unfinished_switch.from_recipe}} → {{row.unfinished_switch.to_recipe}}</strong><br>原作业 {{row.unfinished_switch.job_id}}<br>实际开始 {{beijing(row.unfinished_switch.started_at).replace('T',' ')}} 北京时间<br>现场剩余 {{row.unfinished_switch.remaining_hours}} 小时<br><template v-if="row.unfinished_switch.standard_hours!=null">整次标准 {{row.unfinished_switch.standard_hours}} 小时<br></template><template v-if="row.unfinished_switch.completed_hours!=null">现场已完成 {{row.unfinished_switch.completed_hours}} 小时<br></template>目标 Recipe 尚未就绪<br></template><template v-else><strong>Recipe {{row.recipe_code}}</strong><br></template>状态对应 {{beijing(row.effective_at).replace('T',' ')}} 北京时间<br>来源 {{row.source}}<br>确认人 {{row.actor}}<br>录入时间 {{beijing(row.recorded_at).replace('T',' ')}} 北京时间</td><td v-if="shared.editor.value"><el-button :disabled="shared.readonly.value" :aria-label="`更正线体 ${row.line_code} 状态`" @click="correct(row)">更正</el-button><el-button v-if="row.state==='unfinished_switch' && row.unfinished_switch" :disabled="shared.readonly.value" :aria-label="`安排剩余作业 ${row.unfinished_switch.job_id}`" @click="arrange(row)">安排剩余切机</el-button></td></tr></tbody></table></div>
+    <div class="input-table-scroll"><table class="input-table" aria-label="现场线体状态记录"><thead><tr><th>线体</th><th>已确认状态与来源</th><th v-if="shared.editor.value">更正</th></tr></thead><tbody><tr v-for="row in records" :key="row.id"><td>{{row.line_code}}</td><td><template v-if="row.state==='unfinished_switch' && row.unfinished_switch"><strong>未完成切机 {{row.unfinished_switch.from_recipe}} → {{row.unfinished_switch.to_recipe}}</strong><br>原作业 {{row.unfinished_switch.job_id}}<br>实际开始 {{beijing(row.unfinished_switch.started_at).replace('T',' ')}} 北京时间<br>现场剩余 {{row.unfinished_switch.remaining_hours}} 小时<br><template v-if="row.unfinished_switch.standard_hours!=null">整次标准 {{row.unfinished_switch.standard_hours}} 小时<br></template><template v-if="row.unfinished_switch.completed_hours!=null">现场已完成 {{row.unfinished_switch.completed_hours}} 小时<br></template>目标 Recipe 尚未就绪<br></template><template v-else><strong>Recipe {{row.recipe_code}}</strong><br></template>状态对应 {{beijing(row.effective_at).replace('T',' ')}} 北京时间<br>来源 {{row.source}}<br>确认人 {{row.actor}}<br>录入时间 {{beijing(row.recorded_at).replace('T',' ')}} 北京时间<el-button v-if="row.state==='unfinished_switch' && row.unfinished_switch && inspectable(row)" :aria-label="`${shared.editor.value ? '安排' : '查看'}剩余作业 ${row.unfinished_switch.job_id}`" @click="arrange(row)">{{shared.editor.value ? '安排剩余切机' : '查看剩余作业'}}</el-button></td><td v-if="shared.editor.value"><el-button :disabled="shared.readonly.value" :aria-label="`更正线体 ${row.line_code} 状态`" @click="correct(row)">更正</el-button></td></tr></tbody></table></div>
     <p v-if="!records.length">尚无现场线体状态确认。旧计划起点与计划推算保留原来源。</p>
+    <ResidualSwitchEditor v-if="arrangedRecord?.unfinished_switch" :shared="shared" :record="arrangedRecord" />
+    <p v-else-if="shared.workspace.residualSwitch.recordId" role="status">安排所依据的现场记录已变化，请重新选择剩余作业并核对。</p>
     <form v-if="shared.editor.value" aria-label="批量线体状态确认" @submit.prevent="stage">
       <fieldset :disabled="shared.readonly.value" class="line-state-form"><legend>确认或更正现场状态</legend>
         <label>状态类别 <select v-model="form.state" aria-label="线体状态类别"><option value="retained_recipe">保留 Recipe</option><option value="unfinished_switch">实际未完成切机</option></select></label>
@@ -94,8 +97,6 @@ onMounted(async()=>{
         <el-button native-type="submit" type="primary" :disabled="shared.readonly.value">加入状态确认并预览</el-button>
       </fieldset>
     </form>
-    <ResidualSwitchEditor v-if="arrangedRecord?.unfinished_switch" :shared="shared" :record="arrangedRecord" />
-    <p v-else-if="shared.workspace.residualSwitch.recordId" role="status">安排所依据的现场记录已变化，请重新选择剩余作业并核对。</p>
     <details v-if="audit.length"><summary>状态确认与更正记录</summary><p v-for="row in audit" :key="row.action_id">{{beijing(row.recorded_at).replace('T',' ')}} · {{row.actor}} · {{row.reason || '现场确认'}} · {{row.changes.length}} 项状态变化</p></details>
   </section>
 </template>
