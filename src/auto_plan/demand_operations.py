@@ -112,8 +112,8 @@ def supplement_demand(plan, command, context):
         raise ValueError('原补排目标及归属基准已变化，请保留原目标重新试算')
     if existing is not None and context.action_id in existing.get('accepted_actions', {}):
         raise ValueError('此补排动作已经接受，请勿重复安排')
-    for identity, goal in goals.items():
-        if identity != command.goal.id and active_goal_matches(goal, command.model_code, command.demand_week):
+    for goal in goals.values():
+        if existing is None and active_goal_matches(goal, command.model_code, command.demand_week):
             raise ValueError('此机种需求周已有补排目标，请保留原目标处理')
     result = plan
     actual = []
