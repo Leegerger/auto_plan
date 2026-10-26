@@ -91,6 +91,8 @@ if __name__ == '__main__':
                 data['masters']['lines'].append({'code':'B','name':'零产能线','active':True})
                 data['parameters']['capacities'] += [row|{'line_code':'B','pieces':0} for row in list(data['parameters']['capacities']) if row['line_code']=='L']
                 data['business'] = {'demands':[{'model_code':model,'week':'2026-10-12','quantity':1000} for model in ('M','N')]}
+                if os.getenv('AUTO_PLAN_BROWSER_DEMAND_LATE_INCOMPLETE_FIXTURE') == '1':
+                    data['parameters']['cycle_times'] = [row for row in data['parameters']['cycle_times'] if row['model_code'] != 'N']
             if os.getenv('AUTO_PLAN_BROWSER_DEMAND_CONTINUATION_FIXTURE') == '1':
                 data['masters']['lines'].append({'code':'B','name':'继续补排线','active':True})
                 data['parameters']['capacities'] = [row|{'pieces':600} for row in data['parameters']['capacities']]
@@ -118,6 +120,8 @@ if __name__ == '__main__':
                 plan = {'segments': []}
             if os.getenv('AUTO_PLAN_BROWSER_DEMAND_TRIAL_FIXTURE') == '1' or os.getenv('AUTO_PLAN_BROWSER_DEMAND_CONTINUATION_FIXTURE') == '1':
                 plan = {'segments':[]}
+                if os.getenv('AUTO_PLAN_BROWSER_DEMAND_LATE_INCOMPLETE_FIXTURE') == '1':
+                    plan = {'segments':[{'id':'incomplete-existing','date':'2026-10-15','line_code':'L','model_code':'N','quantity':100,'hours':'3','order':0}]}
             initial_operations=[]
             if os.getenv('AUTO_PLAN_BROWSER_MATRIX_FIXTURE') == '1':
                 plan={'initial_states':[{'line_code':'L','recipe_code':'R'},{'line_code':'F','recipe_code':'R'}],

@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test'
 
 test('late alternative is explicit and keeps its selected dates', async ({ page }) => {
-  test.skip(process.env.AUTO_PLAN_BROWSER_DEMAND_TRIAL_FIXTURE !== '1', 'Requires demand trial fixture')
+  test.skip(process.env.AUTO_PLAN_BROWSER_DEMAND_TRIAL_FIXTURE !== '1' || process.env.AUTO_PLAN_BROWSER_DEMAND_LATE_INCOMPLETE_FIXTURE === '1', 'Requires complete demand trial fixture')
   await page.goto('/planning/login')
   await page.getByRole('textbox', { name: '公司账号' }).fill('SHARED_EDITOR')
   await page.getByLabel('公司密码', { exact: true }).fill('company-secret')
@@ -86,4 +86,24 @@ test('late alternative is explicit and keeps its selected dates', async ({ page 
   expect(adopted.plan).toEqual(saved.plan)
   const goal = Object.values(adopted.lineage.demand_goals)[0] as {remaining_output_target:number;late:number;on_time:number}
   expect(goal).toMatchObject({remaining_output_target:0,late:400,on_time:600})
+})
+
+test('an incomplete source keeps every weekly effect amount unknown', async ({ page }) => {
+  test.skip(process.env.AUTO_PLAN_BROWSER_DEMAND_LATE_INCOMPLETE_FIXTURE !== '1', 'Requires incomplete existing source fixture')
+  await page.goto('/planning/login')
+  await page.getByRole('textbox', { name: '公司账号' }).fill('SHARED_EDITOR')
+  await page.getByLabel('公司密码', { exact: true }).fill('company-secret')
+  await page.getByRole('button', { name: '登录', exact: true }).click()
+  await page.getByRole('navigation', { name: '主要导航' }).getByRole('link', { name: '排程', exact: true }).click()
+  await page.getByRole('button', { name: '展开待处理需求', exact: true }).click()
+  await page.getByRole('button', { name: '选择需求 N 2026-10-12', exact: true }).click()
+  await page.getByRole('button', { name: '按需补排', exact: true }).click()
+  for (const name of ['补排投入起日','补排投入终日','补排调整范围起日','补排调整范围终日']) await page.getByLabel(name, { exact: true }).fill('2026-10-20')
+  await page.getByLabel('补排线体', { exact: true }).selectOption('L')
+  await page.getByRole('button', { name: '试算按时覆盖', exact: true }).click()
+  const result = page.getByRole('region', { name: '单线补排试算结果', exact: true })
+  await expect(result).toContainText('计算未完成')
+  const effects = result.getByRole('table', { name: '各需求周覆盖影响', exact: true })
+  await expect(effects).toContainText('待完成计算')
+  await expect(effects.locator('tbody tr').first().getByRole('cell').nth(1)).toHaveText('待完成计算 / 待完成计算')
 })
