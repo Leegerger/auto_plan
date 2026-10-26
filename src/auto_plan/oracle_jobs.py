@@ -305,16 +305,18 @@ class OracleJobStore:
         from .rules import evaluate
         from .solver import objective
         from .plans import effect_keys
-        context=OperationContext(candidate.snapshot)
+        from .line_states import freeze_state_evidence
+        calculation=freeze_state_evidence(candidate.snapshot)
+        context=OperationContext(calculation)
         if patch(candidate.snapshot.plan,PatchPlan.model_validate(candidate.operation),context)!=candidate.plan:
             raise ValueError('Candidate patch does not reproduce its plan')
         validate_change(candidate.snapshot.plan,candidate.plan,candidate.request,context)
-        evaluation=evaluate(candidate.snapshot.model_copy(update={'plan':candidate.plan}))
+        evaluation=evaluate(calculation.model_copy(update={'plan':candidate.plan}))
         if not evaluation.computation_complete or not evaluation.capacity_valid or any(issue.severity=='error' and issue.code!='confirmation_pending' for issue in evaluation.issues):
             raise ValueError('Incomplete or invalid candidate')
         if candidate.eligibility!=('executable' if evaluation.executable else 'pending_confirmation'):
             raise ValueError('Candidate eligibility mismatch')
-        if evaluation!=candidate.evaluation or list(map(str,objective(evaluation)))!=candidate.objective or [list(k) for k in effect_keys(candidate.snapshot.plan,candidate.plan,candidate.snapshot)]!=candidate.effects:
+        if evaluation!=candidate.evaluation or list(map(str,objective(evaluation)))!=candidate.objective or [list(k) for k in effect_keys(candidate.snapshot.plan,candidate.plan,calculation)]!=candidate.effects:
             raise ValueError('Candidate evaluation or effects mismatch')
         data=candidate.model_dump(mode='json'); sha=digest(data)
         def action(cursor):
