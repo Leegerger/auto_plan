@@ -57,6 +57,20 @@ if __name__ == '__main__':
                     data['parameters'][category]=[{'month':month,'model_code':model['code'],'percent':'100'} for month in months for model in data['masters']['models']]
                 data['parameters']['cycle_times']=[{'model_code':model['code'],'days':'0'} for model in data['masters']['models']]
                 data['business']={'demands':[{'week':(date(2026,10,12)+timedelta(weeks=week)).isoformat(),'model_code':model['code'],'quantity':100} for week in range(15) for model in data['masters']['models']]}
+            if os.getenv('AUTO_PLAN_BROWSER_DEMAND_FIXTURE') == '1':
+                for category in ('line_yields','model_yields','capacities'):
+                    initial_rows = list(data['parameters'][category])
+                    data['parameters'][category] += [row | {'month':month} for month in ('2026-11','2026-12','2027-01') for row in initial_rows]
+                data['parameters']['cycle_times'] = [row for row in data['parameters']['cycle_times'] if row['model_code'] != 'P']
+                data['parameters']['line_yields'] = [row for row in data['parameters']['line_yields'] if row['model_code'] != 'P']
+                data['business'] = {'demands': [
+                    {'model_code':'N','week':'2026-10-12','quantity':100},
+                    {'model_code':'M','week':'2026-10-19','quantity':1000},
+                    {'model_code':'M','week':'2026-10-26','quantity':300},
+                    {'model_code':'P','week':'2026-10-26','quantity':500}],
+                    'confirmations': [
+                        {'model_code':'M','week':'2026-10-19','kind':'material','batch_id':'SOME','status':'allowed','date':'2026-10-15','quantity':400},
+                        {'model_code':'N','week':'2026-10-12','kind':'shipping','batch_id':'LATE-OK','status':'allowed','date':'2026-10-30','quantity':100}]}
             inputs.versions[1] = InputSnapshot.model_validate(data)
             inputs.version = 1
             plans = MemoryPlanStore(inputs)
@@ -66,6 +80,10 @@ if __name__ == '__main__':
                 models=[model['code'] for model in data['masters']['models'] if model['recipe_code']=='R']
                 plan={'initial_states':[{'line_code':line['code'],'recipe_code':'R'} for line in data['masters']['lines']],
                       'segments':[{'id':f'workspace-{week}-{n}','date':(date(2026,10,12)+timedelta(weeks=week,days=3 if week==0 else 0)).isoformat(),'line_code':line['code'],'model_code':models[(week*18+n)%len(models)],'quantity':20,'hours':'1','order':0} for week in range(15) for n,line in enumerate(data['masters']['lines'])]}
+            if os.getenv('AUTO_PLAN_BROWSER_DEMAND_FIXTURE') == '1':
+                plan = {'initial_states':[{'line_code':'L','recipe_code':'R'}], 'segments':[
+                    {'id':'pending-demand','date':'2026-10-15','line_code':'L','order':0,'model_code':'M','quantity':1000,'hours':'24'},
+                    {'id':'confirmed-late','date':'2026-10-20','line_code':'L','order':0,'model_code':'N','quantity':100,'hours':'3'}]}
             now = datetime(2026,10,14,tzinfo=timezone.utc)
             PlanService(plans).submit(SubmitPlan(base_revision=0,input_version=1,latest_adoption=0,
                 operations=[{'kind':'replace_plan','plan':plan}],operation_id=uuid4(),pending=True),'SHARED_EDITOR',now)
