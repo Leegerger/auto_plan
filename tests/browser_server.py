@@ -82,6 +82,8 @@ if __name__ == '__main__':
                     'opening_exceptions':[{'date':'2026-10-15','line_code':'L','enabled':True}],
                     'maintenance':[{'date':'2026-10-16','line_code':'L','hours':5}],
                     'experiments':[{'date':'2026-10-16','line_code':'L','hours':3}]}
+            if os.getenv('AUTO_PLAN_BROWSER_UNFINISHED_SWITCH_FIXTURE') == '1':
+                data['parameters']['switch_durations'][0]['hours'] = '12'
             inputs.versions[1] = InputSnapshot.model_validate(data)
             inputs.version = 1
             plans = MemoryPlanStore(inputs)
@@ -95,6 +97,8 @@ if __name__ == '__main__':
                 plan = {'initial_states':[{'line_code':'L','recipe_code':'R'}], 'segments':[
                     {'id':'pending-demand','date':'2026-10-15','line_code':'L','order':0,'model_code':'M','quantity':1000,'hours':'24'},
                     {'id':'confirmed-late','date':'2026-10-20','line_code':'L','order':0,'model_code':'N','quantity':100,'hours':'3'}]}
+            if os.getenv('AUTO_PLAN_BROWSER_UNFINISHED_SWITCH_FIXTURE') == '1':
+                plan = {'segments': []}
             initial_operations=[]
             if os.getenv('AUTO_PLAN_BROWSER_MATRIX_FIXTURE') == '1':
                 plan={'initial_states':[{'line_code':'L','recipe_code':'R'},{'line_code':'F','recipe_code':'R'}],
@@ -103,7 +107,7 @@ if __name__ == '__main__':
                                 {'id':'matrix-unknown','date':'2026-10-17','line_code':'G','model_code':'M','quantity':100,'hours':'3','order':0}],
                     'switches':[{'id':'matrix-switch','line_code':'L','from_recipe':'R','to_recipe':'S','allocations':[{'date':'2026-10-18','order':0,'hours':'0.95'}]}]}
                 initial_operations=[{'kind':'lock_cells','cells':[{'date':'2026-10-16','line_code':'B','model_code':'N','quantity':0}]}]
-            if os.getenv('AUTO_PLAN_BROWSER_LINE_STATES_FIXTURE') != '1' and os.getenv('AUTO_PLAN_BROWSER_MATRIX_FIXTURE') != '1':
+            if os.getenv('AUTO_PLAN_BROWSER_LINE_STATES_FIXTURE') != '1' and os.getenv('AUTO_PLAN_BROWSER_MATRIX_FIXTURE') != '1' and os.getenv('AUTO_PLAN_BROWSER_UNFINISHED_SWITCH_FIXTURE') != '1':
                 from tests.line_state_support import confirm_states
                 initial_operations.append(confirm_states(*[(row['code'],'R') for row in data['masters']['lines']]))
             now = datetime(2026,10,14,tzinfo=timezone.utc)

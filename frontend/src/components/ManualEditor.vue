@@ -8,6 +8,7 @@ import QuantityChange from './QuantityChange.vue'
 import LineWeekState from './LineWeekState.vue'
 import MatrixDayState from './MatrixDayState.vue'
 import LineStatePanel from './LineStatePanel.vue'
+import UnfinishedSwitchState from './UnfinishedSwitchState.vue'
 import type { WorkspaceCapacity, WorkspaceLineWeek } from '../workspaceTypes'
 const props=defineProps<{shared:ReturnType<typeof useSharedPlan>}>()
 const {head,rows,plan,hourDisplay,readonly,appendOperation,check,unallocated}=props.shared
@@ -18,6 +19,7 @@ const {form,scope,mapping}=workspace
 const optionError=ref(''), capacityBusy=ref(false)
 const matrix=ref<HTMLElement|null>(null), panelHeading=ref<HTMLElement|null>(null), panelButton=ref<{ $el:HTMLElement }|null>(null)
 let panelTrigger:HTMLElement|null=null
+let capacityRequest=0
 const fillLines=ref<{code:string;name:string}[]>([]), fillDays=ref<{date:string;line_code:string;quantity:number}[]>([])
 const currentWeek=computed(()=>head.value?.weeks?.find(value=>value.number===week.value))
 const displayLines=computed(()=>[...options.value.lines,...[...new Set([...rows.value.map(row=>row.line_code),...(plan.value?.switches.map(row=>row.line_code) ?? []),...(props.shared.effective.value?.workspace_view?.line_weeks.map(row=>row.line_code) ?? [])])].filter(code=>!options.value.lines.some(row=>row.code===code)).map(code=>({code,name:'历史引用'}))])
@@ -96,15 +98,17 @@ function openLineStates(code?:string,event?:MouseEvent){workspace.panelObject='l
 function choose(id:string){selected.value=selected.value.includes(id) ? selected.value.filter(value=>value!==id) : [...selected.value,id]}
 async function capacities(){
   if (readonly.value || !form.model_code) return
+  const request=++capacityRequest
   capacityBusy.value=true;optionError.value=''
   try {
     const {operation_id:_,pending:__,...command}=props.shared.command()
     const result=await api<{lines:{code:string;name:string}[];days:{date:string;line_code:string;quantity:number}[]}>('/plans/fill-options',{method:'POST',body:JSON.stringify({...command,model_code:form.model_code,start_date:form.start_date,end_date:form.end_date,line_code:form.line_code || null,scope})})
+    if(request!==capacityRequest)return
     fillLines.value=result.lines;fillDays.value=result.days
     if (form.line_code && !result.lines.some(value=>value.code===form.line_code)) form.line_code=''
-  }catch(e){optionError.value=e instanceof Error ? e.message : '无法试算容量'}finally{capacityBusy.value=false}
+  }catch(e){if(request===capacityRequest)optionError.value=e instanceof Error ? e.message : '无法试算容量'}finally{if(request===capacityRequest)capacityBusy.value=false}
 }
-watch([()=>props.shared.operations.value,()=>props.shared.sourceNotice.value,()=>form.start_date,()=>form.end_date,()=>form.model_code,()=>form.line_code,scope],()=>{fillDays.value=[]},{deep:true,flush:'sync'})
+watch([()=>props.shared.operations.value,()=>props.shared.sourceNotice.value,()=>form.start_date,()=>form.end_date,()=>form.model_code,()=>form.line_code,scope],()=>{capacityRequest++;capacityBusy.value=false;fillDays.value=[]},{deep:true,flush:'sync'})
 function operationScope(){return {start_date:scope.start_date,end_date:scope.end_date,line_codes:[...scope.line_codes],model_codes:[...scope.model_codes]}}
 async function stage(){
   optionError.value=''
@@ -121,6 +125,7 @@ async function order(id:string,direction:number){const ids=daily.value.map(value
 function continueInput(value:{id:string;model_code:string;quantity:number}){form.kind='append_fill';form.model_code=value.model_code;form.quantity=value.quantity;form.continue_id=value.id;form.line_code='';fillDays.value=[];void openPanel();void capacities()}
 async function discard(id:string){appendOperation({kind:'discard_unallocated',result_ids:[id],scope:operationScope()});await check()}
 async function stageExactHours(){
+  if(capacityBusy.value)return
   optionError.value=''
   if(chosen.value.length!==1)return
   const row=chosen.value[0]!
@@ -155,14 +160,14 @@ async function stageExactHours(){
     <template v-if="workspace.panelObject==='line_state'"><LineStatePanel :shared="shared" /><el-button @click="workspace.panelObject='day'">返回日内详情</el-button></template>
     <template v-else>
     <section v-if="selectedLineWeek" class="inspector-line-state" aria-label="所选线体周初状态"><h4>周初线体状态</h4><LineWeekState :state="selectedLineWeek" :switch-paths="switchPaths(selectedLineWeek)" /></section>
-    <section v-if="selectedLineWeek?.current_confirmation" aria-label="当前现场确认" class="inspector-line-state"><h4>当前现场确认</h4><p>Recipe {{selectedLineWeek.current_confirmation.recipe_code}} · 状态对应 {{selectedLineWeek.current_confirmation.effective_at ?? selectedLineWeek.current_confirmation.observed_at}}</p><p v-if="selectedLineWeek.current_confirmation.source">来源 {{selectedLineWeek.current_confirmation.source}} · 确认人 {{selectedLineWeek.current_confirmation.actor}} · 录入时间 {{selectedLineWeek.current_confirmation.recorded_at}}</p><p>{{selectedLineWeek.current_confirmation.valid ? '现场依据有效' : '现场依据已变化，需重新核对'}}</p></section>
+    <section v-if="selectedLineWeek?.current_confirmation" aria-label="当前现场确认" class="inspector-line-state"><h4>当前现场确认</h4><UnfinishedSwitchState v-if="selectedLineWeek.current_confirmation.state==='unfinished_switch' && selectedLineWeek.current_confirmation.unfinished_switch" :job="selectedLineWeek.current_confirmation.unfinished_switch" /><p v-else>Recipe {{selectedLineWeek.current_confirmation.recipe_code}}</p><p>状态对应 {{selectedLineWeek.current_confirmation.effective_at ?? selectedLineWeek.current_confirmation.observed_at}}</p><p v-if="selectedLineWeek.current_confirmation.source">来源 {{selectedLineWeek.current_confirmation.source}} · 确认人 {{selectedLineWeek.current_confirmation.actor}} · 录入时间 {{selectedLineWeek.current_confirmation.recorded_at}}</p><p>{{selectedLineWeek.current_confirmation.valid ? '现场依据有效' : '现场依据已变化，需重新核对'}}</p></section>
     <section v-if="completeDay" role="region" aria-label="完整日容量依据" class="inspector-line-state"><h4>{{completeDay.basis==='confirmed_remaining_day' ? '现场确认剩余工时' : '日历与工时'}}</h4><p>日历可用 <ExactHours :value="completeDay.calendar_hours" /></p><p>当前可用 <ExactHours :value="completeDay.available_hours" /></p><p>已占用 <ExactHours :value="completeDay.occupied_hours" /></p><p>剩余 <ExactHours :value="completeDay.remaining_hours" /></p><p v-if="completeDay.holiday">Holiday{{completeDay.opening_exception ? ' · 开工例外' : ''}}</p><p v-if="completeDay.maintenance_hours">保养 {{completeDay.maintenance_hours}} 小时</p><p v-if="completeDay.experiment_hours">实验 {{completeDay.experiment_hours}} 小时</p></section>
     <p v-else>{{shared.needsPreview.value ? '日容量待重新预览' : '尚未取得完整日容量，不能视为空闲'}}</p>
     <p v-if="hiddenCount(day,line)" class="hidden-production">另有 {{hiddenCount(day,line)}} 段已排生产被筛选隐藏 <el-button @click="modelFilter=''">显示该日全部机种</el-button></p>
     <table class="input-table" aria-label="日内生产顺序"><thead><tr><th>选择</th><th>顺序 / 机种</th><th>投入量</th><th>精确工时</th><th>排序</th></tr></thead><tbody><tr v-for="(row,index) in daily" :key="row.id"><td><input type="checkbox" :checked="selected.includes(row.id)" :disabled="readonly" :aria-label="`选择生产段 ${row.id}`" @change="choose(row.id)"></td><td>{{row.order}} · {{row.model_code}}</td><td>{{row.quantity}}片</td><td><ExactHours v-if="hourDisplay?.segments[row.id]" :value="hourDisplay!.segments[row.id]!" /></td><td><el-button size="small" :disabled="readonly || index===0" :aria-label="`${row.id}上移`" @click="order(row.id,-1)">上移</el-button><el-button size="small" :disabled="readonly || index===daily.length-1" :aria-label="`${row.id}下移`" @click="order(row.id,1)">下移</el-button></td></tr></tbody></table>
     <p v-if="!daily.length">当日尚无生产段。</p>
     <div v-if="capacity" role="region" aria-label="每日容量依据"><p>日可用 {{capacity.available_hours}} 小时；日末 Recipe {{capacity.ending_recipe ?? '未知'}}。完整计划切机 {{evaluation?.switch_count}} 次。</p><div class="hour-summary"><p>生产 <ExactHours :value="capacity.production_hours" /></p><p>切机 <ExactHours :value="capacity.switch_hours" /></p><p>总占用 <ExactHours :value="capacity.occupied_hours" /></p></div><table class="input-table" aria-label="所选日Recipe容量"><thead><tr><th>Recipe</th><th>汇总投入</th><th>生产工时</th><th>全日产能</th><th>精确投入上限</th><th>状态</th></tr></thead><tbody><tr v-for="value in capacity.recipes" :key="value.recipe_code"><td>{{value.recipe_code}}</td><td>{{value.quantity}}</td><td><ExactHours :value="value.hours" /></td><td>{{value.full_day_capacity}}</td><td>{{value.limit}}</td><td>{{({known:'已知',zero:'已知为零',missing:'缺失',forbidden:'明确不能生产'} as Record<string,string>)[value.capacity_state]}}</td></tr></tbody></table></div>
-    <p v-for="value in dailySwitches" :key="value.id">切机 {{value.from_recipe}} → {{value.to_recipe}}：<span v-for="(part,index) in value.allocations" :key="index">{{part.date}} 顺序{{part.order}}，<ExactHours v-if="hourDisplay?.switches[value.id]?.[index]?.hours" :value="hourDisplay!.switches[value.id]![index]!.hours" />；</span></p>
+    <p v-for="value in dailySwitches" :key="value.id"><template v-if="value.residual_record_id">原作业 {{value.id}} 剩余切机 </template><template v-else>切机 </template>{{value.from_recipe}} → {{value.to_recipe}}：<span v-for="(part,index) in value.allocations" :key="index">{{part.date}} 顺序{{part.order}}，<ExactHours v-if="hourDisplay?.switches[value.id]?.[index]?.hours" :value="hourDisplay!.switches[value.id]![index]!.hours" />；</span></p>
     <section v-if="dailyIssues.length" aria-label="所选日问题" class="inspector-issues"><h4>所选日问题</h4><p v-for="(issue,index) in dailyIssues" :key="index"><strong>{{issue.model_code||'计划'}}</strong> · {{issue.reason}}</p></section>
     <p v-if="dailyLocks.length">数量锁：<span v-for="(value,index) in dailyLocks" :key="index">{{value.date}} / {{value.line_code}} / {{value.model_code}} = {{value.quantity}}片；</span></p>
     <template v-if="shared.editor.value">
@@ -183,7 +188,7 @@ async function stageExactHours(){
         <fieldset :disabled="readonly"><legend>精确工时调整</legend>
           <p v-if="chosen.length===1">当前段 {{chosen[0]!.model_code}} 原工时 {{chosen[0]!.hours}}。</p>
           <p v-else>选择一段生产安排后可调整精确工时。</p>
-          <div class="input-toolbar"><label>精确工时 <input v-model="exactHours" aria-label="调整后精确工时" placeholder="例如 1/3 或 0.024001" :disabled="chosen.length!==1"/></label><el-button native-type="submit" type="primary" :disabled="readonly||chosen.length!==1">加入工时调整并预览</el-button></div>
+          <div class="input-toolbar"><label>精确工时 <input v-model="exactHours" aria-label="调整后精确工时" placeholder="例如 1/3 或 0.024001" :disabled="chosen.length!==1"/></label><el-button native-type="submit" type="primary" :disabled="readonly||chosen.length!==1||capacityBusy">加入工时调整并预览</el-button></div>
         </fieldset>
       </form>
 
