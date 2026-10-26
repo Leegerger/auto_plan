@@ -169,6 +169,8 @@ def test_unknown_candidate_can_be_saved_and_current_confirmation_requires_a_fres
     monday = next(row for row in checked.json()['workspace_view']['line_weeks'] if row['line_code'] == 'L')
     assert monday['state'] == 'unknown'
     assert monday['current_confirmation']['valid'] is True
+    assert monday['first_production']['from_recipe'] == 'S'
+    assert monday['first_production']['arranged'] is True
     adopted = post(client, 'adopt', fresh['server_reference'] | {'operation_id': str(uuid4())})
     assert adopted.status_code == 200, adopted.text
 
@@ -185,6 +187,10 @@ def test_current_capacity_recipe_is_used_by_manual_future_certificate_too(shared
     assert checked.json()['evaluation']['switch_count'] == 1
     assert checked.json()['plan']['switches'][0]['from_recipe'] == 'S'
     assert checked.json()['evaluation']['switches'][0]['total_hours']['exact'] == '2'
+    monday = next(row for row in checked.json()['workspace_view']['line_weeks'] if row['line_code']=='L')
+    assert monday['state'] == 'unknown'
+    assert monday['first_production']['from_recipe'] == 'S'
+    assert monday['first_production']['arranged'] is True
     assert post(client,'save',current_command(client,budget)).status_code == 200
     source = client.get('/auto_plan/api/jobs/source').json()['snapshot']
     from tests.test_plan_transactions import row
