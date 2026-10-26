@@ -2,6 +2,7 @@
 import { ref } from 'vue'
 import type { LineStateRecord } from '../lineStateTypes'
 import type { useSharedPlan } from '../useSharedPlan'
+import SwitchContinuityPanel from './SwitchContinuityPanel.vue'
 import UnfinishedSwitchState from './UnfinishedSwitchState.vue'
 const props=defineProps<{shared:ReturnType<typeof useSharedPlan>;record:LineStateRecord}>()
 const form=props.shared.workspace.residualSwitch
@@ -23,6 +24,7 @@ async function stage(){
     <h4>安排剩余切机</h4>
     <UnfinishedSwitchState v-if="record.unfinished_switch" :job="record.unfinished_switch" :observed-at="record.effective_at" />
     <p>依据 {{record.line_code}} 线体现场记录，状态对应 {{record.effective_at}}。按生产日、工时和先后顺序安排，不表示具体完成钟点。日级容量足够仍需核对连续性。</p>
+    <SwitchContinuityPanel :shared="shared" :record="record" />
     <form v-if="shared.editor.value" @submit.prevent="stage">
       <fieldset :disabled="shared.readonly.value" class="line-state-form"><legend>原作业剩余日分配</legend>
         <fieldset v-for="(row,index) in form.allocations" :key="index" class="line-state-form"><legend>分配 {{index+1}}</legend>
