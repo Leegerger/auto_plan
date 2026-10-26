@@ -210,6 +210,7 @@ watch(conflict,value=>{if(value){tab.value='actions';drawer.value=true}})
           </section>
           <section v-if="proposal.reset_preview" aria-label="重置周目标">
             <h2>每周重置影响</h2>
+            <p>未完成应补及应减均为片投入，保留原归属周；补排合格产出目标与追加填量余额分别核算。</p>
             <p class="muted">计算来源采用版 {{proposal.reset_preview.source_adoption}} · 稳定性比较采用版 {{proposal.reset_preview.comparison_adoption}} · 快照批次 {{proposal.reset_preview.snapshot.batch_id}} 修订 {{proposal.reset_preview.batch_revision}}</p>
             <div role="table" aria-label="重置周目标与未完成调整">
               <el-table :data="proposal.reset_preview.targets">

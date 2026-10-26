@@ -197,7 +197,7 @@ async function stageExactHours(){
       </aside>
     </div>
     <section v-if="shared.editor.value && unallocated.length" class="content-band" aria-label="保留的未分配投入">
-      <h3>保留的未分配投入</h3><p>余额不会自动换线、延日或舍弃；它与需求缺口分别保留。</p><table class="input-table" aria-label="未分配投入"><thead><tr><th>机种</th><th>数量</th><th>原因</th><th>处理</th></tr></thead><tbody><tr v-for="value in unallocated" :key="value.id"><td>{{value.model_code}}</td><td>{{value.quantity}}</td><td>{{value.reason}}</td><td><el-button :disabled="readonly" @click="continueInput(value)">继续选线</el-button><el-button :disabled="readonly" @click="discard(value.id)">明确舍弃</el-button></td></tr></tbody></table>
+      <h3>保留的未分配投入</h3><p>未分配量以投入片数保留，不会自动换线、延日或舍弃。补排目标按合格产出另算，重置调整保留原周归属。</p><table class="input-table" aria-label="未分配投入"><thead><tr><th>机种</th><th>未分配投入</th><th>来源</th><th>原因</th><th>处理</th></tr></thead><tbody><tr v-for="value in unallocated" :key="value.id"><td>{{value.model_code}}</td><td>{{value.quantity}} 片投入</td><td>{{value.line_code}} · {{value.start_date}} 至 {{value.end_date}}</td><td>{{value.reason}}</td><td><el-button :disabled="readonly" @click="continueInput(value)">继续选线</el-button><el-button :disabled="readonly" @click="discard(value.id)">明确舍弃</el-button></td></tr></tbody></table>
     </section>
   </section>
 </template>
