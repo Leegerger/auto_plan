@@ -47,10 +47,12 @@ def _unfinished_jobs(context, line, start, end):
     job = record.unfinished_switch
     today = production_date(context.time.as_of)
     arranged = [switch for switch in context.plan.switches
-                if switch.id == job.job_id and switch.residual_record_id == record.id]
+                if switch.id == job.job_id]
     allocations = [allocation for switch in arranged for allocation in switch.allocations]
     future = [allocation for allocation in allocations if allocation.date >= today]
-    if future and len(future) == len(allocations) and all(allocation.date < start for allocation in future):
+    current = all(switch.residual_record_id == record.id and switch.line_code == line
+                  and (switch.from_recipe, switch.to_recipe) == (job.from_recipe, job.to_recipe) for switch in arranged)
+    if current and future and len(future) == len(allocations) and all(allocation.date < start for allocation in future):
         if sum((Fraction(allocation.hours) for allocation in future), Fraction(0)) == Fraction(job.remaining_hours):
             return []
         raise ValueError('已开始切机的范围外分配尚未完成，请扩大日期范围')
@@ -59,8 +61,17 @@ def _unfinished_jobs(context, line, start, end):
     return [record]
 
 
-def _state_before(plan,index,line,day,states=None):
-    states=states if states is not None else analyze_recipe_states(plan,index)
+def _certificate_anchors(context, start, unfinished):
+    """Incoming projection already incorporates evidence before this range."""
+    from .production_time import production_cutoff
+    selected = {record.id for record in unfinished}
+    return [record for record in _confirmed_states(context)
+            if record.id in selected or getattr(record, 'unfinished_switch', None) is None
+            and record.effective_at >= production_cutoff(start)]
+
+
+def _state_before(plan,index,line,day,states=None,*,confirmed_states=(),window_start=None,as_of=None):
+    states=states if states is not None else analyze_recipe_states(plan,index,confirmed_states=confirmed_states,window_start=window_start,as_of=as_of)
     if (day,line) in states.day_starts:
         return states.day_starts[day,line]
     endings=[(production_day,state) for (production_day,production_line),state in states.endings.items()
@@ -104,7 +115,7 @@ def _bounded_certificate(plan,context,scope):
     # rows and nested allocations are only read, including fixed outside rows.
     output=plan.model_copy()
     original=context.plan
-    original_states=analyze_recipe_states(original,index,confirmed_states=_confirmed_states(context),window_start=context.time.window_start)
+    original_states=analyze_recipe_states(original,index,confirmed_states=_confirmed_states(context),window_start=context.time.window_start,as_of=context.time.as_of)
     original_switch_documents={switch.model_dump_json() for switch in original.switches}
     for line in scope.line_codes:
         if line not in index.lines: raise ValueError('线体编码不存在')
@@ -114,17 +125,18 @@ def _bounded_certificate(plan,context,scope):
         incoming=_state_before(original,index,line,scope.start_date,original_states)
         sources=[SourceSegment.model_validate(r.model_dump(exclude={'hours'})) for r in inside]
         unfinished = _unfinished_jobs(context, line, scope.start_date, scope.end_date)
+        anchors = _certificate_anchors(context, scope.start_date, unfinished)
         from .production_time import production_date
         try:
             certificate=construct_hour_certificate(context.inputs,sources,[InitialRecipeState(line_code=line,recipe_code=incoming)],window_start=scope.start_date,
-                confirmed_states=_confirmed_states(context),unfinished_jobs=unfinished,end_date=scope.end_date,unfinished_start=production_date(context.time.as_of))
+                confirmed_states=anchors,unfinished_jobs=unfinished,end_date=scope.end_date,unfinished_start=production_date(context.time.as_of))
         except CertificateError as error:
             # Pending drafts may contain an unrelated impossible day. Try the
             # actual changed block while keeping every other event exact.
             certificate=_local_certificate(output,original,context,index,scope,line,incoming,inside)
             if certificate is None:
                 raise CapacityWitnessError('；'.join(f'{i.date or ""} {i.line_code or ""} {i.reason}' for i in error.issues)) from None
-        outgoing=_state_before(certificate,index,line,scope.end_date+timedelta(days=1))
+        outgoing=_state_before(certificate,index,line,scope.end_date+timedelta(days=1),confirmed_states=anchors,window_start=scope.start_date,as_of=context.time.as_of)
         old_outgoing=_state_before(original,index,line,scope.end_date+timedelta(days=1),original_states)
         outside_later=any(r.line_code==line and r.date>scope.end_date and r.quantity for r in original.segments) or any(s.line_code==line and any(a.date>scope.end_date for a in s.allocations) for s in original.switches)
         if outside_later and not _outgoing_compatible(original,index,line,scope.end_date,outgoing,old_outgoing):
@@ -167,8 +179,9 @@ def _local_certificate(output,original,context,index,scope,line,incoming,inside)
     sources=[SourceSegment.model_validate(r.model_dump(exclude={'hours'})) for r in inside if first<=r.date<=last]
     try:
         from .production_time import production_date
-        local=construct_hour_certificate(context.inputs,sources,[InitialRecipeState(line_code=line,recipe_code=_state_before(original,index,line,first,analyze_recipe_states(original,index,confirmed_states=_confirmed_states(context),window_start=context.time.window_start)))],window_start=first,
-            confirmed_states=_confirmed_states(context),unfinished_jobs=_unfinished_jobs(context,line,first,last),end_date=last,unfinished_start=production_date(context.time.as_of))
+        unfinished = _unfinished_jobs(context,line,first,last)
+        local=construct_hour_certificate(context.inputs,sources,[InitialRecipeState(line_code=line,recipe_code=_state_before(original,index,line,first,analyze_recipe_states(original,index,confirmed_states=_confirmed_states(context),window_start=context.time.window_start,as_of=context.time.as_of)))],window_start=first,
+            confirmed_states=_certificate_anchors(context,first,unfinished),unfinished_jobs=unfinished,end_date=last,unfinished_start=production_date(context.time.as_of))
     except CertificateError: return None
     preserved=[s for s in original.switches if s.line_code==line and all(scope.start_date<=a.date<=scope.end_date for a in s.allocations) and not any(first<=a.date<=last for a in s.allocations)]
     certificate=local.model_copy(update={'segments':[r for r in inside if not first<=r.date<=last]+local.segments,
@@ -180,7 +193,7 @@ def _local_certificate(output,original,context,index,scope,line,incoming,inside)
         def problem(code,reason,**where):
             row=where.get('segment');switch=where.get('switch')
             problems.add((code,str(where.get('day') or (row.date if row else '')),where.get('line') or (row.line_code if row else switch.line_code if switch else ''),row.id if row else ''))
-        analyze_recipe_states(plan,index,problem,confirmed_states=_confirmed_states(context),window_start=context.time.window_start)
+        analyze_recipe_states(plan,index,problem,confirmed_states=_confirmed_states(context),window_start=context.time.window_start,as_of=context.time.as_of)
         return problems
     if recipe_problems(combined)-recipe_problems(original): return None
     return certificate

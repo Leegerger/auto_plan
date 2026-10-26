@@ -207,3 +207,50 @@ def test_standalone_current_day_remainder_cannot_omit_its_declared_witness(share
     assert result['plan']['switches'][0]['allocations'][0]['date'] == '2026-10-14'
     assert result['evaluation']['capacity_valid'] is False
     assert any(issue['code'] == 'current_day_witness' for issue in result['evaluation']['issues'])
+
+
+def test_progress_correction_does_not_duplicate_stale_actual_job_outside_scope(shared_client):
+    client, _, _ = shared_client
+    assert post(client, 'save', current_command(client, unfinished())).status_code == 200
+    record = head(client)['context']['line_states']['records'][0]
+    residual = {'kind': 'patch_plan', 'switches': [{
+        'id': 'actual-r-s', 'line_code': 'L', 'from_recipe': 'R', 'to_recipe': 'S', 'residual_record_id': record['id'],
+        'allocations': [{'date': '2026-10-15', 'order': 0, 'hours': '4'}]}]}
+    assert post(client, 'save', current_command(client, residual)).status_code == 200
+    correction = unfinished()
+    correction['rows'][0].update(expected_record_id=record['id'], source='交班来源更正')
+    correction['reason'] = '复核登记来源'
+    assert post(client, 'save', current_command(client, correction)).status_code == 200
+    before = head(client)
+
+    checked = preview(client, fill(quantity=100, day='2026-10-16'))
+
+    assert checked.status_code == 422, checked.text
+    assert '扩大' in checked.json()['detail']
+    assert head(client) == before
+
+
+def test_append_preserves_the_actual_job_and_later_switch_outside_scope(shared_client):
+    client, _, inputs = shared_client
+    standard_twelve(inputs)
+    assert post(client, 'save', current_command(client, unfinished())).status_code == 200
+    record = head(client)['context']['line_states']['records'][0]
+    residual = {'id': 'actual-r-s', 'line_code': 'L', 'from_recipe': 'R', 'to_recipe': 'S', 'residual_record_id': record['id'],
+                'allocations': [{'date': '2026-10-15', 'order': 0, 'hours': '4'}]}
+    later = {'id': 'later-return', 'line_code': 'L', 'from_recipe': 'S', 'to_recipe': 'R',
+             'allocations': [{'date': '2026-10-16', 'order': 0, 'hours': '2'}]}
+    outside = {'id': 'outside', 'date': '2026-10-17', 'line_code': 'L', 'order': 0, 'model_code': 'M', 'quantity': 100, 'hours': '3'}
+    initial = {'kind': 'replace_plan', 'plan': {'switches': [residual, later], 'segments': [outside]}}
+    assert post(client, 'save', current_command(client, initial)).status_code == 200
+    before = head(client)
+
+    checked = preview(client, fill(quantity=100))
+
+    assert checked.status_code == 200, checked.text
+    result = checked.json()
+    assert next(s for s in result['plan']['switches'] if s['id'] == 'later-return') == next(s for s in before['plan']['switches'] if s['id'] == 'later-return')
+    assert next(s for s in result['plan']['segments'] if s['id'] == 'outside') == outside
+    actual, = [s for s in result['plan']['switches'] if s.get('residual_record_id') == record['id']]
+    assert actual['id'] == 'actual-r-s'
+    assert [allocation['hours'] for allocation in actual['allocations']] == ['4']
+    assert result['evaluation']['capacity_valid'] is True

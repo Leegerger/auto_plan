@@ -300,13 +300,14 @@ def execution_certificate(plan,context,scope):
             amount=row.quantity-(assigned.get(row.id,0) if row.date==today else 0)
             if amount: sources.append(SourceSegment.model_validate(row.model_dump(exclude={'hours'})|{'quantity':amount}))
         try:
+            unfinished = _unfinished_jobs(line_context,line,today,scope.end_date)
             witness=construct_hour_certificate(context.inputs,sources,[InitialRecipeState(line_code=line,recipe_code=confirmation.current_recipe)],window_start=today,
-                day_limits={(today,line):Fraction(confirmation.remaining_hours)},unfinished_jobs=_unfinished_jobs(line_context,line,today,scope.end_date),
+                day_limits={(today,line):Fraction(confirmation.remaining_hours)},unfinished_jobs=unfinished,
                 end_date=scope.end_date,unfinished_start=today)
         except CertificateError as error:
             raise CapacityWitnessError('；'.join(i.reason for i in error.issues)) from None
-        ending=_state_before(witness,index,line,scope.end_date+timedelta(days=1))
-        old_ending=_state_before(context.plan,index,line,scope.end_date+timedelta(days=1))
+        ending=_state_before(witness,index,line,scope.end_date+timedelta(days=1),confirmed_states=unfinished,window_start=today,as_of=context.time.as_of)
+        old_ending=_state_before(context.plan,index,line,scope.end_date+timedelta(days=1),confirmed_states=_confirmed_states(context),window_start=context.time.window_start,as_of=context.time.as_of)
         if not _outgoing_compatible(context.plan,index,line,scope.end_date,ending,old_ending):
             raise ValueError('调整会改变范围外 Recipe 衔接，请扩大范围')
         switches=[s for s in result.switches if not(s.line_code==line and all(today<=a.date<=scope.end_date for a in s.allocations))]
