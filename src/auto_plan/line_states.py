@@ -53,6 +53,9 @@ def confirm_line_states(plan, command, context):
             raise ValueError('不能确认未来时点的现场状态')
         if row.unfinished_switch is not None and row.unfinished_switch.started_at > row.effective_at:
             raise ValueError('原切机开始时点不能晚于状态对应时点')
+        if row.unfinished_switch is not None and any(record.line_code != row.line_code and record.unfinished_switch is not None
+                and record.unfinished_switch.job_id == row.unfinished_switch.job_id for record in records.values()):
+            raise ValueError('原切机作业不能改到另一线体，请核对实际作业关联')
         key = row.line_code, row.effective_at
         old = records.get(key)
         if old and (old.state, old.recipe_code, old.unfinished_switch, old.source) == (row.state, row.recipe_code, row.unfinished_switch, row.source):
@@ -61,6 +64,15 @@ def confirm_line_states(plan, command, context):
             if value.line_code == row.line_code and value.confirmed_at == row.effective_at and value.current_recipe != row.recipe_code), None)
         if prior_capacity is not None and (not command.reason or not command.reason.strip()):
             raise ValueError('更正同一时点已确认的剩余工时 Recipe 必须填写现场状态更正原因')
+        previous = max((record for record in records.values() if record.line_code == row.line_code and record.effective_at <= row.effective_at),
+                       key=lambda record: (record.effective_at, record.recorded_at), default=None)
+        previous_job = previous.unfinished_switch if previous is not None else None
+        next_job = row.unfinished_switch
+        reconcile = previous_job is not None and (next_job is None or
+            (previous_job.job_id, previous_job.started_at, previous_job.from_recipe, previous_job.to_recipe) !=
+            (next_job.job_id, next_job.started_at, next_job.from_recipe, next_job.to_recipe))
+        if reconcile and (not command.reason or not command.reason.strip()):
+            raise ValueError('已经开始的实际切机不能自动取消或改目标，请填写现场核对及更正原因')
         if old:
             if row.expected_record_id != old.id:
                 raise ValueError('已确认状态已变化，请重新读取并核对更正基准')
@@ -75,6 +87,8 @@ def confirm_line_states(plan, command, context):
         change = {'before': old.model_dump(mode='json') if old else None, 'after': record.model_dump(mode='json')}
         if prior_capacity is not None:
             change['previous_capacity'] = prior_capacity.model_dump(mode='json')
+        if reconcile:
+            change['previous_unfinished'] = previous.model_dump(mode='json')
         changes.append(change)
         records[key] = record
     resolved=resolved_reviews(records.values(),context.issues)
@@ -290,6 +304,20 @@ def protect_initial_hints(before, after, snapshot):
         if records and max(records, key=lambda record: (record.effective_at,getattr(record,'priority',1),record.recorded_at)).recipe_code != row.recipe_code:
             from .plans import PlanProblem
             raise PlanProblem(409, '普通计划修改不能覆盖线体现场依据，请通过状态更正并预览影响', line_code=row.line_code)
+
+
+def protect_unfinished_jobs(before, after, snapshot):
+    originals = {row.id: row for row in before.switches}
+    for record in active_unfinished_jobs(snapshot).values():
+        job = record.unfinished_switch
+        for switch in after.switches:
+            if originals.get(switch.id) == switch:
+                continue
+            if switch.id != job.job_id and switch.residual_record_id != record.id:
+                continue
+            if (switch.id, switch.line_code, switch.from_recipe, switch.to_recipe, switch.residual_record_id) != (job.job_id, record.line_code, job.from_recipe, job.to_recipe, record.id):
+                from .plans import PlanProblem
+                raise PlanProblem(409, '普通计划修改不能重写原切机作业及目标，请通过现场状态更正并预览影响', line_code=record.line_code)
 
 
 def resolved_reviews(records, issues):

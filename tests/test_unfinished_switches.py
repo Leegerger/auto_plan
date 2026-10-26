@@ -94,7 +94,7 @@ def test_missing_or_partial_remainder_never_projects_target_ready_after_prematur
     client, _, _ = shared_client
     assert post(client, 'save', current_command(client, unfinished())).status_code == 200
     record = head(client)['context']['line_states']['records'][0]
-    for switches in ([], [residual(record['id'], hours='2')], [residual('forged-record')]):
+    for switches in ([], [residual(record['id'], hours='2')], [residual('forged-record', id='forged-job')]):
         plan = patch(row('too-soon', model='P') | {'order': 1})
         plan['switches'] = switches
         checked = preview(client, plan)
@@ -106,3 +106,51 @@ def test_missing_or_partial_remainder_never_projects_target_ready_after_prematur
         assert future['recipe_code'] is None
         assert future['state'] == 'unfinished_switch'
         assert future['unfinished_switch']['job_id'] == 'actual-r-s'
+
+
+def test_actual_job_reconciliation_requires_reason_and_progress_correction_keeps_audit(shared_client):
+    client, _, _ = shared_client
+    assert post(client, 'save', current_command(client, unfinished())).status_code == 200
+    before = head(client)
+    original = before['context']['line_states']['records'][0]
+    ready = {'kind': 'confirm_line_states', 'rows': [{'line_code': 'L', 'effective_at': '2026-10-14T08:00:00+08:00',
+             'recipe_code': 'S', 'source': '现场完成点检'}]}
+    assert preview(client, ready).status_code == 422
+    changed_target = unfinished(job_id='replacement-job', from_recipe='S', to_recipe='R')
+    changed_target['rows'][0]['effective_at'] = '2026-10-14T08:00:00+08:00'
+    assert preview(client, changed_target).status_code == 422
+    assert head(client) == before
+    corrected = unfinished(remaining_hours='2')
+    corrected['rows'][0]['expected_record_id'] = original['id']
+    corrected['reason'] = '复核剩余作业登记错误'
+    assert post(client, 'save', current_command(client, corrected)).status_code == 200
+    current = head(client)
+    audit = current['context']['line_states']['audit'][-1]
+    assert audit['changes'][0]['before']['unfinished_switch']['remaining_hours'] == '4'
+    assert audit['changes'][0]['after']['unfinished_switch']['remaining_hours'] == '2'
+    assert audit['reason'] == corrected['reason']
+    assert client.get(f"/auto_plan/api/plans/revisions/{before['revision']}").json()['snapshot']['line_states']['records'][0]['unfinished_switch']['remaining_hours'] == '4'
+    ready['reason'] = '现场确认原切机已经实际完成'
+    assert post(client, 'save', current_command(client, ready)).status_code == 200
+    audit = head(client)['context']['line_states']['audit'][-1]
+    assert audit['changes'][0]['previous_unfinished']['unfinished_switch']['job_id'] == 'actual-r-s'
+    assert preview(client, patch(row('ready', model='P'))).json()['evaluation']['executable'] is True
+
+
+def test_plan_replacement_cannot_relabel_the_original_actual_job(shared_client):
+    client, _, _ = shared_client
+    assert post(client, 'save', current_command(client, unfinished())).status_code == 200
+    record = head(client)['context']['line_states']['records'][0]
+    forged = residual(record['id'], from_recipe='S', to_recipe='R')
+    operation = {'kind': 'replace_plan', 'plan': {'switches': [forged]}}
+    checked = preview(client, operation)
+    assert checked.status_code == 409, checked.status_code
+    assert '原切机' in checked.json()['detail']
+    ordinary = residual(record['id'])
+    ordinary.pop('residual_record_id')
+    assert preview(client, {'kind': 'replace_plan', 'plan': {'switches': [ordinary]}}).status_code == 409
+    assert post(client, 'save', current_command(client, {'kind': 'replace_plan', 'plan': {}})).status_code == 200
+    current = head(client)
+    assert current['context']['line_states']['records'][0]['unfinished_switch']['to_recipe'] == 'S'
+    assert current['evaluation']['switch_count'] == 1
+    assert preview(client, patch(row('unarranged', model='P'))).json()['evaluation']['capacity_valid'] is False

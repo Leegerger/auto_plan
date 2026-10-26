@@ -237,8 +237,9 @@ def context_effect_keys(context,updates,snapshot=None):
 
 
 def protect(before, after, snapshot, *, allow_past_input=False):
-    from .line_states import protect_initial_hints
+    from .line_states import protect_initial_hints, protect_unfinished_jobs
     protect_initial_hints(before,after,snapshot)
+    protect_unfinished_jobs(before,after,snapshot)
     from .execution_rules import executed_by_segment
     from .production_time import production_date
     old,new=cells(before),cells(after)
