@@ -289,8 +289,12 @@ def test_preview_remains_editor_only_and_critical_missing_yields_are_localized(i
     data['inputs']['parameters']['model_yields'] = []
     result = preview(inputs_client, data)
     assert result['computation_complete'] is False
-    assert {'missing_line_yield', 'missing_model_yield'} <= {row['code'] for row in result['issues']}
-    assert all(row['date'] == '2026-10-14' and row['line_code'] == 'L' and row['model_code'] in {'M', 'N'} for row in result['issues'])
+    missing_yields = [row for row in result['issues'] if row['code'] in {'missing_line_yield', 'missing_model_yield'}]
+    assert {row['code'] for row in missing_yields} == {'missing_line_yield', 'missing_model_yield'}
+    assert all(row['date'] == '2026-10-14' and row['line_code'] == 'L' and row['model_code'] in {'M', 'N'} for row in missing_yields)
+    assert {(row['code'], row['line_code'], row['date'], row['severity']) for row in result['adoption_conditions']} == {
+        ('initial_state_unknown', 'L', '2026-10-14', 'warning')}
+    assert result['executable'] is False
     inputs_client.post('/auto_plan/api/auth/logout')
     assert inputs_client.post('/auto_plan/api/plans/evaluate', json={'snapshot': data}).status_code == 401
 
