@@ -34,7 +34,7 @@ function continueGoal(goal:DemandGoal){
   view.model_code=goal.model_code;view.week=goal.demand_week
   trial.goalId=goal.id;trial.mode='on_time';trial.modelCode=goal.model_code;trial.demandWeek=goal.demand_week;trial.targetOutput=goal.remaining_output_target
   trial.actionId=crypto.randomUUID();trial.result=null;trial.requestKey='';trial.notice='';trial.lineCode=''
-  trial.startDate ||= props.shared.workspace.scope.start_date;trial.endDate ||= props.shared.workspace.scope.end_date;trial.open=true
+  trial.open=true
 }
 function output(value:number|null){return props.shared.needsPreview.value ? '待重新预览' : value===null ? '待完成计算' : `${value} 片合格产出`}
 

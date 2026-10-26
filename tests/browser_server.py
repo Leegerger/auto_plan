@@ -91,6 +91,16 @@ if __name__ == '__main__':
                 data['masters']['lines'].append({'code':'B','name':'零产能线','active':True})
                 data['parameters']['capacities'] += [row|{'line_code':'B','pieces':0} for row in list(data['parameters']['capacities']) if row['line_code']=='L']
                 data['business'] = {'demands':[{'model_code':model,'week':'2026-10-12','quantity':1000} for model in ('M','N')]}
+            if os.getenv('AUTO_PLAN_BROWSER_DEMAND_CONTINUATION_FIXTURE') == '1':
+                data['masters']['lines'].append({'code':'B','name':'继续补排线','active':True})
+                data['parameters']['capacities'] = [row|{'pieces':600} for row in data['parameters']['capacities']]
+                data['parameters']['capacities'] += [row|{'line_code':'B','pieces':1000} for row in list(data['parameters']['capacities'])]
+                for category in ('capacities','line_yields','model_yields'):
+                    data['parameters'][category] += [row|{'month':'2026-11'} for row in list(data['parameters'][category])]
+                for row in data['parameters']['line_yields']:
+                    if row['model_code']=='M' and row['month']=='2026-11':
+                        row['percent']='80'
+                data['business'] = {'demands':[{'model_code':'M','week':'2026-11-02','quantity':1000}]}
             inputs.versions[1] = InputSnapshot.model_validate(data)
             inputs.version = 1
             plans = MemoryPlanStore(inputs)
@@ -106,7 +116,7 @@ if __name__ == '__main__':
                     {'id':'confirmed-late','date':'2026-10-20','line_code':'L','order':0,'model_code':'N','quantity':100,'hours':'3'}]}
             if os.getenv('AUTO_PLAN_BROWSER_UNFINISHED_SWITCH_FIXTURE') == '1':
                 plan = {'segments': []}
-            if os.getenv('AUTO_PLAN_BROWSER_DEMAND_TRIAL_FIXTURE') == '1':
+            if os.getenv('AUTO_PLAN_BROWSER_DEMAND_TRIAL_FIXTURE') == '1' or os.getenv('AUTO_PLAN_BROWSER_DEMAND_CONTINUATION_FIXTURE') == '1':
                 plan = {'segments':[]}
             initial_operations=[]
             if os.getenv('AUTO_PLAN_BROWSER_MATRIX_FIXTURE') == '1':

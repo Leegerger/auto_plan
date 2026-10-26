@@ -295,6 +295,12 @@ def test_existing_historical_goals_reactivated_by_yield_change_can_continue_with
     selected, = result['preview']['evaluation']['weekly_results']
     assert (selected['attributed'], selected['pending_material']) == (1000, 1000)
     assert sorted(row['quantity'] for row in result['preview']['plan']['segments']) == [200, 800, 8991]
+    tampered = deepcopy(result['operation'])
+    tampered['goal']['requested_output'] += 1
+    tampered['goal']['desired_attributed'] += 1
+    rejected = preview(client, tampered)
+    assert rejected.status_code == 422, rejected.text
+    assert head(client) == before
     assert post(client, 'save', current_command(client, result['operation'])).status_code == 200
     repeated = trial(client, goal_id=second_id, **fields)
     assert repeated.status_code == 200, repeated.text
