@@ -373,6 +373,8 @@ class PlanService:
             raise PlanProblem(409,'合并后的关联范围已变化',revision=unit.revision,conflicts=sorted(effects&changed))
         protect(unit.plan,merged,merged_snapshot,allow_past_input=initial_import)
         result=self._evaluation_json(merged_snapshot)
+        from .workspace_view import workspace_view
+        matrix=workspace_view(merged_snapshot,result)
         return {'revision':unit.revision,'input_version':unit.inputs.input_version,'latest_adoption':unit.adoption,
                 'context':merged_context.model_dump(mode='json'),
                 'execution_segments':execution_segments(merged,merged_snapshot.execution),
@@ -382,7 +384,7 @@ class PlanService:
                 'reset_reference':replayed.lineage.get('reset_reference'),
                 'context_changes':differences(unit.context.model_dump(mode='json'),merged_context.model_dump(mode='json')),
                 'plan':merged.model_dump(mode='json'),'snapshot':merged_snapshot.model_dump(mode='json'),'hour_display':plan_hour_display(merged),
-                'evaluation':result,'effects':[list(k) for k in sorted(effects)],
+                'workspace_view':matrix,'evaluation':result,'effects':[list(k) for k in sorted(effects)],
                 'changes':plan_differences(unit.plan.model_dump(mode='json'),merged.model_dump(mode='json')),
                 'unallocated':replayed.unallocated, 'operation_issues':replayed.issues,
                 'adoption_blocked':any(issue.get('blocks_adoption',issue.get('severity')=='error') for issue in replayed.issues), 'merged':command.base_revision!=unit.revision,
@@ -466,7 +468,9 @@ class PlanService:
             record=unit.get_planning_revision(unit.revision)
             from .reset_operations import refresh_lineage
             lineage=refresh_lineage(record.get('lineage',{})|unit.context.lineage,unit.plan,snapshot)
-            return {'revision':unit.revision,'latest_adoption':unit.adoption,'input_version':unit.inputs.input_version,
+            evaluation=self._evaluation_json(snapshot)
+            from .workspace_view import workspace_view
+            return {'workspace_view':workspace_view(snapshot,evaluation),'revision':unit.revision,'latest_adoption':unit.adoption,'input_version':unit.inputs.input_version,
                     'pending':record.get('pending',False), 'kind':record.get('kind','empty'),
                     'unallocated':record.get('unallocated',[]), 'operation_issues':record.get('operation_issues',[]),
                     'lineage':lineage, 'coverage':record.get('coverage',[]),
@@ -478,7 +482,7 @@ class PlanService:
                     'time':snapshot.time.model_dump(mode='json'),'hour_display':plan_hour_display(unit.plan),
                     'weeks': [{'number':week+1,'label':week_label(snapshot.time.window_start+timedelta(days=week*7)),'start_date':(snapshot.time.window_start+timedelta(days=week*7)).isoformat(),
                         'dates':[(snapshot.time.window_start+timedelta(days=week*7+day)).isoformat() for day in range(7)]} for week in range(15)],
-                    'evaluation':self._evaluation_json(snapshot)}
+                    'evaluation':evaluation}
         return self.store.read(actor,current)
 
     def compare(self, base_revision, input_version, actor):

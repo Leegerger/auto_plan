@@ -7,13 +7,14 @@ import type { OutputEvaluation } from './outputTypes'
 import { draftLease, draftStorage, validatedDraft } from './localDrafts'
 import type { LocalRecord, Outstanding, RecoveryRecord } from './localDrafts'
 import type { PlanningContext } from './stabilityTypes'
+import type { WorkspaceView } from './workspaceTypes'
 export interface Segment { id: string; date: string; line_code: string; model_code: string; order: number; quantity: number; hours: string }
 export interface BusinessOperation {kind:string; action_id?:string; [key:string]:unknown}
 export interface Plan {current_day_witnesses?:Record<string,unknown>[];segments:Segment[]; switches:{id:string;line_code:string;from_recipe:string;to_recipe:string;allocations:{date:string;order:number;hours:string;idle_hours:string}[]}[];ordinary_idle:{date:string;line_code:string;hours:string}[]}
 export interface Unallocated {id:string;model_code:string;quantity:number;reason:string; [key:string]:unknown}
 interface HourDisplay {segments:Record<string,{exact:string;display:string}>;switches:Record<string,{hours:{exact:string;display:string};idle_hours:{exact:string;display:string}}[]>}
-interface Head {time:{as_of:string;window_start:string};reset_preview:ResetPreview|null;execution_segments:{segment_id:string;executed:number;remaining:number}[];execution_surplus:ExecutionCell[];hour_display:HourDisplay; pending: boolean; kind: string; revision: number; input_version: number; latest_adoption: number; plan: Plan; evaluation: OutputEvaluation; unallocated:Unallocated[]; operation_issues:Record<string,unknown>[]; weeks:{number:number;label:string;start_date:string;dates:string[]}[];context:PlanningContext }
-interface PreviewResult {revision:number;input_version:number;latest_adoption:number;reset_reference?:{effective_adoption:number;effective_revision:number}|null;adoption_blocked:boolean;reset_preview:ResetPreview|null;execution_segments:{segment_id:string;executed:number;remaining:number}[];execution_surplus:ExecutionCell[];context:PlanningContext;context_changes:Record<string,unknown>[];hour_display:HourDisplay;plan:Plan;evaluation:OutputEvaluation;changes:Record<string,unknown>[];effects:unknown[][];unallocated:Unallocated[];operation_issues:Record<string,unknown>[]}
+interface Head {workspace_view?:WorkspaceView;time:{as_of:string;window_start:string};reset_preview:ResetPreview|null;execution_segments:{segment_id:string;executed:number;remaining:number}[];execution_surplus:ExecutionCell[];hour_display:HourDisplay; pending: boolean; kind: string; revision: number; input_version: number; latest_adoption: number; plan: Plan; evaluation: OutputEvaluation; unallocated:Unallocated[]; operation_issues:Record<string,unknown>[]; weeks:{number:number;label:string;start_date:string;dates:string[]}[];context:PlanningContext }
+interface PreviewResult {workspace_view?:WorkspaceView;revision:number;input_version:number;latest_adoption:number;reset_reference?:{effective_adoption:number;effective_revision:number}|null;adoption_blocked:boolean;reset_preview:ResetPreview|null;execution_segments:{segment_id:string;executed:number;remaining:number}[];execution_surplus:ExecutionCell[];context:PlanningContext;context_changes:Record<string,unknown>[];hour_display:HourDisplay;plan:Plan;evaluation:OutputEvaluation;changes:Record<string,unknown>[];effects:unknown[][];unallocated:Unallocated[];operation_issues:Record<string,unknown>[]}
 export interface Draft {data_version:number;base_revision:number;input_version:number;latest_adoption:number;operations:BusinessOperation[];selected_actions?:string[]}
 export interface ResetParticipation {source_adoption:number;model_codes:string[]}
 interface Head {reset_participants:{current:ResetParticipation;correction:ResetParticipation|null}}
@@ -38,6 +39,7 @@ const effective=computed(()=>proposal.value ?? head.value)
 const needsPreview=computed(()=>!proposal.value && (previewInvalidated.value || operations.value.length>0))
 const evaluation=computed(()=>needsPreview.value ? null : effective.value?.evaluation ?? null)
 const context=computed(()=>effective.value?.context)
+const matrixView=computed(()=>needsPreview.value ? null : effective.value?.workspace_view ?? null)
 const preview=computed(()=>proposal.value?.evaluation ?? null), plan=computed(()=>effective.value?.plan), rows=computed(()=>plan.value?.segments ?? [])
 const hourDisplay=computed(()=>effective.value?.hour_display)
 const unallocated=computed(()=>effective.value?.unallocated ?? [])
@@ -301,7 +303,7 @@ function localDraft() {
   if (operations.value.some(operation=>operation.kind==='replace_plan')) throw new Error('本机临时稿须保存操作，不可保存整份计划')
   return {data_version:1,...draft,operations:JSON.parse(JSON.stringify(operations.value)) as BusinessOperation[],selected_actions:[...selectedActions.value]}
 }
-return {head,workspace,effective,evaluation,context,effectiveBasis,evaluationState,needsPreview,sourceNotice,rows,plan,hourDisplay,proposal,unallocated,selectedActions,draftBase,undo,restoreDraft,preview,busy,unknown,pending,message,error,differences,conflict,outstanding,voided,
+return {head,workspace,matrixView,effective,evaluation,context,effectiveBasis,evaluationState,needsPreview,sourceNotice,rows,plan,hourDisplay,proposal,unallocated,selectedActions,draftBase,undo,restoreDraft,preview,busy,unknown,pending,message,error,differences,conflict,outstanding,voided,
   editor,readonly,load,command,changed,check,submit,verify,appendOperation,operations,localDraft,
   localDraftId,localState,localWarning,localBytes,recoveryRecords,recoveryCandidate,recoveryDifferences,ownsDraft,leaseIssue,
   recoverLocal,discardLocal,retryLocal,newLocalDraft,selectLocalDraft,exportLocal,takeOver,retryComparison,recoveryChanges,recoveryInputChanges,recoveryCompareError,

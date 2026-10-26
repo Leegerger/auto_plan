@@ -1,6 +1,6 @@
 """One Recipe event interpretation for validation and transaction scope."""
 from collections import defaultdict
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date
 from fractions import Fraction
 from .input_lookup import InputIndex
@@ -8,13 +8,25 @@ from .plan_models import Plan
 
 
 @dataclass
+class RecipeTransition:
+    date: date
+    order: int
+    kind: str
+    identity: str
+    entering_recipe: str | None
+    ending_recipe: str | None
+    pending_switch: str | None
+
+
+@dataclass
 class RecipeStates:
     initial_states: dict[str, str | None]
     endings: dict[tuple[date, str], str | None]
     lines: set[str]
+    transitions: dict[str, list[RecipeTransition]] = field(default_factory=dict)
 
 
-def analyze_recipe_states(plan: Plan, index: InputIndex, problem=None) -> RecipeStates:
+def analyze_recipe_states(plan: Plan, index: InputIndex, problem=None, *, include_transitions=False) -> RecipeStates:
     """Walk ordered events, retaining the state across every empty date.
 
     A scope comparison needs these states without output attribution or capacity
@@ -32,12 +44,14 @@ def analyze_recipe_states(plan: Plan, index: InputIndex, problem=None) -> Recipe
         for position, allocation in enumerate(sorted(switch.allocations, key=lambda row: (row.date, row.order))):
             events[switch.line_code].append((allocation.date, allocation.order, 'switch', switch, position))
     endings = {}
+    transitions = defaultdict(list)
     all_lines = set(events) | set(initial_states) | {row.line_code for row in plan.ordinary_idle}
     for line in sorted(all_lines):
         state = initial_states.get(line)
         pending = None
         seen_orders = set()
         for day, order, kind, item, position in sorted(events[line], key=lambda event: (event[0], event[1], event[2])):
+            entering_recipe = state
             if (day, order) in seen_orders:
                 problem('duplicate_order', '同日线体生产与切机的顺序编号必须唯一', day=day, line=line)
             seen_orders.add((day, order))
@@ -63,4 +77,6 @@ def analyze_recipe_states(plan: Plan, index: InputIndex, problem=None) -> Recipe
                     state = item.to_recipe
                     pending = None
             endings[(day, line)] = state
-    return RecipeStates(initial_states, endings, all_lines)
+            if include_transitions:
+                transitions[line].append(RecipeTransition(day, order, kind, item.id, entering_recipe, state, pending))
+    return RecipeStates(initial_states, endings, all_lines, dict(transitions))

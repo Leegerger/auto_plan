@@ -71,6 +71,14 @@ if __name__ == '__main__':
                     'confirmations': [
                         {'model_code':'M','week':'2026-10-19','kind':'material','batch_id':'SOME','status':'allowed','date':'2026-10-15','quantity':400},
                         {'model_code':'N','week':'2026-10-12','kind':'shipping','batch_id':'LATE-OK','status':'allowed','date':'2026-10-30','quantity':100}]}
+            if os.getenv('AUTO_PLAN_BROWSER_MATRIX_FIXTURE') == '1':
+                data['masters']['lines'] += [{'code':code,'name':name,'active':True} for code,name in [('B','空白线'),('C','零产能线'),('D','缺产能线'),('E','禁排线'),('F','续做线'),('G','未知试排线')]]
+                data['masters']['capabilities']=[{'recipe_code':'R','line_code':'E','allowed':False}]
+                data['parameters']['capacities'] += [row|{'line_code':code,'pieces':0 if code=='C' and row['recipe_code']=='R' else row['pieces']} for code in ('B','C','D','E','F','G') for row in list(data['parameters']['capacities']) if not (code=='D' and row['recipe_code']=='R')]
+                data['calendar']={'holidays':[{'date':'2026-10-15','holiday':True}],
+                    'opening_exceptions':[{'date':'2026-10-15','line_code':'L','enabled':True}],
+                    'maintenance':[{'date':'2026-10-16','line_code':'L','hours':5}],
+                    'experiments':[{'date':'2026-10-16','line_code':'L','hours':3}]}
             inputs.versions[1] = InputSnapshot.model_validate(data)
             inputs.version = 1
             plans = MemoryPlanStore(inputs)
@@ -84,9 +92,17 @@ if __name__ == '__main__':
                 plan = {'initial_states':[{'line_code':'L','recipe_code':'R'}], 'segments':[
                     {'id':'pending-demand','date':'2026-10-15','line_code':'L','order':0,'model_code':'M','quantity':1000,'hours':'24'},
                     {'id':'confirmed-late','date':'2026-10-20','line_code':'L','order':0,'model_code':'N','quantity':100,'hours':'3'}]}
+            initial_operations=[]
+            if os.getenv('AUTO_PLAN_BROWSER_MATRIX_FIXTURE') == '1':
+                plan={'initial_states':[{'line_code':'L','recipe_code':'R'},{'line_code':'F','recipe_code':'R'}],
+                    'segments':[{'id':'matrix-p','date':'2026-10-18','line_code':'L','model_code':'P','quantity':100,'hours':'3','order':1},
+                                {'id':'matrix-m','date':'2026-10-16','line_code':'F','model_code':'M','quantity':100,'hours':'3','order':0},
+                                {'id':'matrix-unknown','date':'2026-10-17','line_code':'G','model_code':'M','quantity':100,'hours':'3','order':0}],
+                    'switches':[{'id':'matrix-switch','line_code':'L','from_recipe':'R','to_recipe':'S','allocations':[{'date':'2026-10-18','order':0,'hours':'0.95'}]}]}
+                initial_operations=[{'kind':'lock_cells','cells':[{'date':'2026-10-16','line_code':'B','model_code':'N','quantity':0}]}]
             now = datetime(2026,10,14,tzinfo=timezone.utc)
             PlanService(plans).submit(SubmitPlan(base_revision=0,input_version=1,latest_adoption=0,
-                operations=[{'kind':'replace_plan','plan':plan}],operation_id=uuid4(),pending=True),'SHARED_EDITOR',now)
+                operations=[{'kind':'replace_plan','plan':plan},*initial_operations],operation_id=uuid4(),pending=True),'SHARED_EDITOR',now)
             options['plan_store'] = plans
             options['clock'] = lambda: now
             access.users['SHARED_EDITOR']={'user_id':'SHARED_EDITOR','roles':['editor'],'active':True}
