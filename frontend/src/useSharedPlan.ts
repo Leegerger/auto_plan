@@ -14,7 +14,7 @@ export interface BusinessOperation {kind:string; action_id?:string; [key:string]
 export interface Plan {current_day_witnesses?:Record<string,unknown>[];segments:Segment[]; switches:{id:string;residual_record_id?:string|null;line_code:string;from_recipe:string;to_recipe:string;allocations:{date:string;order:number;hours:string;idle_hours:string}[]}[];ordinary_idle:{date:string;line_code:string;hours:string}[]}
 export interface Unallocated {id:string;model_code:string;quantity:number;reason:string; [key:string]:unknown}
 interface HourDisplay {segments:Record<string,{exact:string;display:string}>;switches:Record<string,{hours:{exact:string;display:string};idle_hours:{exact:string;display:string}}[]>}
-interface Head {lineage?:DemandLineage;workspace_view?:WorkspaceView;time:{as_of:string;window_start:string};reset_preview:ResetPreview|null;execution_segments:{segment_id:string;executed:number;remaining:number}[];execution_surplus:ExecutionCell[];hour_display:HourDisplay; pending: boolean; kind: string; revision: number; input_version: number; latest_adoption: number; plan: Plan; evaluation: OutputEvaluation; unallocated:Unallocated[]; operation_issues:Record<string,unknown>[]; weeks:{number:number;label:string;start_date:string;dates:string[]}[];context:PlanningContext }
+interface Head {lineage?:DemandLineage;workspace_view?:WorkspaceView;time:{as_of:string;window_start:string;production_date:string};reset_preview:ResetPreview|null;execution_segments:{segment_id:string;executed:number;remaining:number}[];execution_surplus:ExecutionCell[];hour_display:HourDisplay; pending: boolean; kind: string; revision: number; input_version: number; latest_adoption: number; plan: Plan; evaluation: OutputEvaluation; unallocated:Unallocated[]; operation_issues:Record<string,unknown>[]; weeks:{number:number;label:string;start_date:string;dates:string[]}[];context:PlanningContext }
 export interface PreviewResult {lineage?:DemandLineage;workspace_view?:WorkspaceView;revision:number;input_version:number;latest_adoption:number;reset_reference?:{effective_adoption:number;effective_revision:number}|null;adoption_blocked:boolean;reset_preview:ResetPreview|null;execution_segments:{segment_id:string;executed:number;remaining:number}[];execution_surplus:ExecutionCell[];context:PlanningContext;context_changes:Record<string,unknown>[];hour_display:HourDisplay;plan:Plan;evaluation:OutputEvaluation;changes:Record<string,unknown>[];effects:unknown[][];unallocated:Unallocated[];operation_issues:Record<string,unknown>[]}
 export interface Draft {data_version:number;base_revision:number;input_version:number;latest_adoption:number;operations:BusinessOperation[];selected_actions?:string[]}
 export interface ResetParticipation {source_adoption:number;model_codes:string[]}
@@ -251,7 +251,8 @@ async function refresh() {
   refreshing=(async()=>{
     try{
       const current=await api<Head>('/plans/current'), previous=head.value
-      const changedSource=!!previous && (previous.revision!==current.revision || previous.input_version!==current.input_version || previous.latest_adoption!==current.latest_adoption || previous.time.window_start!==current.time.window_start || JSON.stringify(previous.context)!==JSON.stringify(current.context))
+      const changedProductionDate=!!previous && previous.time.production_date!==current.time.production_date
+      const changedSource=!!previous && (changedProductionDate || previous.revision!==current.revision || previous.input_version!==current.input_version || previous.latest_adoption!==current.latest_adoption || previous.time.window_start!==current.time.window_start || JSON.stringify(previous.context)!==JSON.stringify(current.context))
       if(changedSource){
         const hadLocal=!!proposal.value || operations.value.length>0 || previewInvalidated.value
         if(hadLocal){
@@ -259,6 +260,7 @@ async function refresh() {
           sourceNotice.value=`计划或资料依据已变化。输入版本 ${previous!.input_version} → ${current.input_version}，共享修订 ${previous!.revision} → ${current.revision}。本机动作及原基准已保留，请按最新资料重新预览。`
           message.value='旧试算已失效，请重新预览'
         }
+        if(changedProductionDate)sourceNotice.value=`生产日已变化：${previous!.time.production_date} → ${current.time.production_date}。${hadLocal ? '本机动作及原基准已保留，请按当前生产日重新预览。' : '已读取当前生产日的现场依据及计划核验结果。'}`
         head.value=current
         if(!hadLocal)draftBase.value={base_revision:current.revision,input_version:current.input_version,latest_adoption:current.latest_adoption}
       }else if(!previous){head.value=current}
