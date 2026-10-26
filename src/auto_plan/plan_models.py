@@ -117,6 +117,31 @@ class LineStateContext(InputRow):
     audit: list[LineStateAudit] = Field(default_factory=list)
 
 
+class SwitchContinuityRecord(InputRow):
+    id: Code
+    job_id: Code
+    line_code: Code
+    source_record_id: Code
+    basis_digest: str
+    basis: dict
+    source: str
+    actor: str
+    recorded_at: datetime
+
+
+class SwitchContinuityAudit(InputRow):
+    action_id: str
+    actor: str
+    recorded_at: datetime
+    reason: str | None = None
+    changes: list[dict] = Field(default_factory=list)
+
+
+class SwitchContinuityContext(InputRow):
+    records: list[SwitchContinuityRecord] = Field(default_factory=list)
+    audit: list[SwitchContinuityAudit] = Field(default_factory=list)
+
+
 class OrdinaryIdle(InputRow):
     date: ProductionDate
     line_code: Code
@@ -317,6 +342,7 @@ class EvaluationTime(InputRow):
 
 
 class EvaluationSnapshot(InputRow):
+    switch_continuity: SwitchContinuityContext = Field(default_factory=SwitchContinuityContext)
     state_reviews: list[LineStateReview] = Field(default_factory=list)
     line_states: LineStateContext = Field(default_factory=LineStateContext)
     time: EvaluationTime
