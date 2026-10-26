@@ -119,3 +119,31 @@ test('registers, arranges and saves actual remaining work without granting conti
   await expect(page.getByRole('button', { name: '加入状态确认并预览', exact: true })).toHaveCount(0)
   await expect(page.getByRole('button', { name: '安排剩余作业 actual-r-s', exact: true })).toHaveCount(0)
 })
+
+test('Monday job inference does not backdate the remainder observed on Wednesday', async ({ page }) => {
+  test.skip(process.env.AUTO_PLAN_BROWSER_UNFINISHED_SWITCH_FIXTURE !== '1', 'Requires unfinished actual switch fixture')
+  await page.goto('/planning/login')
+  await page.getByRole('textbox', { name: '公司账号' }).fill('SHARED_EDITOR')
+  await page.getByLabel('公司密码', { exact: true }).fill('company-secret')
+  await page.getByRole('button', { name: '登录', exact: true }).click()
+  const current = await (await page.request.get('/planning/api/plans/current')).json()
+  const response = await page.request.post('/planning/api/plans/save', { headers: {
+    Origin: `https://localhost:${process.env.AUTO_PLAN_BROWSER_PORT ?? '8774'}`, 'X-Auto-Plan-Request': '1',
+  }, data: {
+    base_revision: current.revision, input_version: current.input_version, latest_adoption: current.latest_adoption,
+    operation_id: crypto.randomUUID(), pending: true, operations: [
+      { kind: 'confirm_line_states', rows: [{ line_code: 'B', effective_at: '2026-10-14T08:00:00+08:00',
+        state: 'unfinished_switch', recipe_code: null, source: '周三现场点检', unfinished_switch: {
+          job_id: 'wednesday-observation', started_at: '2026-10-11T20:00:00+08:00', from_recipe: 'R', to_recipe: 'S', remaining_hours: '4',
+        } }] },
+    ],
+  } })
+  expect(response.ok(), await response.text()).toBe(true)
+  await page.getByRole('navigation', { name: '主要导航' }).getByRole('link', { name: '排程', exact: true }).click()
+  const line = page.getByRole('rowheader', { name: 'B 周三观测线', exact: true })
+  await expect(line).toContainText('周一起点剩余工时未知')
+  await expect(line).toContainText('后续现场剩余 4 小时')
+  await expect(line).toContainText('剩余工时观测 2026-10-14 08:00:00 北京时间')
+  await expect(line).toContainText('依据已确认实际开始时点推断')
+  await expect(line).not.toContainText('现场确认起点')
+})

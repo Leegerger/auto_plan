@@ -21,7 +21,7 @@ async function stage(){
 <template>
   <section aria-label="剩余切机安排">
     <h4>安排剩余切机</h4>
-    <UnfinishedSwitchState v-if="record.unfinished_switch" :job="record.unfinished_switch" />
+    <UnfinishedSwitchState v-if="record.unfinished_switch" :job="record.unfinished_switch" :observed-at="record.effective_at" />
     <p>依据 {{record.line_code}} 线体现场记录，状态对应 {{record.effective_at}}。按生产日、工时和先后顺序安排，不表示具体完成钟点。日级容量足够仍需核对连续性。</p>
     <form v-if="shared.editor.value" @submit.prevent="stage">
       <fieldset :disabled="shared.readonly.value" class="line-state-form"><legend>原作业剩余日分配</legend>
