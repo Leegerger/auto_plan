@@ -201,6 +201,8 @@ def _evaluate_fields(snapshot, *, output_cache=None, json_mode=False):
     conditions = adoption_conditions(snapshot)
     issues.extend(conditions)
     complete = not any(i.severity == 'incomplete' for i in issues)
+    from .demand_attention import demand_attention
     return dict(time=snapshot.time, capacity_valid=valid, computation_complete=complete, executable=not any(i.severity == 'error' for i in issues) and complete and not conditions, adoption_conditions=conditions,
         issues=issues, days=result_days, switches=switch_results, initial_states=initial,
-        switch_count=sum(s.from_recipe != s.to_recipe for s in snapshot.plan.switches), stability=stability, **output)
+        switch_count=sum(s.from_recipe != s.to_recipe for s in snapshot.plan.switches), stability=stability,
+        demand_attention=demand_attention(snapshot,output,issues,index), **output)

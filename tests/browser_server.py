@@ -57,6 +57,23 @@ if __name__ == '__main__':
                     data['parameters'][category]=[{'month':month,'model_code':model['code'],'percent':'100'} for month in months for model in data['masters']['models']]
                 data['parameters']['cycle_times']=[{'model_code':model['code'],'days':'0'} for model in data['masters']['models']]
                 data['business']={'demands':[{'week':(date(2026,10,12)+timedelta(weeks=week)).isoformat(),'model_code':model['code'],'quantity':100} for week in range(15) for model in data['masters']['models']]}
+            if os.getenv('AUTO_PLAN_BROWSER_LINE_STATES_FIXTURE') == '1':
+                data['masters']['lines'].append({'code':'B','name':'二线','active':True})
+                data['parameters']['capacities'] += [row|{'line_code':'B'} for row in list(data['parameters']['capacities'])]
+            if os.getenv('AUTO_PLAN_BROWSER_DEMAND_FIXTURE') == '1':
+                for category in ('line_yields','model_yields','capacities'):
+                    initial_rows = list(data['parameters'][category])
+                    data['parameters'][category] += [row | {'month':month} for month in ('2026-11','2026-12','2027-01') for row in initial_rows]
+                data['parameters']['cycle_times'] = [row for row in data['parameters']['cycle_times'] if row['model_code'] != 'P']
+                data['parameters']['line_yields'] = [row for row in data['parameters']['line_yields'] if row['model_code'] != 'P']
+                data['business'] = {'demands': [
+                    {'model_code':'N','week':'2026-10-12','quantity':100},
+                    {'model_code':'M','week':'2026-10-19','quantity':1000},
+                    {'model_code':'M','week':'2026-10-26','quantity':300},
+                    {'model_code':'P','week':'2026-10-26','quantity':500}],
+                    'confirmations': [
+                        {'model_code':'M','week':'2026-10-19','kind':'material','batch_id':'SOME','status':'allowed','date':'2026-10-15','quantity':400},
+                        {'model_code':'N','week':'2026-10-12','kind':'shipping','batch_id':'LATE-OK','status':'allowed','date':'2026-10-30','quantity':100}]}
             if os.getenv('AUTO_PLAN_BROWSER_MATRIX_FIXTURE') == '1':
                 data['masters']['lines'] += [{'code':code,'name':name,'active':True} for code,name in [('B','空白线'),('C','零产能线'),('D','缺产能线'),('E','禁排线'),('F','续做线'),('G','未知试排线')]]
                 data['masters']['capabilities']=[{'recipe_code':'R','line_code':'E','allowed':False}]
@@ -74,6 +91,10 @@ if __name__ == '__main__':
                 models=[model['code'] for model in data['masters']['models'] if model['recipe_code']=='R']
                 plan={'initial_states':[{'line_code':line['code'],'recipe_code':'R'} for line in data['masters']['lines']],
                       'segments':[{'id':f'workspace-{week}-{n}','date':(date(2026,10,12)+timedelta(weeks=week,days=3 if week==0 else 0)).isoformat(),'line_code':line['code'],'model_code':models[(week*18+n)%len(models)],'quantity':20,'hours':'1','order':0} for week in range(15) for n,line in enumerate(data['masters']['lines'])]}
+            if os.getenv('AUTO_PLAN_BROWSER_DEMAND_FIXTURE') == '1':
+                plan = {'initial_states':[{'line_code':'L','recipe_code':'R'}], 'segments':[
+                    {'id':'pending-demand','date':'2026-10-15','line_code':'L','order':0,'model_code':'M','quantity':1000,'hours':'24'},
+                    {'id':'confirmed-late','date':'2026-10-20','line_code':'L','order':0,'model_code':'N','quantity':100,'hours':'3'}]}
             initial_operations=[]
             if os.getenv('AUTO_PLAN_BROWSER_MATRIX_FIXTURE') == '1':
                 plan={'initial_states':[{'line_code':'L','recipe_code':'R'},{'line_code':'F','recipe_code':'R'}],
@@ -82,6 +103,9 @@ if __name__ == '__main__':
                                 {'id':'matrix-unknown','date':'2026-10-17','line_code':'G','model_code':'M','quantity':100,'hours':'3','order':0}],
                     'switches':[{'id':'matrix-switch','line_code':'L','from_recipe':'R','to_recipe':'S','allocations':[{'date':'2026-10-18','order':0,'hours':'0.95'}]}]}
                 initial_operations=[{'kind':'lock_cells','cells':[{'date':'2026-10-16','line_code':'B','model_code':'N','quantity':0}]}]
+            if os.getenv('AUTO_PLAN_BROWSER_LINE_STATES_FIXTURE') != '1' and os.getenv('AUTO_PLAN_BROWSER_MATRIX_FIXTURE') != '1':
+                from tests.line_state_support import confirm_states
+                initial_operations.append(confirm_states(*[(row['code'],'R') for row in data['masters']['lines']]))
             now = datetime(2026,10,14,tzinfo=timezone.utc)
             PlanService(plans).submit(SubmitPlan(base_revision=0,input_version=1,latest_adoption=0,
                 operations=[{'kind':'replace_plan','plan':plan},*initial_operations],operation_id=uuid4(),pending=True),'SHARED_EDITOR',now)
@@ -112,8 +136,9 @@ if __name__ == '__main__':
             coverage=ExecutionCoverage(start_date='2026-10-12',end_date='2026-10-18',line_codes=['L'],model_codes=['M','N','P'],blanks_are_zero=True)
             now=datetime(2026,10,14,tzinfo=timezone.utc)
             plans.context=PlanningContext(coverage=[coverage],execution=ExecutionContext(coverage=[coverage.model_copy(update={'end_date':date(2026,10,14)})],cutoff=now))
+            from tests.line_state_support import confirm_states
             rows=[{'id':identity,'date':day,'line_code':'L','model_code':'M','order':0,'quantity':1000,'hours':'24'} for identity,day in [('early','2026-10-15'),('late','2026-10-16')]]
-            PlanService(plans).submit(SubmitPlan(base_revision=0,input_version=1,latest_adoption=0,operation_id=uuid4(),operations=[{'kind':'replace_plan','plan':{'segments':rows}}]),'RESET_EDITOR',now,'adopt')
+            PlanService(plans).submit(SubmitPlan(base_revision=0,input_version=1,latest_adoption=0,operation_id=uuid4(),operations=[{'kind':'replace_plan','plan':{'segments':rows}},confirm_states()]),'RESET_EDITOR',now,'adopt')
             options['plan_store']=plans;options['clock']=lambda:now
             access.users['RESET_EDITOR']={'user_id':'RESET_EDITOR','roles':['editor'],'active':True}
         if 'plan_store' in options:

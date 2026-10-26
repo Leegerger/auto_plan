@@ -1,4 +1,5 @@
 """PLAN_TEST public API evidence in a fresh disposable business namespace."""
+from tests.line_state_support import confirm_states
 import os
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
@@ -48,7 +49,7 @@ def test_real_facts_reset_correction_race_and_unknown_save_are_one_guarded_trans
                 context=PlanningContext(coverage=[ExecutionCoverage.model_validate(coverage)],execution=ExecutionContext(coverage=[ExecutionCoverage.model_validate(coverage|{'end_date':'2026-10-14'})],cutoff=NOW))
                 initial=InitializePlan(base_revision=0,input_version=head()['input_version'],latest_adoption=0,operation_id=uuid4(),pending=True,inputs=inputs.read(),context=context,plan=Plan.model_validate({'segments':rows}))
                 PlanService(plans).initialize(initial,'T33EDITOR',NOW)
-                assert post('adopt',body()).status_code==200
+                assert post('adopt',body(confirm_states())).status_code==200
                 assert head()['latest_adoption']==1
                 def reset(balance,correction=False):
                     return {'kind':'weekly_reset','source_adoption':1,'correction':correction,

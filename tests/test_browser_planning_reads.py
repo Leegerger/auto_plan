@@ -1,4 +1,5 @@
 """Acceptance persistence parity through the public business HTTP interface."""
+from tests.line_state_support import confirm_states
 from copy import deepcopy
 import json
 from uuid import UUID
@@ -45,7 +46,7 @@ def transcript(client, inputs, store_type):
         return value
 
     initial = {'segments': [row()], 'initial_states': [{'line_code': 'L', 'recipe_code': 'R'}]}
-    post('plans/adopt', command({'kind': 'replace_plan', 'plan': initial}))
+    post('plans/adopt', command(confirm_states(), {'kind': 'replace_plan', 'plan': initial}))
     original = get('plans/adoptions/1')
     source = get('jobs/source')
     assert source['snapshot']['baseline']['plan']['segments'][0]['quantity'] == 100
@@ -72,7 +73,7 @@ def transcript(client, inputs, store_type):
     ]
     post('plans/save', command(*changes))
     changed = get('jobs/source')
-    assert changed['source_revision'] == 3 and changed['input_version'] == 2 and changed['latest_adoption'] == 1
+    assert changed['source_revision'] == 3 and changed['input_version'] == 3 and changed['latest_adoption'] == 1
     assert changed['snapshot']['plan']['segments'][0]['quantity'] == 99
     assert changed['snapshot']['baseline']['plan']['segments'][0]['quantity'] == 100
     assert changed['snapshot']['preferences']['near_week_weight'] == '7'
@@ -80,9 +81,9 @@ def transcript(client, inputs, store_type):
     assert changed['snapshot']['execution']['facts'] == changes[2]['rows']
     models = deepcopy(changed['snapshot']['inputs']['masters']['models'])
     models[0]['name'] = 'Maintained after the read'
-    post('inputs/apply', {'base_version': 2, 'changes': {'models': models}})
+    post('inputs/apply', {'base_version': 3, 'changes': {'models': models}})
     refreshed = get('jobs/source')
-    assert refreshed['input_version'] == 3
+    assert refreshed['input_version'] == 4
     assert refreshed['snapshot']['inputs']['masters']['models'] == models
     assert changed['snapshot']['inputs']['masters']['models'] != models
     post('plans/adopt', command())
@@ -122,7 +123,7 @@ def test_planning_reads_preserve_invalid_raw_adoption_types_after_a_valid_read(s
     client.app.state.plan_store = plans
     client.app.state.job_store = MemoryJobStore(plans, client.app.state.access_store)
     body = {'base_revision': 0, 'input_version': 1, 'latest_adoption': 0,
-            'operations': [{'kind': 'patch_plan', 'segments': [row(quantity=1)]}],
+            'operations': [confirm_states(), {'kind': 'patch_plan', 'segments': [row(quantity=1)]}],
             'operation_id': str(UUID(int=1)), 'pending': True}
     response = client.post('/auto_plan/api/plans/adopt', json=body)
     assert response.status_code == 200, response.text

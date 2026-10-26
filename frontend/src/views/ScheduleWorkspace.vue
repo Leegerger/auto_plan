@@ -3,6 +3,7 @@ import { computed, onMounted, ref } from 'vue'
 import { ArrowRight, Calculator, RefreshCw, ShieldCheck } from '@lucide/vue'
 import ManualEditor from '../components/ManualEditor.vue'
 import StabilityPanel from '../components/StabilityPanel.vue'
+import DemandAttention from '../components/DemandAttention.vue'
 import { useSharedPlan } from '../useSharedPlan'
 
 const shared=useSharedPlan()
@@ -32,7 +33,7 @@ onMounted(async()=>{await shared.refresh();ready.value=true})
     </section>
 
     <p role="status">{{ shared.evaluationState.value }}<span v-if="shared.needsPreview.value">。当前生产段保留共享基准，指标待重新计算。</span></p>
-    <div class="workspace-demand-region"><slot name="demands" /></div>
+    <div class="workspace-demand-region"><DemandAttention :shared="shared" /></div>
     <ManualEditor :shared="shared" />
 
     <details class="content-band schedule-details">

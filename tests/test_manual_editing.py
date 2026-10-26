@@ -25,8 +25,8 @@ def test_append_fills_only_selected_dates_and_line_and_retains_saved_remainder(s
     assert client.get('/auto_plan/api/plans/current').json()['unallocated']==saved['unallocated']
 
 
-def preview(client,*operations,base=0):
-    return post(client,'preview',{k:v for k,v in command(*operations,base=base).items() if k not in ('operation_id','pending')})
+def preview(client,*operations,base=0,version=1,adoption=0):
+    return post(client,'preview',{k:v for k,v in command(*operations,base=base,version=version,adoption=adoption).items() if k not in ('operation_id','pending')})
 
 
 def test_swap_is_one_action_and_quantities_follow_models_across_lines(shared_client):
