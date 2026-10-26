@@ -49,7 +49,7 @@ for (const viewport of [{ width: 1280, height: 800 }, { width: 1440, height: 900
       const confirmations = inputs.business.demands.map((row: { model_code: string; week: string }) => ({
         ...row, kind: 'shipping', batch_id: 'SPEC49-SOURCE', status: 'allowed', date: '2027-01-24', quantity: 100,
       }))
-      const precondition = { base_version: inputs.input_version, changes: { maintenance: [], confirmations } }
+      const precondition = { base_version: inputs.input_version, changes: { maintenance: [{ date: '2026-10-16', line_code: 'L02', hours: 0 }], confirmations } }
       const permissions = await page.request.post('/planning/api/inputs/apply', { headers, data: precondition })
       expect(permissions.ok(), await permissions.text()).toBe(true)
       await evidence('source-permissions-request', precondition)
@@ -74,6 +74,7 @@ for (const viewport of [{ width: 1280, height: 800 }, { width: 1440, height: 900
         selected_demand: { model_code: 'P', week: '2026-10-12', target_output: 100 },
         independent_candidates: 18, each_suggested_input: 100, each_scheduled_on_time_output: 100,
         selected_line: 'L02', selected_date: '2026-10-16', original_M_quantity: 20, changed_M_hours: '2',
+        maintenance_before: 0, maintenance_after: 1,
         source_permissions: 'Explicit shipping permissions for existing source attribution, distinct from the selected current-week P100 action.' })
       expect(source.plan.segments).toHaveLength(270)
       await expect(page.getByLabel('筛选机种').locator('option')).toHaveCount(41)
