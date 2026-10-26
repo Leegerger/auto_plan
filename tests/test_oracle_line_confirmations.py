@@ -90,7 +90,18 @@ def test_real_line_evidence_correction_race_retries_unknown_commit_and_reopen():
                 assert verified.status_code == 200, verified.text
                 assert verified.json()['status'] == 'COMMITTED'
                 assert post('save', unknown_body).json() == verified.json()
+                pending_switch={'kind':'replace_plan','plan':{
+                    'segments':[{'id':'future-s','date':'2026-10-15','line_code':'L','order':0,'model_code':'P','quantity':100,'hours':'3'}],
+                    'switches':[{'id':'elapsed-unconfirmed','line_code':'L','from_recipe':'R','to_recipe':'S',
+                        'allocations':[{'date':'2026-10-13','order':0,'hours':'0.95'}]}]}}
+                assert post('save',command(pending_switch)).status_code==200
+                assert post('save',command({'kind':'replace_plan','plan':{'segments':production['segments']}})).status_code==200
                 expected = head()
+                assert expected['evaluation']['executable'] is False
+                assert any(condition['code']=='line_state_review' for condition in expected['evaluation']['adoption_conditions'])
+                line=next(row for row in expected['workspace_view']['line_weeks'] if row['line_code']=='L' and row['week']=='2026-10-12')
+                assert line['current_confirmation']['valid'] is False
+                assert line['first_production']['duration_state']=='unknown_initial'
                 assert len(expected['context']['line_states']['audit']) == 3
                 assert expected['context']['line_states']['records'][0]['source'] == '交接最终复核'
                 assert client.get('/auto_plan/api/plans/adoptions/1').json() == original
