@@ -1,0 +1,21 @@
+{
+  "checkout": "/tmp/auto-plan-spec49/wt-review-fix",
+  "test_source_commit": "e159767da9d4dcd0c23c340816fa9f5ec6f72d64",
+  "browser": "Chromium via repository Playwright",
+  "ports": [
+    8831,
+    8832,
+    8833,
+    8834,
+    8835,
+    8836,
+    8837
+  ],
+  "python_path": "/tmp/auto-plan-spec49/wt-review-fix/src:/tmp/auto-plan-spec49/wt-review-fix",
+  "python_executable": "/root/codes/vibe_coding/auto_plan_2/.venv/bin/python",
+  "built_assets": "Own frontend/dist, built from the fix frontend tree. Red used unchanged integrated assets copied before the fix.",
+  "production_fixture": "tests.browser_server",
+  "clock_adapter": "tests.browser_clock_server with an external clock file",
+  "authentication_capture": "None. Existing fixture login is used by browser tests, but no login body, cookie, header or storage record is retained.",
+  "environment_and_dependencies": "See the original environment.json; dependency/package/Python files are unchanged."
+}

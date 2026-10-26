@@ -1,0 +1,91 @@
+[
+  {
+    "name": "attention",
+    "port": 8832,
+    "fixture_flags": {
+      "AUTO_PLAN_BROWSER_DEMAND_FIXTURE": "1"
+    },
+    "command": [
+      "npm",
+      "run",
+      "test:e2e",
+      "--",
+      "demand-attention.spec.ts"
+    ],
+    "exit_code": 0,
+    "wall_seconds": 20.933606185019016,
+    "log": "review-fix-attention.log"
+  },
+  {
+    "name": "trial",
+    "port": 8833,
+    "fixture_flags": {
+      "AUTO_PLAN_BROWSER_DEMAND_TRIAL_FIXTURE": "1"
+    },
+    "command": [
+      "npm",
+      "run",
+      "test:e2e",
+      "--",
+      "demand-trial.spec.ts"
+    ],
+    "exit_code": 0,
+    "wall_seconds": 18.14123684540391,
+    "log": "review-fix-trial.log"
+  },
+  {
+    "name": "comparison",
+    "port": 8834,
+    "fixture_flags": {
+      "AUTO_PLAN_BROWSER_DEMAND_COMPARISON_FIXTURE": "1"
+    },
+    "command": [
+      "npm",
+      "run",
+      "test:e2e",
+      "--",
+      "demand-comparison.spec.ts"
+    ],
+    "exit_code": 0,
+    "wall_seconds": 14.122137632220984,
+    "log": "review-fix-comparison.log"
+  },
+  {
+    "name": "continuation",
+    "port": 8835,
+    "fixture_flags": {
+      "AUTO_PLAN_BROWSER_DEMAND_CONTINUATION_FIXTURE": "1"
+    },
+    "command": [
+      "npm",
+      "run",
+      "test:e2e",
+      "--",
+      "demand-continuation.spec.ts",
+      "--grep",
+      "saved output goal"
+    ],
+    "exit_code": 0,
+    "wall_seconds": 16.64466765895486,
+    "log": "review-fix-continuation.log"
+  },
+  {
+    "name": "late",
+    "port": 8836,
+    "fixture_flags": {
+      "AUTO_PLAN_BROWSER_DEMAND_TRIAL_FIXTURE": "1"
+    },
+    "command": [
+      "npm",
+      "run",
+      "test:e2e",
+      "--",
+      "demand-late.spec.ts",
+      "--grep",
+      "late alternative is explicit"
+    ],
+    "exit_code": 0,
+    "wall_seconds": 14.074951689690351,
+    "log": "review-fix-late.log"
+  }
+]

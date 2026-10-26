@@ -37,6 +37,7 @@ function continueGoal(goal:DemandGoal){
   trial.open=true
 }
 function output(value:number|null){return props.shared.needsPreview.value ? '待重新预览' : value===null ? '待完成计算' : `${value} 片合格产出`}
+function demandAmount(row:DemandAttention,value:number|null,unit='片'){return row.computation_complete && value!==null ? `${value} ${unit}` : '待完成计算'}
 
 function maintenance(kind: 'material' | 'shipping') {
   return { path: '/data/base', query: { category: 'confirmations', model: view.model_code, week: view.week, confirmation: kind, from: 'schedule' } }
@@ -74,12 +75,13 @@ function locate(row: OutputAttribution) {
       <div><strong>{{ view.model_code }} · 需求周 {{ view.week }}</strong><span v-if="selected"> · 截止 {{ selected.deadline.slice(0, 16).replace('T', ' ') }} 北京时间</span></div>
       <template v-if="selected">
         <div class="demand-quantities">
-          <span>尚无产出安排 {{ selected.unarranged_output === null ? '待完成计算' : `${selected.unarranged_output} 片合格产出` }}</span>
-          <span>按时覆盖 {{ selected.on_time }} 片</span>
-          <span v-if="selected.pending_material">待物料确认 {{ selected.pending_material }} 片</span>
-          <span v-if="selected.pending_shipping">待出货确认 {{ selected.pending_shipping }} 片</span>
-          <span v-if="selected.late">已确认迟交预计覆盖 {{ selected.late }} 片</span>
-          <span>未补足缺口 {{ selected.computation_complete ? `${selected.gap} 片` : '待完成计算' }}</span>
+          <span>周出货需求 {{ selected.demand }} 片</span>
+          <span>尚无产出安排 {{ demandAmount(selected,selected.unarranged_output,'片合格产出') }}</span>
+          <span>按时覆盖 {{ demandAmount(selected,selected.on_time) }}</span>
+          <span v-if="!selected.computation_complete || selected.pending_material">待物料确认 {{ demandAmount(selected,selected.pending_material) }}</span>
+          <span v-if="!selected.computation_complete || selected.pending_shipping">待出货确认 {{ demandAmount(selected,selected.pending_shipping) }}</span>
+          <span v-if="!selected.computation_complete || selected.late">已确认迟交预计覆盖 {{ demandAmount(selected,selected.late) }}</span>
+          <span>未补足缺口 {{ demandAmount(selected,selected.gap) }}</span>
         </div>
         <p v-if="selected.pending && !selected.unarranged_output" class="demand-note">已有归属产出待确认，请先处理确认。尚无产出安排与未补足缺口分别核算。</p>
         <p v-if="selected.late" class="demand-note">迟交为预计覆盖，不表示已经实际出货。已有覆盖不需要重复补排或确认。</p>

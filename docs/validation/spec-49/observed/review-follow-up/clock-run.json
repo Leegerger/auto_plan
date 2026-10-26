@@ -1,0 +1,14 @@
+{
+  "command": [
+    "npm",
+    "run",
+    "test:e2e",
+    "--",
+    "workspace-clock.spec.ts"
+  ],
+  "exit_code": 0,
+  "wall_seconds": 6.247977323830128,
+  "port": 8837,
+  "adapter": "tests.browser_clock_server",
+  "clock_file": "/tmp/auto-plan-spec49/review-fix-clock.txt"
+}

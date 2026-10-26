@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { api, principal } from '../api'
+import { api } from '../api'
+import { demandRequestFields, demandRequestKey } from '../demandRequests'
 import type { DemandComparisonResult } from '../demandComparisonTypes'
 import type { useSharedPlan } from '../useSharedPlan'
 import DemandTrialDetails from './DemandTrialDetails.vue'
@@ -12,14 +13,9 @@ const view=props.shared.workspace.demandComparison
 const busy=ref(false),error=ref('')
 let request=0
 function payload(){
-  const {operation_id:_,pending:__,...command}=props.shared.command()
-  return {...command,action_id:form.actionId,goal_id:form.goalId||null,model_code:form.modelCode,demand_week:form.demandWeek,
-    target_output:form.targetOutput===''?null:Number(form.targetOutput),mode:'on_time',start_date:form.startDate,end_date:form.endDate,
-    scope:{start_date:scope.start_date,end_date:scope.end_date,line_codes:[...scope.line_codes],model_codes:[...scope.model_codes]}}
+  return {...demandRequestFields(props.shared),mode:'on_time'}
 }
-const currentRequest=computed(()=>JSON.stringify({actor:principal.value?.user_id,request:props.shared.head.value?payload():null,
-  head:props.shared.head.value?{revision:props.shared.head.value.revision,input_version:props.shared.head.value.input_version,
-    latest_adoption:props.shared.head.value.latest_adoption,as_of:props.shared.head.value.time.as_of}:null}))
+const currentRequest=computed(()=>demandRequestKey(props.shared,payload))
 function invalidate(){
   request++;busy.value=false
   if(view.result)view.notice='线体比较已失效，覆盖目标和日期已保留，请重新比较。'

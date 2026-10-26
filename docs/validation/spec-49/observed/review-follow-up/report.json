@@ -1,0 +1,103 @@
+{
+  "base_commit": "6c479bf92d7d5bc7dd2142eab6a0f38a48e5754d",
+  "fix_commit": "e159767da9d4dcd0c23c340816fa9f5ec6f72d64",
+  "backend_src_tree": "5a24fa53c385525fd9bf1d4affbab26159a47666",
+  "frontend_src_tree": "a41252e0e07c7d68c64a0b71ffc11715bc59f2b3",
+  "frontend_test_sha256": "fcf9385e25c300640485722c336f881da1c509f19fe1555fcfa65b80c2a5c2ec",
+  "review_status": {
+    "standards": {
+      "initial": 2,
+      "resolved": 2,
+      "remaining": 0
+    },
+    "spec": {
+      "initial": 1,
+      "resolved": 1,
+      "remaining": 0
+    }
+  },
+  "public_red": {
+    "production_source": "6c479bf92d7d5bc7dd2142eab6a0f38a48e5754d",
+    "assertion": "Expected 按时覆盖 待完成计算; received 按时覆盖 0 片. Pending material, shipping and late fields were also absent.",
+    "test_seconds": 7.7,
+    "note": "The same six unknown-label assertions were present before the fix; later test changes corrected the maintenance-return and preview-drawer steps after those assertions."
+  },
+  "green": [
+    {
+      "check": "new incomplete summary and existing incomplete late",
+      "passed": 2,
+      "skipped": 0,
+      "playwright_seconds": 10.2
+    },
+    {
+      "check": "existing demand attention",
+      "passed": 5,
+      "skipped": 1,
+      "playwright_seconds": 19.7
+    },
+    {
+      "check": "trial",
+      "passed": 2,
+      "skipped": 0,
+      "playwright_seconds": 16.8
+    },
+    {
+      "check": "comparison",
+      "passed": 1,
+      "skipped": 2,
+      "playwright_seconds": 12.9
+    },
+    {
+      "check": "saved continuation",
+      "passed": 1,
+      "skipped": 0,
+      "playwright_seconds": 15.3
+    },
+    {
+      "check": "explicit late",
+      "passed": 1,
+      "skipped": 0,
+      "playwright_seconds": 12.8
+    },
+    {
+      "check": "clock invalidation",
+      "passed": 1,
+      "skipped": 0,
+      "playwright_seconds": 4.9
+    }
+  ],
+  "aggregate": {
+    "passed": 13,
+    "fixture_specific_skipped": 3
+  },
+  "build": {
+    "command": "npm run build",
+    "exit_code": 0,
+    "includes": [
+      "vue-tsc --noEmit",
+      "vite build"
+    ],
+    "vite_seconds": 15.64,
+    "note": "Full command wall time was not separately measured. Existing bundle-size advisory remains."
+  },
+  "authoring_corrections": [
+    "Maintenance return intentionally invalidates a local preview, so the test explicitly re-previews while retaining fields and selected action.",
+    "The re-preview opens its drawer. The test closes it with Continue editing before opening the action queue. No timeout was changed."
+  ],
+  "runtime_limits": "No browser, request or performance gate changed. These are functional regressions, not new performance/SLA evidence.",
+  "backend_validation": "No Python or backend source change. Prior whole suite 582 passed/60 skipped remains pinned to efdc234; production src tree identity is unchanged.",
+  "assets": [
+    {
+      "path": "dist/assets/index-B4JFGdtd.css",
+      "sha256": "11fa9e543b4b5ad5ebacced45071614f468713ef5cac3af0907c094a14627aa9"
+    },
+    {
+      "path": "dist/assets/index-lYlyIzl1.js",
+      "sha256": "450833c7809d3bb3d68defef91506fdea99af58566f6ed52488e7886503874e8"
+    },
+    {
+      "path": "dist/index.html",
+      "sha256": "eb99207cc793f1d1e3a03a2b10facc2f0b5886a8245fec696e2b393e35ccff58"
+    }
+  ]
+}
