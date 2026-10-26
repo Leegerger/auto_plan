@@ -52,13 +52,14 @@ def test_reviewed_source_crossing_business_time_is_rejected_without_changing_leg
     assert {key: source[key] for key in ('source_revision', 'input_version', 'latest_adoption')} == {
         'source_revision': 0, 'input_version': 1, 'latest_adoption': 0}
     snapshot = source['snapshot']
-    assert set(snapshot) == {'time', 'inputs', 'plan', 'execution', 'reset', 'locks', 'baseline', 'preferences', 'line_states'}
+    assert set(snapshot) == {'time', 'inputs', 'plan', 'execution', 'reset', 'locks', 'baseline', 'preferences', 'line_states', 'state_reviews'}
     assert snapshot['time'] == {'as_of': before_text, 'window_start': before_window, 'weeks': 15}
     assert snapshot['inputs'] == client.get('/auto_plan/api/inputs', params={'version': 1}).json()
     assert snapshot['plan'] == previous_head['plan']
     for key in ('execution', 'reset', 'locks', 'preferences', 'line_states'):
         assert snapshot[key] == previous_head['context'][key]
     assert snapshot['baseline'] is None
+    assert snapshot['state_reviews'] == []
     assert 'evaluation' not in source
     assert client.get('/auto_plan/api/plans/current').json() == previous_head
 

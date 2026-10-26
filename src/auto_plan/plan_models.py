@@ -64,6 +64,20 @@ class LineStateAudit(InputRow):
     changes: list[dict] = Field(default_factory=list)
 
 
+class LineStateReview(InputRow):
+    id: Code
+    line_code: Code
+    review_after: datetime
+    reason: str
+
+    @field_validator('review_after')
+    @classmethod
+    def aware_time(cls, value):
+        if value.tzinfo is None or value.utcoffset() is None:
+            raise ValueError('线体状态核对时点必须包含时区')
+        return value
+
+
 class LineStateContext(InputRow):
     records: list[LineStateRecord] = Field(default_factory=list)
     audit: list[LineStateAudit] = Field(default_factory=list)
@@ -262,6 +276,7 @@ class EvaluationTime(InputRow):
 
 
 class EvaluationSnapshot(InputRow):
+    state_reviews: list[LineStateReview] = Field(default_factory=list)
     line_states: LineStateContext = Field(default_factory=LineStateContext)
     time: EvaluationTime
     inputs: InputSnapshot

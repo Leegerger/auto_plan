@@ -68,3 +68,58 @@ test('batch site confirmation and reasoned correction use the shared preview and
   await expect(page.getByRole('button', { name: '加入状态确认并预览', exact: true })).toHaveCount(0)
   await expect(page.getByRole('button', { name: '更正线体 L 状态', exact: true })).toHaveCount(0)
 })
+
+test('retained uncertainty reaches line readiness and a different Recipe trial until current evidence resolves it', async ({ page }) => {
+  test.skip(process.env.AUTO_PLAN_BROWSER_LINE_STATES_FIXTURE !== '1', 'Requires line-state fixture')
+  await page.goto('/planning/login')
+  await page.getByRole('textbox', { name: '公司账号' }).fill('SHARED_EDITOR')
+  await page.getByLabel('公司密码', { exact: true }).fill('company-secret')
+  await page.getByRole('button', { name: '登录', exact: true }).click()
+  const headers = { Origin: `https://localhost:${process.env.AUTO_PLAN_BROWSER_PORT ?? '8774'}`, 'X-Auto-Plan-Request': '1' }
+  async function head() { return (await page.request.get('/planning/api/plans/current')).json() }
+  async function save(operations: Record<string, unknown>[]) {
+    const current = await head()
+    const response = await page.request.post('/planning/api/plans/save', { headers, data: {
+      base_revision: current.revision, input_version: current.input_version, latest_adoption: current.latest_adoption,
+      operation_id: crypto.randomUUID(), pending: true, operations,
+    } })
+    expect(response.ok(), await response.text()).toBe(true)
+  }
+  const before = await head()
+  const prior = before.context.line_states.records.find((row: { line_code: string; effective_at: string }) =>
+    row.line_code === 'L' && Date.parse(row.effective_at) === Date.parse('2026-10-12T08:00:00+08:00'))
+  const future = { id: 'review-future', date: '2026-10-15', line_code: 'L', order: 0, model_code: 'M', quantity: 100, hours: '3' }
+  await save([
+    { kind: 'confirm_line_states', reason: prior ? '准备历史现场依据' : null, rows: [{ line_code: 'L', effective_at: '2026-10-12T08:00:00+08:00',
+      recipe_code: 'R', source: '历史现场点检', ...(prior ? { expected_record_id: prior.id } : {}) }] },
+    { kind: 'replace_plan', plan: { segments: [{ ...future, model_code: 'P' }], switches: [{ id: 'elapsed-review', line_code: 'L', from_recipe: 'R', to_recipe: 'S',
+      allocations: [{ date: '2026-10-13', order: 0, hours: '0.95' }] }] } },
+  ])
+  await save([{ kind: 'replace_plan', plan: { segments: [future] } }])
+  await page.getByRole('navigation', { name: '主要导航' }).getByRole('link', { name: '排程', exact: true }).click()
+  const line = page.getByRole('rowheader', { name: 'L 一线', exact: true })
+  await expect(line).toContainText('保留 R')
+  await expect(line).toContainText('起点未知，首次切机尚未计入')
+  await page.getByRole('button', { name: '2026-10-15 L 日内详情', exact: true }).click()
+  const confirmation = page.getByRole('region', { name: '当前现场确认' })
+  await expect(confirmation).toContainText('需重新核对')
+  await expect(confirmation).not.toContainText('现场依据有效')
+  const current = await head()
+  const trial = await page.request.post('/planning/api/plans/preview', { headers, data: {
+    base_revision: current.revision, input_version: current.input_version, latest_adoption: current.latest_adoption,
+    operations: [{ kind: 'patch_plan', segments: [{ ...future, model_code: 'P' }] }],
+  } })
+  expect(trial.ok(), await trial.text()).toBe(true)
+  const value = await trial.json()
+  expect(value.evaluation.capacity_valid).toBe(true)
+  expect(value.evaluation.executable).toBe(false)
+  expect(value.evaluation.issues.some((issue: { code: string }) => issue.code === 'recipe_sequence')).toBe(false)
+  await save([
+    { kind: 'confirm_line_states', rows: [{ line_code: 'L', effective_at: '2026-10-14T08:00:00+08:00', recipe_code: 'S', source: '当前现场复核' }] },
+    { kind: 'patch_plan', segments: [{ ...future, model_code: 'P' }] },
+  ])
+  await page.reload()
+  await expect(confirmation).toContainText('Recipe S')
+  await expect(confirmation).toContainText('现场依据有效')
+  await expect(line).toContainText('同 Recipe 续做')
+})

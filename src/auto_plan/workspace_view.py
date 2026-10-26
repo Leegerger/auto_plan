@@ -31,7 +31,8 @@ def workspace_view(snapshot, evaluation):
     zero = _hours(0)
     days = []
     weeks = []
-    from .line_states import calculation_anchors
+    from .line_states import calculation_anchors, active_state_reviews
+    uncertain={review.line_code for review in active_state_reviews(snapshot)}
     analysis = analyze_recipe_states(plan, index, include_transitions=True, confirmed_states=calculation_anchors(snapshot),window_start=snapshot.time.window_start)
     today = production_date(snapshot.time.as_of)
     for line in lines:
@@ -47,6 +48,8 @@ def workspace_view(snapshot, evaluation):
             current={'observed_at':latest.effective_at.isoformat(),'effective_at':latest.effective_at.isoformat(),
                      'recipe_code':latest.recipe_code,'source':latest.source,'actor':latest.actor,
                      'recorded_at':latest.recorded_at.isoformat(),'record_id':latest.id,'valid':record_is_current(snapshot,latest)}
+        if current is not None and line in uncertain:
+            current=current|{'valid':False}
         weeks.extend(_line_weeks(snapshot, index, evaluation, line, analysis, current))
         for offset in range(105):
             day = snapshot.time.window_start + timedelta(days=offset)
@@ -99,8 +102,15 @@ def _line_weeks(snapshot, index, evaluation, line, analysis, current):
             segment = segments[first.identity]
             recipe = index.models[segment.model_code].recipe_code
             before = [event for event in events[position:] if (event.date, event.order) < (first.date, first.order)]
-            completed = list(dict.fromkeys(event.identity for event in before if event.kind == 'switch' and event.pending_switch is None))
-            duration = index.switch(state, recipe)
+            origin=state
+            completed=[]
+            for event in before:
+                if event.kind=='confirmation':
+                    origin=event.ending_recipe
+                    completed=[]
+                elif event.kind=='switch' and event.pending_switch is None and event.identity not in completed:
+                    completed.append(event.identity)
+            duration = index.switch(origin, recipe)
             duration_state = duration['state']
             required = Fraction(duration['hours'])
             if completed:
@@ -111,9 +121,9 @@ def _line_weeks(snapshot, index, evaluation, line, analysis, current):
                                or issue.get('switch_id') in completed})
             ready = first.entering_recipe == recipe and first.pending_switch is None
             link = {'segment_id': segment.id, 'date': segment.date.isoformat(), 'order': segment.order,
-                    'recipe_code': recipe, 'from_recipe': state, 'duration_state': duration_state,
+                    'recipe_code': recipe, 'from_recipe': origin, 'duration_state': duration_state,
                     'required_hours': _hours(required), 'planned_switch_ids': completed,
-                    'arranged': state is not None and ready and not any(code in relevant for code in
+                    'arranged': origin is not None and ready and not any(code in relevant for code in
                         ('recipe_sequence', 'unfinished_switch', 'switch_total', 'switch_sequence', 'duplicate_order')),
                     'issues': relevant}
         pending_switch = switches.get(pending)

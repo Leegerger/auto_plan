@@ -24,7 +24,7 @@ class RecipeStates:
     endings: dict[tuple[date, str], str | None]
     lines: set[str]
     transitions: dict[str, list[RecipeTransition]] = field(default_factory=dict)
-    day_starts: dict[tuple[date, str], str] = field(default_factory=dict)
+    day_starts: dict[tuple[date, str], str | None] = field(default_factory=dict)
 
 
 def analyze_recipe_states(plan: Plan, index: InputIndex, problem=None, *, include_transitions=False, confirmed_states=(), window_start=None) -> RecipeStates:

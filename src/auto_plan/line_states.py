@@ -5,7 +5,7 @@ import hashlib
 from typing import Literal
 from pydantic import Field, field_validator
 from .input_models import InputRow, Code
-from .plan_models import LineStateRecord, LineStateAudit, RuleIssue
+from .plan_models import LineStateRecord, LineStateAudit, LineStateReview, RuleIssue
 from .plan_operations import register_operation, ReplayResult
 from .production_time import production_date
 
@@ -77,16 +77,16 @@ def confirm_line_states(plan, command, context):
 
 
 @dataclass(frozen=True)
-class ActualRecipeAnchor:
+class RecipeAnchor:
     id: str
     line_code: str
     effective_at: datetime
-    recipe_code: str
+    recipe_code: str | None
     recorded_at: datetime
     priority: int = 0
 
 
-def calculation_anchors(snapshot):
+def _known_anchors(snapshot):
     """Derive Recipe carry from facts without creating a field confirmation."""
     from collections import defaultdict
     from .production_time import production_cutoff
@@ -100,12 +100,59 @@ def calculation_anchors(snapshot):
     for fact in snapshot.execution.facts:
         if fact.quantity and fact.date < today and fact.date <= production_date(cutoff):
             actual[fact.date, fact.line_code].add(models.get(fact.model_code))
+    if not actual:
+        return records
+    from .execution_rules import executed_by_segment
+    executed=executed_by_segment(snapshot.plan,snapshot.execution)
+    intraday={(production_date(record.effective_at),record.line_code) for record in records
+              if record.effective_at>production_cutoff(production_date(record.effective_at))}
     for (day, line), recipes in actual.items():
+        if (day,line) in intraday:
+            continue
         if len(recipes) == 1 and None not in recipes:
             recipe = next(iter(recipes))
-            records.append(ActualRecipeAnchor('actual-' + hashlib.sha256(f'{day}:{line}:{recipe}'.encode()).hexdigest()[:40],
+            orders=[segment.order for segment in snapshot.plan.segments if segment.date==day and segment.line_code==line
+                    and executed.get(segment.id,0) and models.get(segment.model_code)==recipe]
+            last=max(orders) if orders else None
+            later_production=any(segment.date==day and segment.line_code==line and (segment.quantity or getattr(segment,'hours','0')!='0')
+                and (last is None or segment.order>last) and models.get(segment.model_code)!=recipe for segment in snapshot.plan.segments)
+            later_switch=any(switch.line_code==line and (switch.to_recipe!=recipe or max(row.date for row in switch.allocations)>day)
+                and any(row.date==day and (last is None or row.order>last) for row in switch.allocations) for switch in snapshot.plan.switches)
+            if later_production or later_switch:
+                continue
+            records.append(RecipeAnchor('actual-' + hashlib.sha256(f'{day}:{line}:{recipe}'.encode()).hexdigest()[:40],
                 line, production_cutoff(day + timedelta(days=1)), recipe, cutoff))
     return records
+
+
+def review_records(issues):
+    fields=set(LineStateReview.model_fields)
+    return [LineStateReview.model_validate({key:value for key,value in issue.items() if key in fields})
+            for issue in issues if issue.get('code')=='line_state_review']
+
+
+def active_state_reviews(snapshot):
+    from .execution_rules import confirmed_day_capacity
+    anchors=_known_anchors(snapshot)
+    active=[]
+    for review in snapshot.state_reviews:
+        capacity=confirmed_day_capacity(snapshot,review.line_code)
+        if capacity is not None and capacity.confirmed_at>=review.review_after:
+            continue
+        fresh=[record for record in anchors if record.line_code==review.line_code and record.effective_at>=review.review_after]
+        if fresh and record_is_current(snapshot,max(fresh,key=lambda row:(row.effective_at,getattr(row,'priority',1),row.recorded_at))):
+            continue
+        active.append(review)
+    return active
+
+
+def calculation_anchors(snapshot):
+    from .production_time import production_cutoff
+    anchors=_known_anchors(snapshot)
+    for review in active_state_reviews(snapshot):
+        point=max(review.review_after,production_cutoff(production_date(snapshot.time.as_of)))
+        anchors.append(RecipeAnchor(review.id,review.line_code,point,None,snapshot.time.as_of,priority=2))
+    return anchors
 
 
 def record_is_current(snapshot, record):
@@ -118,7 +165,7 @@ def record_is_current(snapshot, record):
     switches = defaultdict(list)
     actual = defaultdict(set)
     for segment in snapshot.plan.segments:
-        if segment.line_code == record.line_code and first <= segment.date < today and (segment.quantity or segment.hours != '0'):
+        if segment.line_code == record.line_code and first <= segment.date < today and (segment.quantity or getattr(segment,'hours','0') != '0'):
             planned[segment.date].add(models.get(segment.model_code))
     for switch in snapshot.plan.switches:
         if switch.line_code != record.line_code:
@@ -144,30 +191,43 @@ def record_is_current(snapshot, record):
     return known
 
 
+def affected_events(snapshot):
+    from .execution_rules import executed_by_segment
+    today=production_date(snapshot.time.as_of)
+    executed=executed_by_segment(snapshot.plan,snapshot.execution)
+    events=[(row.date,row.order,row.line_code,row.id) for row in snapshot.plan.segments
+            if row.date>=today and row.quantity>executed.get(row.id,0)]
+    events.extend((row.date,row.order,switch.line_code,None) for switch in snapshot.plan.switches
+                  for row in switch.allocations if row.date>=today)
+    affected={}
+    for day,order,line,segment in sorted(events,key=lambda value:(value[0],value[1],value[2],value[3] or '')):
+        affected.setdefault(line,(day,segment))
+    return affected
+
+
 def adoption_conditions(snapshot):
-    from .execution_rules import confirmed_day_capacity, executed_by_segment
+    from .execution_rules import confirmed_day_capacity
     from .production_time import production_cutoff
-    today = production_date(snapshot.time.as_of)
-    executed = executed_by_segment(snapshot.plan, snapshot.execution)
-    affected = {}
-    for segment in sorted(snapshot.plan.segments, key=lambda row: (row.date, row.order, row.id)):
-        if segment.date >= today and segment.quantity > executed.get(segment.id, 0):
-            affected.setdefault(segment.line_code, (segment.date, segment.id))
-    for switch in snapshot.plan.switches:
-        allocations = [row for row in switch.allocations if row.date >= today]
-        if allocations:
-            affected.setdefault(switch.line_code, (min(row.date for row in allocations), None))
-    conditions = []
+    today=production_date(snapshot.time.as_of)
+    affected=affected_events(snapshot)
+    reviews={review.line_code:review for review in active_state_reviews(snapshot)}
+    conditions=[]
     anchors=calculation_anchors(snapshot)
-    for line, (day, segment) in sorted(affected.items()):
-        records = [row for row in anchors if row.line_code == line]
+    for line,(day,segment) in sorted(affected.items()):
+        if line in reviews:
+            conditions.append(RuleIssue(code='line_state_review',severity='warning',line_code=line,date=day,
+                segment_id=segment,reason=reviews[line].reason+' 当前起点待核对，首次切机尚未计入。'))
+            continue
+        records=[record for record in anchors if record.line_code==line]
         latest=max(records,key=lambda record:(record.effective_at,getattr(record,'priority',1),record.recorded_at)) if records else None
         current_capacity=confirmed_day_capacity(snapshot,line)
         intraday=latest is not None and day==today and latest.effective_at>production_cutoff(today)
-        if current_capacity is not None or latest is not None and not intraday and record_is_current(snapshot,latest):
+        if current_capacity is not None or latest is not None and latest.recipe_code is not None and not intraday and record_is_current(snapshot,latest):
             continue
-        conditions.append(RuleIssue(code='initial_state_unknown', severity='warning', line_code=line, date=day,
-            segment_id=segment, reason=('当日现场状态时点不能替代剩余工时和顺序依据，请确认当前 Recipe 与剩余可用工时后重新预览。' if intraday else '现场状态后的历史计划切机或生产尚无执行依据，不能推定已经完成，请重新确认当前线体状态。' if latest is not None else '起点未知或仅有未确认的计划值，首次切机尚未计入。请补充线体状态现场确认后重新预览。')))
+        reason=('当日现场状态时点不能替代剩余工时和顺序依据，请确认当前 Recipe 与剩余可用工时后重新预览。' if intraday else
+                '现场状态后的历史计划切机或生产尚无执行依据，不能推定已经完成，请重新确认当前线体状态。' if latest is not None else
+                '起点未知或仅有未确认的计划值，首次切机尚未计入。请补充线体状态现场确认后重新预览。')
+        conditions.append(RuleIssue(code='initial_state_unknown',severity='warning',line_code=line,date=day,segment_id=segment,reason=reason))
     return conditions
 
 
@@ -202,6 +262,8 @@ def retained_state_reviews(before, after, snapshot):
         latest[record.line_code] = record
     reviews = []
     for line, record in latest.items():
+        if record.recipe_code is None:
+            continue
         if not record_is_current(original, record) and record_is_current(changed, record):
             since = production_cutoff(production_date(snapshot.time.as_of)).isoformat()
             identity = 'state-review-' + hashlib.sha256(f'{line}:{since}'.encode()).hexdigest()[:40]
@@ -209,26 +271,3 @@ def retained_state_reviews(before, after, snapshot):
                 'review_after': since, 'blocks_adoption': False,
                 'reason': '旧计划中的历史 Recipe 变化尚无执行依据。修改或移除计划不能代替现场确认，请核实当前线体状态。'})
     return reviews
-
-
-def apply_state_reviews(evaluation, snapshot, issues):
-    from .execution_rules import executed_by_segment, confirmed_day_capacity
-    today = production_date(snapshot.time.as_of)
-    executed = executed_by_segment(snapshot.plan,snapshot.execution)
-    affected = {segment.line_code for segment in snapshot.plan.segments if segment.date >= today and segment.quantity > executed.get(segment.id,0)}
-    affected.update(switch.line_code for switch in snapshot.plan.switches if any(row.date >= today for row in switch.allocations))
-    for issue in issues:
-        if issue.get('code') != 'line_state_review' or issue.get('line_code') not in affected:
-            continue
-        current_capacity=confirmed_day_capacity(snapshot,issue['line_code'])
-        if current_capacity is not None and current_capacity.confirmed_at>=datetime.fromisoformat(issue['review_after']):
-            continue
-        fresh = [record for record in calculation_anchors(snapshot) if record.line_code == issue['line_code']
-                 and record.effective_at >= datetime.fromisoformat(issue['review_after'])]
-        if fresh and record_is_current(snapshot,max(fresh,key=lambda row:(row.effective_at,getattr(row,'priority',1),row.recorded_at))):
-            continue
-        condition = RuleIssue(code='line_state_review',severity='warning',line_code=issue['line_code'],reason=issue['reason']).model_dump(mode='json')
-        evaluation['adoption_conditions'].append(condition)
-        evaluation['issues'].append(condition)
-        evaluation['executable'] = False
-    return evaluation

@@ -110,7 +110,8 @@ def replay_result(plan, operations, context):
         content=json.dumps(raw,ensure_ascii=False,sort_keys=True,separators=(',',':'))
         if 'action_id' in raw: TypeAdapter(Code).validate_python(raw['action_id'])
         action=raw.get('action_id') or hashlib.sha256(f'{inherited.source_revision}:{ordinal}:{content}'.encode()).hexdigest()[:32]
-        operation_context=OperationContext(inherited.snapshot.model_copy(update={'plan':result.plan,**result.context_updates}),
+        from .line_states import review_records
+        operation_context=OperationContext(inherited.snapshot.model_copy(update={'plan':result.plan,**result.context_updates,'state_reviews':review_records(result.issues)}),
             inherited.source_revision,deepcopy(result.unallocated),deepcopy(result.issues),deepcopy(result.lineage),action,inherited.actor,inherited.history,inherited.latest_adoption,inherited.current_revision,inherited.allow_past_input)
         model, apply = OPERATIONS[raw['kind']]
         value = apply(result.plan, model.model_validate({key:value for key,value in raw.items() if key!='action_id'}), operation_context)

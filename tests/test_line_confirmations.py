@@ -255,7 +255,7 @@ def test_intraday_state_does_not_backdate_unknown_current_day_production_without
 
 def test_removing_elapsed_unconfirmed_recipe_changes_keeps_state_review_until_fresh_evidence(shared_client):
     from datetime import datetime, timezone
-    client, _, _ = shared_client
+    client, plans, _ = shared_client
     client.app.state.clock = lambda: datetime(2026, 10, 12, tzinfo=timezone.utc)
     assert client.post('/auto_plan/api/auth/login', json={'username': 'EDITOR', 'password': 'company-secret'}).status_code == 200
     source = {'segments': [row('future', model='P') | {'order': 1}], 'switches': [{'id': 'elapsed', 'line_code': 'L', 'from_recipe': 'R', 'to_recipe': 'S',
@@ -269,7 +269,35 @@ def test_removing_elapsed_unconfirmed_recipe_changes_keeps_state_review_until_fr
     assert checked.json()['evaluation']['capacity_valid'] is True
     assert checked.json()['evaluation']['executable'] is False
     assert any(issue['code'] == 'line_state_review' for issue in checked.json()['evaluation']['adoption_conditions'])
+    state=next(value for value in checked.json()['workspace_view']['line_weeks'] if value['line_code']=='L' and value['week']=='2026-10-12')
+    assert state['recipe_code']=='R'
+    assert state['current_confirmation']['valid'] is False
+    assert state['first_production']['duration_state']=='unknown_initial'
+    assert state['first_production']['arranged'] is False
+    fill={'kind':'append_fill','model_code':'P','quantity':100,'line_code':'L','start_date':'2026-10-15','end_date':'2026-10-15',
+          'scope':{'start_date':'2026-10-15','end_date':'2026-10-15','line_codes':['L'],'model_codes':[]}}
+    queued=preview(client,{'kind':'replace_plan','plan':{}},fill)
+    assert queued.status_code==200,queued.text
+    assert queued.json()['evaluation']['capacity_valid'] is True
+    assert queued.json()['evaluation']['executable'] is False
+    assert queued.json()['plan']['switches']==[]
+    assert sum(segment['quantity'] for segment in queued.json()['plan']['segments'])==100
     assert post(client, 'save', current_command(client, replacement)).status_code == 200
+    other_recipe=preview(client,patch(row('future-r',model='P')))
+    assert other_recipe.status_code==200,other_recipe.text
+    assert other_recipe.json()['evaluation']['capacity_valid'] is True
+    assert other_recipe.json()['evaluation']['executable'] is False
+    assert not any(issue['code']=='recipe_sequence' for issue in other_recipe.json()['evaluation']['issues'])
+    from tests.jobs_support import MemoryJobStore
+    client.app.state.job_store=MemoryJobStore(plans,client.app.state.access_store)
+    source=client.get('/auto_plan/api/jobs/source')
+    assert source.status_code==200,source.text
+    assert [review['line_code'] for review in source.json()['snapshot']['state_reviews']]==['L']
+    frozen=client.post('/auto_plan/api/plans/evaluate',json={'snapshot':source.json()['snapshot']})
+    assert frozen.status_code==200,frozen.text
+    assert frozen.json()['capacity_valid'] is True
+    assert frozen.json()['executable'] is False
+    assert any(condition['code']=='line_state_review' for condition in frozen.json()['adoption_conditions'])
     assert post(client, 'adopt', current_command(client)).status_code == 422
     assert preview(client, confirm()).json()['evaluation']['executable'] is False
     fresh = confirm()
@@ -300,3 +328,40 @@ def test_empty_line_can_be_adopted_while_retaining_review_for_future_work_and_cu
                'observed_at': '2026-10-14T08:00:00+08:00'}
     assert preview(client, current, next_work).json()['evaluation']['executable'] is True
     assert post(client, 'adopt', current_command(client, current, next_work)).status_code == 200
+
+
+def test_daily_actual_does_not_override_a_later_same_day_field_observation(shared_client):
+    client, _, _ = shared_client
+    execution = {'kind': 'record_execution', 'rows': [{'date': '2026-10-13', 'line_code': 'L', 'model_code': 'M', 'quantity': 100}],
+                 'cutoff': '2026-10-14T08:00:00+08:00'}
+    observed = {'kind': 'confirm_line_states', 'rows': [{'line_code': 'L', 'effective_at': '2026-10-13T16:00:00+08:00', 'recipe_code': 'S', 'source': '16时现场点检'}]}
+    future = patch(row('future-r'))
+    control = preview(client, observed, future)
+    assert control.status_code == 200, control.text
+    assert control.json()['evaluation']['executable'] is False
+    checked = preview(client, execution, observed, future)
+    assert checked.status_code == 200, checked.text
+    assert checked.json()['evaluation']['executable'] is False
+    assert post(client, 'adopt', current_command(client, execution, observed, future)).status_code == 422
+    assert not any(value['recipe_code'] == 'R' and value['state'] == 'known' for value in checked.json()['evaluation']['initial_states'])
+
+
+def test_daily_actual_does_not_prove_state_after_a_later_same_day_planned_switch(shared_client):
+    from datetime import datetime, timezone
+    client, _, _ = shared_client
+    client.app.state.clock = lambda: datetime(2026, 10, 12, tzinfo=timezone.utc)
+    assert client.post('/auto_plan/api/auth/login', json={'username': 'EDITOR', 'password': 'company-secret'}).status_code == 200
+    source = {'initial_states': [{'line_code': 'L', 'recipe_code': 'R'}],
+        'segments': [row('actual-r', day='2026-10-13'), row('future', model='P')],
+        'switches': [{'id': 'later-switch', 'line_code': 'L', 'from_recipe': 'R', 'to_recipe': 'S',
+                      'allocations': [{'date': '2026-10-13', 'order': 1, 'hours': '0.95'}]}]}
+    assert post(client, 'save', current_command(client, {'kind': 'replace_plan', 'plan': source})).status_code == 200
+    client.app.state.clock = lambda: datetime(2026, 10, 14, tzinfo=timezone.utc)
+    assert client.post('/auto_plan/api/auth/login', json={'username': 'EDITOR', 'password': 'company-secret'}).status_code == 200
+    execution = {'kind': 'record_execution', 'rows': [{'date': '2026-10-13', 'line_code': 'L', 'model_code': 'M', 'quantity': 100}],
+                 'cutoff': '2026-10-14T08:00:00+08:00'}
+    future = patch(row('future'))
+    checked = preview(client, execution, future)
+    assert checked.status_code == 200, checked.text
+    assert checked.json()['evaluation']['executable'] is False
+    assert post(client, 'adopt', current_command(client, execution, future)).status_code == 422

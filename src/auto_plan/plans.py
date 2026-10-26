@@ -293,10 +293,12 @@ class PlanService:
     def __init__(self, store):
         self.store=store
 
-    def _evaluation_json(self,snapshot,operation_issues=()):
+    def _evaluation_json(self,snapshot,operation_issues=None):
         from .rules import _evaluation_json
-        from .line_states import apply_state_reviews
-        return apply_state_reviews(_evaluation_json(snapshot,output_cache=getattr(self.store,'output_cache',None)),snapshot,operation_issues)
+        from .line_states import review_records
+        if operation_issues is not None:
+            snapshot=snapshot.model_copy(update={'state_reviews':review_records(operation_issues)})
+        return _evaluation_json(snapshot,output_cache=getattr(self.store,'output_cache',None))
 
     @staticmethod
     def _planning_plan(unit,record):
@@ -310,7 +312,9 @@ class PlanService:
         if unit.adoption:
             record=unit.get_planning_adoption(unit.adoption)
             baseline=AdoptedBaseline(version=unit.adoption,plan=self._planning_plan(unit,record),coverage=record['coverage'])
-        return EvaluationSnapshot(time=EvaluationTime.at(now),inputs=unit.inputs,plan=plan,
+        from .line_states import review_records
+        reviews=review_records(unit.get_planning_revision(unit.revision).get('operation_issues',[]))
+        return EvaluationSnapshot(state_reviews=reviews,time=EvaluationTime.at(now),inputs=unit.inputs,plan=plan,
             line_states=context.line_states,execution=freeze_associations(unit.plan,context.execution),reset=context.reset,locks=context.locks,baseline=baseline,preferences=context.preferences)
 
     def _reset_participants(self,unit,snapshot,lineage):
@@ -370,7 +374,8 @@ class PlanService:
         merged_context=unit.context.model_copy(update=replayed.context_updates)
         if {'execution','reset'}&replayed.context_updates.keys():
             merged_context=merged_context.model_copy(update={'lineage':unit.context.lineage|replayed.lineage})
-        merged_snapshot=snapshot.model_copy(update={'plan':merged,**replayed.context_updates})
+        from .line_states import review_records
+        merged_snapshot=snapshot.model_copy(update={'plan':merged,**replayed.context_updates,'state_reviews':review_records(replayed.issues)})
         from .reset_operations import refresh_lineage
         replayed.lineage=refresh_lineage(replayed.lineage,merged,merged_snapshot)
         if {'execution','reset'}&replayed.context_updates.keys():

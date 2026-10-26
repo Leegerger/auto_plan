@@ -43,9 +43,10 @@ class CertificatePreview(InputRow):
 def preview_certificate(payload: CertificatePreview, request: Request, principal=Depends(require_editor)):
     source = payload.snapshot
     frozen_time = source.time or EvaluationTime.at(request.app.state.clock())
+    from .line_states import calculation_anchors
     try:
         plan = construct_hour_certificate(source.inputs, source.plan.segments, source.plan.initial_states,
-                                          window_start=frozen_time.window_start,confirmed_states=[row for row in source.line_states.records if row.effective_at<=frozen_time.as_of])
+                                          window_start=frozen_time.window_start,confirmed_states=calculation_anchors(source.model_copy(update={'time':frozen_time})))
     except CertificateError as error:
         return CertificatePreviewResult(plan=None, evaluation=None, issues=error.issues)
     snapshot = frozen_snapshot(source, request, plan=plan)
