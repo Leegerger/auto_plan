@@ -10,10 +10,11 @@ const options=ref<{lines:{code:string;name:string}[];models:{code:string;name:st
 const busy=ref(false),error=ref('')
 let request=0
 const result=computed(()=>form.result)
+const goal=computed(()=>props.shared.lineage.value.demand_goals?.[form.goalId])
 const labels={complete:'本次覆盖目标已安排',partial:'仅安排部分按时覆盖',blocked:'暂不可安排',incomplete:'计算未完成'}
 function payload(){
   const {operation_id:_,pending:__,...command}=props.shared.command()
-  return {...command,action_id:form.actionId,model_code:form.modelCode,demand_week:form.demandWeek,target_output:form.targetOutput===''?null:Number(form.targetOutput),mode:'on_time',line_code:form.lineCode,start_date:form.startDate,end_date:form.endDate,scope:{start_date:scope.start_date,end_date:scope.end_date,line_codes:[...scope.line_codes],model_codes:[...scope.model_codes]}}
+  return {...command,action_id:form.actionId,goal_id:form.goalId||null,model_code:form.modelCode,demand_week:form.demandWeek,target_output:form.targetOutput===''?null:Number(form.targetOutput),mode:'on_time',line_code:form.lineCode,start_date:form.startDate,end_date:form.endDate,scope:{start_date:scope.start_date,end_date:scope.end_date,line_codes:[...scope.line_codes],model_codes:[...scope.model_codes]}}
 }
 const currentRequest=computed(()=>JSON.stringify({actor:principal.value?.user_id,request:props.shared.head.value ? payload() : null,head:props.shared.head.value ? {revision:props.shared.head.value.revision,input_version:props.shared.head.value.input_version,latest_adoption:props.shared.head.value.latest_adoption,as_of:props.shared.head.value.time.as_of}:null}))
 function invalidate(){request++;busy.value=false;if(form.result)form.notice='试算已失效，输入已保留，请重新试算。';form.result=null;form.requestKey=''}
@@ -51,6 +52,7 @@ function confirmation(row:{model_code:string;week:string;kind:string}){return {p
   <section aria-label="按需补排试算" class="demand-trial">
     <div class="section-heading"><div><h3>按需补排</h3><p>{{form.modelCode}} · 需求周 {{form.demandWeek}} · 按时覆盖方案</p></div><el-button @click="form.open=false">收起按需补排</el-button></div>
     <p>覆盖目标按合格产出计算，建议投入另列。先查看单线试算，选用后再进入本机动作及共享预览。</p>
+    <p v-if="form.goalId">继续原补排目标 {{goal?.requested_output ?? '待核对'}} 片合格产出，当前余额 {{shared.needsPreview.value ? '待重新预览' : pieces(goal?.remaining_output_target)}}。本次可只处理其中一部分，换线或改日后重新计算投入。</p>
     <form v-if="shared.editor.value" @submit.prevent="calculate">
       <fieldset :disabled="shared.readonly.value || busy" class="demand-trial-form"><legend>目标与投入范围</legend>
         <label>覆盖目标，合格产出片数 <input v-model="form.targetOutput" type="number" min="1" step="1" aria-label="补排合格产出目标" placeholder="留空按当前尚无安排量试算"></label>
@@ -68,7 +70,7 @@ function confirmation(row:{model_code:string;week:string;kind:string}){return {p
     <section v-if="result" aria-label="单线补排试算结果">
       <h4>{{labels[result.status]}}</h4>
       <p>服务端试算依据：共享修订 {{result.basis.revision}} · 输入版本 {{result.basis.input_version}} · 最近采用版 {{result.basis.latest_adoption}} · {{result.basis.as_of}}</p>
-      <div class="demand-trial-amounts"><span>覆盖目标 {{pieces(result.request.target_output)}}</span><span>建议投入 {{pieces(result.suggested_input,'片投入')}}</span><span>按时产出已安排 {{pieces(result.scheduled_on_time_output)}}</span><span>有效按时覆盖 {{pieces(result.valid_on_time_output)}}</span><strong>剩余补排目标 {{pieces(result.remaining_output_target)}}</strong></div>
+      <div class="demand-trial-amounts"><span>覆盖目标 {{pieces(result.request.target_output)}}</span><span>建议投入 {{pieces(result.suggested_input,'片投入')}}</span><span>按时产出已安排 {{pieces(result.scheduled_on_time_output)}}</span><span>有效按时覆盖 {{pieces(result.valid_on_time_output)}}</span><strong>{{result.request.goal_id?'本次试算剩余目标':'剩余补排目标'}} {{pieces(result.remaining_output_target)}}</strong><strong v-if="result.request.goal_id">原补排目标余额 {{pieces(result.goal_remaining_output_target)}}</strong></div>
       <p>本次只使用 {{result.request.line_code}}，投入日期 {{result.request.start_date}} 至 {{result.request.end_date}}。较早需求周继续优先归属，确认事项按原需求周分别列出。</p>
       <div class="input-table-scroll"><table class="input-table" aria-label="建议逐日投入"><thead><tr><th>生产日</th><th>线体</th><th>机种</th><th>投入片数</th><th>日内顺序</th><th>精确生产工时</th></tr></thead><tbody><tr v-for="row in result.placements" :key="row.id"><td>{{row.date}}</td><td>{{row.line_code}}</td><td>{{row.model_code}}</td><td>{{row.quantity}}</td><td>{{row.order}}</td><td>{{row.hours}} 小时</td></tr></tbody></table></div>
       <div class="input-table-scroll"><table class="input-table" aria-label="各需求周覆盖影响"><thead><tr><th>机种/需求周</th><th>归属产出，前/后</th><th>已安排按时产出，前/后</th><th>有效按时覆盖，前/后</th><th>迟交已安排，前/后</th><th>待物料/出货确认</th></tr></thead><tbody><tr v-for="row in result.week_effects" :key="`${row.model_code}/${row.week}`"><td>{{row.model_code}} / {{row.week}}</td><td>{{row.before.attributed}} / {{row.after.attributed}}</td><td>{{row.physical_on_time_before}} / {{row.physical_on_time_after}}</td><td>{{row.before.on_time}} / {{row.after.on_time}}</td><td>{{row.physical_late_before}} / {{row.physical_late_after}}</td><td>{{row.after.pending_material}} / {{row.after.pending_shipping}}</td></tr></tbody></table></div>

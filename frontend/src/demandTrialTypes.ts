@@ -12,8 +12,9 @@ export interface SwitchImpact {id:string;line_code:string;from_recipe:string;to_
 export interface DemandTrialResult {
   status:'complete'|'partial'|'blocked'|'incomplete'
   basis:{revision:number;input_version:number;latest_adoption:number;as_of:string;window_start:string;digest:string}
-  request:{action_id:string;model_code:string;demand_week:string;target_output:number|null;mode:string;line_code:string;start_date:string;end_date:string;scope:DemandScope;placement_scope:DemandScope}
+  request:{action_id:string;goal_id?:string|null;model_code:string;demand_week:string;target_output:number|null;mode:string;line_code:string;start_date:string;end_date:string;scope:DemandScope;placement_scope:DemandScope}
   suggested_input:number|null;scheduled_on_time_output:number|null;valid_on_time_output:number|null;remaining_output_target:number|null
+  goal_remaining_output_target:number|null
   placements:Segment[];switch_effects:{before:SwitchImpact[];after:SwitchImpact[]}
   week_effects:{model_code:string;week:string;before:WeeklyOutput;after:WeeklyOutput;physical_on_time_before:number;physical_on_time_after:number;physical_late_before:number;physical_late_after:number}[]
   required_confirmations:{model_code:string;week:string;kind:string;pending_output:number;required_input:number|null;earliest_input_date:string|null;latest_output_date:string|null;banned:boolean;usage:ConfirmationUsage[]}[]
