@@ -8,7 +8,7 @@ import { useSharedPlan } from '../useSharedPlan'
 const shared=useSharedPlan()
 const {head,evaluation,operations,editor}=shared
 const totals=computed(()=>evaluation.value?.output_totals??null)
-const week=computed(()=>head.value?.weeks[0])
+const week=computed(()=>head.value?.weeks.find(value=>value.number===shared.workspace.week))
 const ready=ref(false)
 onMounted(async()=>{await shared.refresh();ready.value=true})
 </script>
@@ -16,7 +16,7 @@ onMounted(async()=>{await shared.refresh();ready.value=true})
 <template>
   <section v-if="ready" class="schedule-workspace">
     <header class="page-heading">
-      <div><p class="eyebrow">单周排程</p><h1>计划工作区</h1><p class="page-subtitle">第 1 周 · {{ week?.start_date??'尚未读取' }} 至 {{ week?.dates[6]??'—' }}</p></div>
+      <div><p class="eyebrow">单周排程</p><h1>计划工作区</h1><p class="page-subtitle">第 {{shared.workspace.week}} 周 · {{ week?.start_date??'尚未读取' }} 至 {{ week?.dates[6]??'—' }}</p></div>
       <div class="heading-actions">
         <router-link v-if="editor" to="/schedule/jobs"><el-button><Calculator :size="16" />建立计算任务</el-button></router-link>
         <router-link to="/schedule/day"><el-button><RefreshCw :size="16" />精确工时依据</el-button></router-link>
@@ -32,6 +32,7 @@ onMounted(async()=>{await shared.refresh();ready.value=true})
     </section>
 
     <p role="status">{{ shared.evaluationState.value }}<span v-if="shared.needsPreview.value">。当前生产段保留共享基准，指标待重新计算。</span></p>
+    <div class="workspace-demand-region"><slot name="demands" /></div>
     <ManualEditor :shared="shared" />
 
     <details class="content-band schedule-details">

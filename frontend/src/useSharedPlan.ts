@@ -1,6 +1,7 @@
 import type { ExecutionCell, ResetPreview } from './executionTypes'
 
-import { computed, ref, watch } from 'vue'
+import { computed, reactive, ref, watch } from 'vue'
+import { createWorkspaceContext } from './workspaceContext'
 import { api, ApiError, principal, basePath, online } from './api'
 import type { OutputEvaluation } from './outputTypes'
 import { draftLease, draftStorage, validatedDraft } from './localDrafts'
@@ -29,6 +30,7 @@ export function useSharedPlan() {
 }
 
 function createSharedPlan() {
+const workspace=reactive(createWorkspaceContext())
 const head = ref<Head | null>(null), proposal=ref<PreviewResult|null>(null)
 const previewInvalidated=ref(false), sourceNotice=ref('')
 const previewBasis=ref<{base_revision:number;input_version:number;latest_adoption:number}|null>(null)
@@ -267,6 +269,7 @@ function stop() {
   stopLease?.();lease?.close();stopLease=undefined;lease=null
   ownsDraft.value=false
   started=false;initialized=false;refreshRequested=false;busy.value=false
+  Object.assign(workspace,createWorkspaceContext())
   head.value=null;proposal.value=null;operations.value=[];selectedActions.value=[];previewInvalidated.value=false;sourceNotice.value='';previewBasis.value=null
   outstanding.value=null;unknown.value=false;pending.value=false
   error.value='';message.value='';conflict.value=null;differences.value=[]
@@ -298,7 +301,7 @@ function localDraft() {
   if (operations.value.some(operation=>operation.kind==='replace_plan')) throw new Error('本机临时稿须保存操作，不可保存整份计划')
   return {data_version:1,...draft,operations:JSON.parse(JSON.stringify(operations.value)) as BusinessOperation[],selected_actions:[...selectedActions.value]}
 }
-return {head,effective,evaluation,context,effectiveBasis,evaluationState,needsPreview,sourceNotice,rows,plan,hourDisplay,proposal,unallocated,selectedActions,draftBase,undo,restoreDraft,preview,busy,unknown,pending,message,error,differences,conflict,outstanding,voided,
+return {head,workspace,effective,evaluation,context,effectiveBasis,evaluationState,needsPreview,sourceNotice,rows,plan,hourDisplay,proposal,unallocated,selectedActions,draftBase,undo,restoreDraft,preview,busy,unknown,pending,message,error,differences,conflict,outstanding,voided,
   editor,readonly,load,command,changed,check,submit,verify,appendOperation,operations,localDraft,
   localDraftId,localState,localWarning,localBytes,recoveryRecords,recoveryCandidate,recoveryDifferences,ownsDraft,leaseIssue,
   recoverLocal,discardLocal,retryLocal,newLocalDraft,selectLocalDraft,exportLocal,takeOver,retryComparison,recoveryChanges,recoveryInputChanges,recoveryCompareError,
