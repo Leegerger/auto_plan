@@ -1,3 +1,4 @@
+import type { DemandTrialResult } from './demandTrialTypes'
 import type { LineStateRecord } from './lineStateTypes'
 export function createWorkspaceContext() {
   return {
@@ -7,6 +8,7 @@ export function createWorkspaceContext() {
     lineFilter: '',
     modelFilter: '',
     demand: { expanded: false, modelFilter: '', weekFilter: '', reasonFilter: '', model_code: '', week: '' },
+    demandTrial: {open:false,goalsExpanded:false,modelCode:'',demandWeek:'',targetOutput:'' as string|number,startDate:'',endDate:'',lineCode:'',actionId:'',result:null as DemandTrialResult|null,requestKey:'',notice:''},
     selected: [] as string[],
     panelOpen: true,
     panelObject: 'day' as 'day' | 'line_state',

@@ -86,6 +86,11 @@ if __name__ == '__main__':
                 data['parameters']['switch_durations'][0]['hours'] = '12'
                 data['masters']['lines'].append({'code':'B','name':'周三观测线','active':True})
                 data['parameters']['capacities'] += [row|{'line_code':'B'} for row in list(data['parameters']['capacities']) if row['line_code']=='L']
+            if os.getenv('AUTO_PLAN_BROWSER_DEMAND_TRIAL_FIXTURE') == '1':
+                data['parameters']['capacities'] = [row|{'pieces':600} for row in data['parameters']['capacities']]
+                data['masters']['lines'].append({'code':'B','name':'零产能线','active':True})
+                data['parameters']['capacities'] += [row|{'line_code':'B','pieces':0} for row in list(data['parameters']['capacities']) if row['line_code']=='L']
+                data['business'] = {'demands':[{'model_code':model,'week':'2026-10-12','quantity':1000} for model in ('M','N')]}
             inputs.versions[1] = InputSnapshot.model_validate(data)
             inputs.version = 1
             plans = MemoryPlanStore(inputs)
@@ -101,6 +106,8 @@ if __name__ == '__main__':
                     {'id':'confirmed-late','date':'2026-10-20','line_code':'L','order':0,'model_code':'N','quantity':100,'hours':'3'}]}
             if os.getenv('AUTO_PLAN_BROWSER_UNFINISHED_SWITCH_FIXTURE') == '1':
                 plan = {'segments': []}
+            if os.getenv('AUTO_PLAN_BROWSER_DEMAND_TRIAL_FIXTURE') == '1':
+                plan = {'segments':[]}
             initial_operations=[]
             if os.getenv('AUTO_PLAN_BROWSER_MATRIX_FIXTURE') == '1':
                 plan={'initial_states':[{'line_code':'L','recipe_code':'R'},{'line_code':'F','recipe_code':'R'}],

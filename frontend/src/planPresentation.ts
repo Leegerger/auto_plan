@@ -13,6 +13,7 @@ export const operationNames:Record<string,string>={
   set_preferences:'稳定性偏好',
   change_quantity:'改量顺延',
   append_fill:'追加填量',
+  supplement_demand:'按需补排',
   swap_segments:'交换生产段',
   move_segment:'移动生产段',
   split_segment:'拆分生产段',
@@ -30,6 +31,7 @@ export function operationDescription(operation:BusinessOperation):string{
   if(Array.isArray(value.segment_ids))parts.push(`所选 ${value.segment_ids.length} 段`)
   if(value.segment_id)parts.push('所选生产段')
   if(operation.kind==='confirm_line_states' && Array.isArray(value.rows))parts.push(value.rows.map((row:Record<string,unknown>)=>`${row.line_code} / ${row.effective_at} / ${lineStateDescription(row)}`).join('；'))
+  if(operation.kind==='supplement_demand')parts.push(`需求周 ${value.demand_week}`,'按时覆盖')
   if(operation.kind==='patch_plan' && Array.isArray(value.switches))parts.push(value.switches.filter((row:Record<string,unknown>)=>row.residual_record_id).map((row:Record<string,unknown>)=>`剩余作业 ${row.id} / ${row.from_recipe} → ${row.to_recipe}`).join('；'))
   return parts.filter(Boolean).join(' / ')
 }
